@@ -1,0 +1,186 @@
+import customtkinter as ctk
+import tkinter as tk
+from tkinter import filedialog
+
+# ================== App Setup ==================
+app = ctk.CTk()
+app.geometry("1000x700")
+app.title("Personalized Activity Guide")
+
+COLORS = {
+    "bg_primary": "#1E1E2E",
+    "bg_secondary": "#2E2E3E",
+    "bg_tertiary": "#3E3E4E",
+    "text_primary": "white",
+    "accent": "#5E81AC",
+    "border": "#4E4E5E"
+}
+
+# ================== Progress Bar (Top) ==================
+progress_frame = ctk.CTkFrame(app, fg_color=COLORS["bg_secondary"])
+progress_frame.pack(fill="x", padx=20, pady=10)
+
+progress_label = ctk.CTkLabel(
+    progress_frame,
+    text="Progress",
+    font=("Helvetica", 14, "bold"),
+    text_color=COLORS["text_primary"]
+)
+progress_label.pack(anchor="w", padx=10, pady=5)
+
+progress_bar = ctk.CTkProgressBar(
+    progress_frame,
+    progress_color=COLORS["accent"],
+    fg_color=COLORS["bg_tertiary"],
+    height=15
+)
+progress_bar.pack(fill="x", padx=10, pady=5)
+
+progress_bar.set(0)  # Start at 0%
+
+# Progress state
+current_step = 0
+total_steps = 4  # Area → Muscle → Stretch → Guest Info
+
+def update_progress():
+    progress = current_step / total_steps
+    progress_bar.set(progress)
+
+def complete_step(step_num):
+    global current_step
+    if step_num > current_step:
+        current_step = step_num
+        update_progress()
+
+# ================== Form Grid ==================
+form_grid = ctk.CTkFrame(app, fg_color=COLORS["bg_primary"])
+form_grid.pack(fill="both", expand=True, padx=20, pady=20)
+
+form_grid.grid_columnconfigure((0, 1, 2), weight=1, uniform="cols")
+
+# ----- Column 1: Area -----
+area_frame = ctk.CTkFrame(form_grid, fg_color=COLORS["bg_tertiary"], corner_radius=10)
+area_frame.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
+
+ctk.CTkLabel(
+    area_frame, text="Area", font=("Helvetica", 14, "bold"),
+    text_color=COLORS["text_primary"]
+).pack(pady=10)
+
+areas = ["Upper Body", "Lower Body", "Full Body"]
+area_var = ctk.StringVar()
+for ar in areas:
+    rbt = ctk.CTkRadioButton(
+        area_frame,
+        text=ar,
+        variable=area_var,
+        value=ar,
+        command=lambda: complete_step(1),
+        font=("Helvetica", 12),
+        text_color=COLORS["text_primary"]
+    )
+    rbt.pack(anchor="w", padx=15, pady=3)
+
+# ----- Column 2: Muscle -----
+muscle_frame = ctk.CTkFrame(form_grid, fg_color=COLORS["bg_tertiary"], corner_radius=10)
+muscle_frame.grid(row=0, column=1, padx=10, pady=10, sticky="nsew")
+
+ctk.CTkLabel(
+    muscle_frame, text="Muscle Groups", font=("Helvetica", 14, "bold"),
+    text_color=COLORS["text_primary"]
+).pack(pady=10)
+
+muscles = ["Calves", "Hamstrings", "Quadriceps", "Glutes", "Adductors"]
+muscle_var = ctk.StringVar()
+for mus in muscles:
+    rbt = ctk.CTkRadioButton(
+        muscle_frame,
+        text=mus,
+        variable=muscle_var,
+        value=mus,
+        command=lambda: complete_step(2),
+        font=("Helvetica", 12),
+        text_color=COLORS["text_primary"]
+    )
+    rbt.pack(anchor="w", padx=15, pady=3)
+
+# ----- Column 3: Stretch -----
+stretch_frame = ctk.CTkFrame(form_grid, fg_color=COLORS["bg_tertiary"], corner_radius=10)
+stretch_frame.grid(row=0, column=2, padx=10, pady=10, sticky="nsew")
+
+ctk.CTkLabel(
+    stretch_frame, text="Stretch Type", font=("Helvetica", 14, "bold"),
+    text_color=COLORS["text_primary"]
+).pack(pady=10)
+
+stretches = ["Dynamic", "Static", "PNF"]
+stretch_var = ctk.StringVar()
+for st in stretches:
+    rbt = ctk.CTkRadioButton(
+        stretch_frame,
+        text=st,
+        variable=stretch_var,
+        value=st,
+        command=lambda: complete_step(3),
+        font=("Helvetica", 12),
+        text_color=COLORS["text_primary"]
+    )
+    rbt.pack(anchor="w", padx=15, pady=3)
+
+# ================== Guest Info Section ==================
+def show_result_window():
+    complete_step(4)
+    result_window = ctk.CTkToplevel(app)
+    result_window.title("Generated Activity Guide")
+    result_window.geometry("800x600")
+    result_window.configure(fg_color=COLORS["bg_primary"])
+
+    # Text editor
+    editor = tk.Text(
+        result_window,
+        wrap="word",
+        font=("Helvetica", 12),
+        bg=COLORS["bg_secondary"],
+        fg=COLORS["text_primary"],
+        insertbackground="white"
+    )
+    editor.pack(fill="both", expand=True, padx=20, pady=20)
+
+    # Insert sample guide
+    sample_content = "# Personalized Activity Guide\n\n" \
+                     "### Area: {}\n".format(area_var.get()) + \
+                     "### Muscle: {}\n".format(muscle_var.get()) + \
+                     "### Stretch: {}\n".format(stretch_var.get())
+    editor.insert("1.0", sample_content)
+
+    # Save button
+    def save_file():
+        filepath = filedialog.asksaveasfilename(
+            defaultextension=".md",
+            filetypes=[("Markdown files", "*.md"), ("Text files", "*.txt")]
+        )
+        if filepath:
+            with open(filepath, "w", encoding="utf-8") as f:
+                f.write(editor.get("1.0", "end-1c"))
+
+    save_btn = ctk.CTkButton(
+        result_window,
+        text="💾 Save Guide",
+        command=save_file,
+        fg_color=COLORS["accent"],
+        text_color="white",
+        font=("Helvetica", 14, "bold")
+    )
+    save_btn.pack(pady=10)
+
+guest_btn = ctk.CTkButton(
+    app,
+    text="➡ Guest Info & Generate Guide",
+    command=show_result_window,
+    fg_color=COLORS["accent"],
+    text_color="white",
+    font=("Helvetica", 14, "bold")
+)
+guest_btn.pack(pady=20)
+
+app.mainloop()
