@@ -1,3 +1,4 @@
+from fileinput import filename
 from nicegui import ui
 from datetime import datetime
 import asyncio
@@ -13,7 +14,7 @@ def get_llm():
     return ChatOpenAI(model="gpt-4o-mini")
 
 llm = get_llm()
-os.makedirs("travel-guide-output", exist_ok=True)
+os.makedirs("stretch-guide-output", exist_ok=True)
 
 # ===== Configuration JSON =====
 CONFIG_JSON = """
@@ -59,6 +60,8 @@ CONFIG_JSON = """
   "primary_action": {"label": "Generate Guide"}
 }
 """
+# ===== Shared result state =====
+result_data = {"title": "", "content": ""}
 
 
 # ===== resilient LLM caller =====
@@ -135,20 +138,19 @@ def build_ui_from_config(config: Dict[str, Any]):
             state["status_label"].text = txt
 
     def update_generate_button_state():
+        print("🔄 Checking generate button state...")
         btn = state.get("generate_button")
         first = state["widgets"].get("first_name")
         first_val = (first.value or "").strip() if first else ""
-        if btn:
-            if first_val and state.get("area") and state.get("muscle") and state.get("stretch"):
-                try:
-                    state["generate_button"].props(remove="disabled")
-                except Exception:
-                    pass
-            else:
-                try:
-                    state["generate_button"].props("disabled")
-                except Exception:
-                    pass
+        if not btn:
+            return
+
+        is_enabled = bool(first_val and state.get("area") and state.get("muscle") and state.get("stretch"))
+        if is_enabled:
+            btn.enable()
+        else:
+            btn.disable()
+
 
     # find cards list in config: supports sections[...] with layout 'three_cards' or top-level 'cards'
     def find_cards(cfg: Dict[str, Any]):
@@ -163,7 +165,6 @@ def build_ui_from_config(config: Dict[str, Any]):
 
     cards = find_cards(config)
     # fallback area options if config doesn't provide them
-    default_area_options = ["Legs", "Chest", "Back", "Shoulders", "Arms", "Abs", "Neck"]
 
     # async functions to populate muscle and stretches cards
     async def populate_muscles_for_area(area: str, muscle_card_container):
@@ -171,15 +172,16 @@ def build_ui_from_config(config: Dict[str, Any]):
             return
         state["muscle"] = None
         state["stretch"] = None
-        muscle_card_container.clear()
-        stretch_card_container.clear()
+        muscle_content.clear()
+        stretch_content.clear()
         start_progress(f"Fetching muscles for {area}...")
         try:
             prompt = f"List 5 key muscles in the human {area}. Return as a plain newline-separated list, e.g. 'Pectoralis Major' on each line."
             raw = await call_llm_async(prompt)
             muscles = [line.strip().lstrip("-• ").strip() for line in raw.splitlines() if line.strip()]
+            
             with muscle_card_container:
-                ui.label(f"Muscles in {area}").classes("font-bold text-lg")
+                # ui.label(f"Muscles in {area}").classes("font-bold text-lg")
                 if muscles:
                     def on_muscle_change(e):
                         selected = getattr(e, "value", None)
@@ -193,37 +195,40 @@ def build_ui_from_config(config: Dict[str, Any]):
                 else:
                     ui.label("_No muscles returned_")
         except Exception as ex:
-            ui.notify(f"Error fetching muscles: {ex}", type="negative")
+            show_message("Error", f"Error fetching muscles: {ex}")
         finally:
             stop_progress()
 
     async def populate_stretches_for_muscle(muscle: str, stretch_card_container):
+        start_progress(f"Generating stretches...")
         if not muscle:
             return
         state["stretch"] = None
-        stretch_card_container.clear()
+        stretch_content.clear()
         start_progress(f"Fetching stretches for {muscle}...")
         try:
-            prompt = f"List 5 common stretches that specifically target the {muscle}. Return as a plain newline-separated list."
+            prompt = f"List 5 common stretches that specifically target the {muscle}. Return as a plain newline-separated list, e.g. 'Triceps Stretch' on each line."
             raw = await call_llm_async(prompt)
             stretches = [line.strip().lstrip("-• ").strip() for line in raw.splitlines() if line.strip()]
             with stretch_card_container:
+                ui.label(f"Stretches for {muscle}").classes("font-bold text-lg")
                 if stretches:
                     def on_stretch_change(e):
                         state["stretch"] = getattr(e, "value", None)
                         update_generate_button_state()
-
                     ui.radio(stretches, on_change=on_stretch_change)
                 else:
                     ui.label("_No stretches returned_")
 
+
         except Exception as ex:
-            ui.notify(f"Error fetching stretches: {ex}", type="negative")
+            await ui.notify(f"Error fetching stretches: {ex}", type="negative")
         finally:
             stop_progress()
 
     # Generate button action
     async def generate_guide_action():
+        # code here...
         first_widget = state["widgets"].get("first_name")
         last_widget = state["widgets"].get("last_name")
         first = (first_widget.value or "").strip() if first_widget else ""
@@ -233,37 +238,47 @@ def build_ui_from_config(config: Dict[str, Any]):
         stretch = state.get("stretch")
 
         if not first or not area or not muscle or not stretch:
-            ui.notify("❌ Please complete Name, Area, Muscle, and Stretch.", type="warning")
+            await ui.notify("❌ Please complete Name, Area, Muscle, and Stretch.", type="warning")
             return
 
-        set_status("Generating guide...")
+        # set_status("Generating guide...")
+        start_progress("Generating stretch guide...")
         btn = state.get("generate_button")
         try:
             if btn:
                 btn.props("loading")
             prompt = f"""
-Create a detailed stretch guide for:
-- Name: {first} {last}
-- Area: {area}
-- Muscle: {muscle}
-- Stretch: {stretch}
+            Create a detailed stretch guide for:
+            - Name: {first} {last}
+            - Area: {area}
+            - Muscle: {muscle}
+            - Stretch: {stretch}
 
-Include: step-by-step instructions, benefits, and precautions.
-Return the guide in Markdown format.
-"""
+            Include: step-by-step instructions, benefits, and precautions.
+            Return the guide in Markdown format.
+            """
             result = await call_llm_async(prompt)
-            filename = f"travel-guide-output/stretch_guide_{first}_{last}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
+
+            # Save to file
+            filename = f"stretch-guide-output/stretch_guide_{first}_{last}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
             with open(filename, "w", encoding="utf-8") as f:
                 f.write(result)
+
+            # Update shared state
+            result_data["title"] = f"📝 Stretch Guide for {first} {last} ({area} - {muscle} - {stretch} )"
+            result_data["content"] = result
+            stop_progress()
+            ui.navigate.to("/result")
+            # Show result in dialog
 
             with ui.dialog() as dlg, ui.card():
                 ui.label("📥 Generated Stretch Guide").classes("text-lg font-bold")
                 ui.markdown(result).classes("prose max-w-none")
                 ui.button("Close", on_click=dlg.close)
             dlg.open()
-            ui.notify(f"✅ Guide saved as {filename}", type="positive")
+            # show_message("✅ Success", f"Guide saved as {filename}")
         except Exception as ex:
-            ui.notify(f"⚠️ Error: {ex}", type="negative")
+            show_message("❌ Error", f"Failed to generate guide: {ex}")
         finally:
             if btn:
                 try:
@@ -278,8 +293,8 @@ Return the guide in Markdown format.
         ui.label(config.get("title", "Generator")).classes("text-2xl font-bold text-center")
         if config.get("subtitle"):
             ui.label(config["subtitle"]).classes("text-sm text-center text-gray-500 mb-4")
-    
-                    # Render primary guest section fields (if any)
+
+                # Render primary guest section fields (if any)
         for sec in config.get("sections", []):
             title = sec.get("title")
             if title:
@@ -318,12 +333,16 @@ Return the guide in Markdown format.
 
         # Three card area (cards variable)
         with ui.row().classes("w-full gap-6"):
-            # Determine area options (from cards config if provided)
-            area_options: List[str] = default_area_options
+            # Determine area options: prefer config["area"], then cards' labels, then defaults
+            area_from_config = config.get("area")
+            if isinstance(area_from_config, list) and area_from_config:
+                area_options: List[str] = [str(x) for x in area_from_config]
+            else:
+                area_options: List[str] = ["Legs", "Chest", "Back", "Shoulders", "Arms", "Abs", "Neck"]
             if cards and isinstance(cards, list) and len(cards) >= 1:
                 area_card = cards[0]
                 # if the area card lists individual radio fields, use their labels
-                field_labels = []
+                field_labels: List[str] = []
                 for fld in area_card.get("fields", []):
                     lbl = fld.get("label") or fld.get("id")
                     if lbl:
@@ -332,35 +351,47 @@ Return the guide in Markdown format.
                     area_options = field_labels
             else:
                 area_card = {"title": "Area", "fields": []}
+            
 
-            # Card 1 - Area
-            with ui.card().classes("w-1/3 p-4"):
-                ui.label(area_card.get("title", "Area")).classes("text-lg font-semibold")
-                def on_area_change(e):
-                    selected = getattr(e, "value", None)
-                    state["area"] = selected
-                    # populate muscles based on selection
-                    asyncio.create_task(populate_muscles_for_area(selected, muscle_card_container))
-                    update_generate_button_state()
-                state["area_radio_widget"] = ui.radio(area_options, on_change=on_area_change)
+            # Wrap all 3 cards inside a row so they sit side by side
+            with ui.row().classes("w-full grid grid-cols-1 md:grid-cols-3 gap-4 items-start"):
+                
+                # Card 1 - Area
+                with ui.card().classes("flex-1 min-w-[250px] max-w-[300px] p-4 h-full"):
+                    ui.label(area_card.get("title", "Area")).classes("text-lg font-semibold")
 
-            # Card 2 - Muscle (initially empty; will populate)
-            muscle_card_container = ui.column().classes("w-1/3")
-            with muscle_card_container:
-                ui.label("Muscle").classes("text-lg font-semibold")
-                ui.label("_Select an area first_")
+                    async def on_area_change(e):
+                        selected = getattr(e, "value", None)
+                        state["area"] = selected
+                        update_generate_button_state()
+                        await populate_muscles_for_area(selected, muscle_card_container)
 
-            # Card 3 - Stretches (initially empty; will populate)
-            stretch_card_container = ui.column().classes("w-1/3")
-            with stretch_card_container:
-                ui.label("Stretches").classes("text-lg font-semibold")
-                ui.label("_Select a muscle first_")
+                    state["area_radio_widget"] = ui.radio(area_options, on_change=on_area_change)
+                
+                # Card 2 - Muscle (initially empty; will populate)
+                muscle_card_container = ui.card().classes("flex-1 min-w-[250px] max-w-[300px] p-4 h-full")
+                with muscle_card_container:
+                    ui.label("Muscles").classes("text-lg font-semibold")
+                    muscle_content = ui.column()  # inner container you can clear later
+                    # ui.label("_Select an area first_", parent=muscle_content)
+                
+                # Card 3 - Stretches (initially empty; will populate)
+                stretch_card_container = ui.card().classes("flex-1 min-w-[250px] max-w-[300px] p-4 h-full")
+                with stretch_card_container:
+                    ui.label("Stretches").classes("text-lg font-semibold")
+                    stretch_content = ui.column()  # inner container you can clear later
+                    # ui.label("_Select a muscle first_", parent=stretch_content)
+
+
 
         # primary action button
-        state["generate_button"] = ui.button("✨ Generate Guide", on_click=lambda: asyncio.create_task(generate_guide_action())).classes(
-            "w-full bg-black text-white mt-4 p-3 rounded-lg"
-        )
-        state["generate_button"].props("disabled")
+        state["generate_button"] = ui.button(
+            "✨ Generate Guide",
+            on_click=generate_guide_action
+        ).classes("w-full bg-black text-white mt-4 p-3 rounded-lg")
+
+        state["generate_button"].disable()
+
 
     # wire up name input changes to update button state
     first_widget = state["widgets"].get("first_name")
@@ -377,6 +408,21 @@ Return the guide in Markdown format.
 
     return state
 
+@ui.page("/result")
+def result_page():
+    show_message("✅ Success", f"Guide saved as {filename}")
+    ui.label(result_data["title"]).classes("text-xl font-bold")
+    ui.markdown(result_data["content"]).classes("prose max-w-none")
+    ui.button("⬅ Back", on_click=lambda: ui.navigate.to("/"))
+
+def show_message(title: str, message: str):
+    with ui.dialog() as dialog, ui.card():
+        ui.label(title).classes("text-lg font-bold")
+        ui.label(message).classes("mt-2")
+        ui.button("OK", on_click=dialog.close).classes("mt-4")
+    dialog.open()
+
+
 # ===== Run App =====
 
 
@@ -387,9 +433,9 @@ def main():
     # ✅ Detect Jupyter/IPython
     if "ipykernel" in sys.modules:
         # Running inside Jupyter, avoid asyncio.run()
-        ui.run(native=False, reload=False, loop="asyncio")
+        ui.run(host="0.0.0.0", port=8081, native=False, reload=False, loop="asyncio")
     else:
-        ui.run(native=False, reload=False)
+        ui.run(host="0.0.0.0", port=8081, native=False, reload=False)
 
 if __name__ in {"__main__", "__mp_main__"}:
     main()
