@@ -220,6 +220,15 @@ async def call_llm_text(prompt_text: str) -> str:
 
     return text
 
+
+def show_message(title: str, message: str):
+    with ui.dialog() as dialog, ui.card():
+        ui.label(title).classes("text-lg font-bold")
+        ui.label(message).classes("mt-2")
+        ui.button("OK", on_click=dialog.close).classes("mt-4 bg-black text-white w-full")
+    dialog.open()
+
+
 # --------------------------
 # Scraping helpers
 # --------------------------
@@ -297,10 +306,33 @@ def build_prompt_from_template(template: str) -> str:
 # --------------------------
 # UI rendering from CONFIG
 # --------------------------
-ui.label(CONFIG_JSON.get("title", "Dynamic App"))
-ui.label(CONFIG_JSON.get("subtitle", ""))
+with ui.card().classes(
+    "w-full max-w-none mx-auto shadow-lg rounded-xl "
+    "bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200"
+):
+    with ui.column().classes("w-full p-4 sm:p-6 md:p-8 space-y-3 sm:space-y-4"):
+        # Main title with responsive text sizing
+        ui.label(CONFIG_JSON.get("title", "Dynamic App")).classes(
+            "text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-center "
+            "bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent "
+            "leading-tight"
+        )
+        
+        # Subtitle with responsive spacing and styling
+        if CONFIG_JSON.get("subtitle", ""):
+            ui.label(CONFIG_JSON.get("subtitle", "")).classes(
+                "text-xs sm:text-sm md:text-base text-left text-gray-600 "
+                "max-w-2xl mx-auto leading-relaxed px-2"
+            )
+        
+        # Status indicator with icon-like styling
+        with ui.row().classes("justify-center items-center mt-2 sm:mt-4"):
+            ui.icon("circle", size="xs").classes("text-gray-500")
+            status = ui.label("Loading...").classes(
+                "text-xs sm:text-sm text-gray-700 font-medium ml-1"
+            )   
 
-status = ui.label("Ready")
+
 
 
 
@@ -365,7 +397,10 @@ def make_on_change(_fid):
 for section in CONFIG_JSON["sections"]:
     sec_title = section.get("title", "")
     display = "block" if sec_title.startswith("1)") else "none"
-    container = ui.card().props("flat").style("margin:8px 0; padding:12px; width:100%; display:{display}")
+    container = ui.card().classes("p-4 mb-4 shadow-sm rounded-lg bg-white w-full").style(f"display:{display}")
+
+
+
     section_containers[sec_title] = container
     
     with container:
@@ -379,7 +414,8 @@ for section in CONFIG_JSON["sections"]:
             placeholder = fld.get("placeholder", "")
             # create widgets according to type
             if ftype == "text":
-                w = ui.input(label=label, placeholder=placeholder, value="")
+                w = ui.input(label=label, placeholder=placeholder, value="").classes("w-full p-2 border rounded-md")
+
                 # when user changes value, trigger dependency resolution
                 widgets[fid] = w
                 w.on('change', make_on_change(fid))
@@ -387,7 +423,9 @@ for section in CONFIG_JSON["sections"]:
 
             elif ftype == "textarea":
                 # Create textarea and store it in widgets so we can update it later
-                w = ui.textarea(label=label, placeholder=placeholder, value="")
+                w = ui.textarea(label=label, placeholder=placeholder, value="").classes("w-full p-3 border rounded-md")
+                w._props["autogrow"] = True
+
                 widgets[fid] = w   # <<< IMPORTANT: keep reference so resolve_dependents_for can update it
 
                 # If config requests readonly, set via props (best-effort)
@@ -531,7 +569,10 @@ async def on_next_click():
         _running_next["busy"] = False
 
 # create one global Next button (place it where you want it on the page)
-next_button = ui.button("Next", on_click=lambda: asyncio.create_task(on_next_click()))
+next_button = ui.button(
+    "➡ Next",
+    on_click=lambda: asyncio.create_task(on_next_click())
+).classes("w-full bg-black text-white mt-4 p-3 rounded-lg")
 
 # initialize: show only first step
 show_step(0)
@@ -549,7 +590,12 @@ def save_state_to_file():
         json.dump(payload, f, indent=2, ensure_ascii=False)
     status.set_text(f"Saved to {fname}")
 
-ui.button("Save JSON", on_click=lambda: save_state_to_file())
+ui.button(
+    "💾 Save JSON",
+    on_click=lambda: save_state_to_file()
+).props("flat").classes("w-full bg-gray-800 text-white mt-2 p-3 rounded-lg")
+
+
 
 # --------------------------
 # Special handlers & dependency resolution
@@ -638,9 +684,11 @@ async def resolve_dependents_for(changed_field_id: str):
 
         # --- call LLM
         target_type = target_cfg.get("type", "text")
+
         status.set_text(f"Running LLM for {dep_field_id} ... ⏳")
-        result_text = await call_llm_text(prompt_text)
+        result_text = await call_llm_text(prompt_text)  
         status.set_text(f"LLM finished for {dep_field_id}")
+
 
         # --- handle text / textarea
         if target_type in ("text", "textarea"):
@@ -682,7 +730,6 @@ async def resolve_dependents_for(changed_field_id: str):
             # recurse to resolve deeper dependents
             await resolve_dependents_for(dep_field_id)
 
-
         # --- handle button_list
         elif target_type == "button_list":
             options = parse_list_response(result_text)
@@ -694,20 +741,72 @@ async def resolve_dependents_for(changed_field_id: str):
                 except Exception:
                     pass
 
+                # render buttons inside the container
                 with container:
                     if not options:
                         ui.label("No options generated.")
                     else:
+                        # base classes for buttons (consistent styling)
+                        base_classes = "w-full py-2 px-4 mb-2 rounded-lg transition"
+                        default_classes = "bg-gray-800 text-white hover:bg-gray-700"
+                        selected_classes = "bg-blue-700 text-white"
+
                         for opt in options:
-                            def make_btn_click(fid=dep_field_id, o=opt):
+                            # create handler factory capturing opt and current container/options
+                            def make_btn_click(
+                                _fid=dep_field_id,
+                                _opt=opt,
+                                _opts=options,
+                                _container=container,
+                            ):
                                 async def _on_click():
-                                    state_values[fid] = o
-                                    status.set_text(f"Selected: {o}")
-                                    await resolve_dependents_for(fid)
+                                    # 1) store selection
+                                    state_values[_fid] = _opt
+                                    status.set_text(f"Selected: {_opt}")
+
+                                    # 2) visually reflect selection by re-rendering this container
+                                    try:
+                                        _container.clear()
+                                    except Exception:
+                                        pass
+                                    with _container:
+                                        for o in _opts:
+                                            cls = (
+                                                base_classes
+                                                + " "
+                                                + (selected_classes if o == _opt else default_classes)
+                                            )
+                                            # ensure the handler is bound for each button
+                                            def mk(_o=o):
+                                                return make_btn_click(
+                                                    _fid=_fid, _opt=_o, _opts=_opts, _container=_container
+                                                )
+
+                                            ui.button(o, on_click=mk()).props("flat").classes(cls)
+
+                                    # 3) trigger any dependents (this will generate next section content)
+                                    await resolve_dependents_for(_fid)
+
+                                    # 4) auto-advance to the next section (stacked UI)
+                                    current_idx = None
+                                    for idx_s, s in enumerate(CONFIG_JSON["sections"]):
+                                        if any(fld["id"] == _fid for fld in s["fields"]):
+                                            current_idx = idx_s
+                                            break
+                                    if current_idx is not None and current_idx < len(ordered_containers) - 1:
+                                        show_step(current_idx + 1)
+                                        try:
+                                            next_button.enable()
+                                        except Exception:
+                                            pass
+
                                 return _on_click
-                            ui.button(opt, on_click=make_btn_click()).style(
-                                "width:100%; margin-bottom:6px"
+
+                            # create actual button (initial render: not-selected)
+                            ui.button(opt, on_click=make_btn_click()).props("flat").classes(
+                                f"{base_classes} {default_classes}"
                             )
+
 
         # --- handle unknown type
         else:

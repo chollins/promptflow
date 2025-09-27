@@ -337,8 +337,6 @@ def build_ui_from_config(config: Dict[str, Any]):
             area_from_config = config.get("area")
             if isinstance(area_from_config, list) and area_from_config:
                 area_options: List[str] = [str(x) for x in area_from_config]
-            else:
-                area_options: List[str] = ["Legs", "Chest", "Back", "Shoulders", "Arms", "Abs", "Neck"]
             if cards and isinstance(cards, list) and len(cards) >= 1:
                 area_card = cards[0]
                 # if the area card lists individual radio fields, use their labels
