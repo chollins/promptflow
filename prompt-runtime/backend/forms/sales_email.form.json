@@ -1,0 +1,69 @@
+{
+    "id": "sales_email",
+    "name": "Sales Email Generator",
+    "description": "Generate personalized sales outreach emails.",
+    "version": "1.0",
+    "fields": [
+      {
+        "id": "prospect_name",
+        "label": "Prospect Name",
+        "type": "text",
+        "required": true
+      },
+      {
+        "id": "company",
+        "label": "Company",
+        "type": "text",
+        "required": true
+      },
+      {
+        "id": "job_title",
+        "label": "Job Title",
+        "type": "text",
+        "required": true
+      },
+      {
+        "id": "goal",
+        "label": "Primary Goal",
+        "type": "dropdown",
+        "options": [
+          "Book a Meeting",
+          "Introduce Product",
+          "Request Referral",
+          "Follow Up"
+        ],
+        "required": true
+      },
+      {
+        "id": "tone",
+        "label": "Tone",
+        "type": "dropdown",
+        "options": [
+          "Friendly",
+          "Professional",
+          "Consultative"
+        ],
+        "required": true
+      },
+      {
+        "id": "length",
+        "label": "Length",
+        "type": "radio",
+        "options": [
+          "Short",
+          "Medium",
+          "Long"
+        ],
+        "required": true
+      }
+    ],
+    "prompt": {
+      "system": "You are an expert B2B sales copywriter.",
+      "user": "Write a {{length}} {{tone}} sales email to {{prospect_name}}, who works as {{job_title}} at {{company}}. The purpose is to {{goal}}."
+    },
+    "model": {
+      "provider": "openai",
+      "name": "gpt-4o-mini",
+      "temperature": 0.7
+    }
+  }

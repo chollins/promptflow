@@ -1,0 +1,64 @@
+{
+    "id": "business_profile",
+    "name": "Business Profile Generator",
+    "description": "Generate a professional business profile.",
+    "version": "1.0",
+    "fields": [
+      {
+        "id": "company_name",
+        "label": "Company Name",
+        "type": "text",
+        "required": true
+      },
+      {
+        "id": "industry",
+        "label": "Industry",
+        "type": "text",
+        "required": true
+      },
+      {
+        "id": "products",
+        "label": "Products / Services",
+        "type": "textarea",
+        "required": true
+      },
+      {
+        "id": "target_market",
+        "label": "Target Market",
+        "type": "textarea",
+        "required": true
+      },
+      {
+        "id": "tone",
+        "label": "Tone",
+        "type": "dropdown",
+        "options": [
+          "Professional",
+          "Friendly",
+          "Executive",
+          "Marketing"
+        ],
+        "required": true
+      },
+      {
+        "id": "length",
+        "label": "Length",
+        "type": "radio",
+        "options": [
+          "Short",
+          "Medium",
+          "Detailed"
+        ],
+        "required": true
+      }
+    ],
+    "prompt": {
+      "system": "You are an expert business copywriter.",
+      "user": "Create a {{length}} business profile for {{company_name}}, a company in the {{industry}} industry. The company offers {{products}} and serves {{target_market}}. Use a {{tone}} tone."
+    },
+    "model": {
+      "provider": "openai",
+      "name": "gpt-4o-mini",
+      "temperature": 0.7
+    }
+  }

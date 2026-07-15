@@ -1,0 +1,52 @@
+{
+    "id": "meeting_summary",
+    "name": "Meeting Summary Generator",
+    "description": "Summarize meeting notes into organized action items.",
+    "version": "1.0",
+    "fields": [
+      {
+        "id": "meeting_title",
+        "label": "Meeting Title",
+        "type": "text",
+        "required": true
+      },
+      {
+        "id": "meeting_date",
+        "label": "Meeting Date",
+        "type": "text",
+        "required": true
+      },
+      {
+        "id": "participants",
+        "label": "Participants",
+        "type": "textarea",
+        "required": true
+      },
+      {
+        "id": "notes",
+        "label": "Meeting Notes",
+        "type": "textarea",
+        "required": true
+      },
+      {
+        "id": "format",
+        "label": "Summary Format",
+        "type": "radio",
+        "options": [
+          "Executive Summary",
+          "Action Items",
+          "Detailed Minutes"
+        ],
+        "required": true
+      }
+    ],
+    "prompt": {
+      "system": "You are an expert executive assistant.",
+      "user": "Create a {{format}} for '{{meeting_title}}' held on {{meeting_date}}. Participants: {{participants}}. Meeting notes: {{notes}}."
+    },
+    "model": {
+      "provider": "openai",
+      "name": "gpt-4o-mini",
+      "temperature": 0.7
+    }
+  }
