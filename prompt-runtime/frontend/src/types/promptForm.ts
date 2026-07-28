@@ -48,3 +48,62 @@ export interface ExecuteResponse {
   prompt: string;
   result: string;
 }
+
+export interface FlowRuntimeSettings {
+  mode: "guided" | "automatic";
+  default_review_required: boolean;
+}
+
+export interface FlowReviewSettings {
+  required: boolean;
+  editable: boolean;
+}
+
+export interface FlowOutputSettings {
+  save_as: string;
+  formats: string[];
+}
+
+export interface FlowStep {
+  id: string;
+  sequence: number;
+  name: string;
+  prompt_form_id: string;
+  input_bindings: Record<string, string>;
+  dynamic_fields: string[];
+  review: FlowReviewSettings;
+  output?: FlowOutputSettings | null;
+  next?: string | null;
+}
+
+export interface PromptFlow {
+  id: string;
+  version: string;
+  name: string;
+  description: string;
+  runtime: FlowRuntimeSettings;
+  steps: FlowStep[];
+}
+
+export interface FlowSummary {
+  id: string;
+  name: string;
+  description: string;
+  version: string;
+}
+
+export interface FlowStepResult {
+  id: string;
+  sequence: number;
+  name: string;
+  prompt: string;
+  result: string;
+  completed: boolean;
+  next: string | null;
+  output?: FlowOutputSettings | null;
+}
+
+export interface FlowExecuteResponse {
+  context: Record<string, unknown>;
+  steps: FlowStepResult[];
+}

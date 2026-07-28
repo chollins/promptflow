@@ -1,0 +1,92 @@
+{
+    "id": "travel_planner",
+    "version": "1.0.0",
+    "name": "Personalized Travel Planner",
+    "description": "Generate a destination guide, personalized itinerary, and travel preparation checklist.",
+    "runtime": {
+      "mode": "guided",
+      "default_review_required": true
+    },
+    "steps": [
+      {
+        "id": "step_1",
+        "sequence": 1,
+        "name": "Create Destination Guide",
+        "prompt_form_id": "destination_summary",
+        "dynamic_fields": [
+          "destination",
+          "travel_dates",
+          "travelers",
+          "budget",
+          "travel_style"
+        ],
+        "review": {
+          "required": true,
+          "editable": true
+        },
+        "output": {
+          "save_as": "destination_guide",
+          "formats": [
+            "json",
+            "markdown"
+          ]
+        },
+        "next": "step_2"
+      },
+      {
+        "id": "step_2",
+        "sequence": 2,
+        "name": "Create Travel Itinerary",
+        "prompt_form_id": "travel_itinerary",
+        "input_bindings": {
+          "destination": "destination",
+          "guide": "destination_guide"
+        },
+        "dynamic_fields": [
+          "interests",
+          "transportation",
+          "pace",
+          "meal_preferences"
+        ],
+        "review": {
+          "required": true,
+          "editable": true
+        },
+        "output": {
+          "save_as": "travel_itinerary",
+          "formats": [
+            "json",
+            "markdown"
+          ]
+        },
+        "next": "step_3"
+      },
+      {
+        "id": "step_3",
+        "sequence": 3,
+        "name": "Create Travel Checklist",
+        "prompt_form_id": "travel_checklist",
+        "input_bindings": {
+          "destination": "destination",
+          "guide": "destination_guide",
+          "itinerary": "travel_itinerary"
+        },
+        "dynamic_fields": [
+          "packing_priority",
+          "special_requests"
+        ],
+        "review": {
+          "required": true,
+          "editable": true
+        },
+        "output": {
+          "save_as": "travel_checklist",
+          "formats": [
+            "json",
+            "markdown"
+          ]
+        },
+        "next": null
+      }
+    ]
+  }

@@ -1,0 +1,64 @@
+{
+  "id": "client_assessment",
+  "version": "1.0.0",
+  "name": "Client Assessment",
+  "description": "Generate a client summary followed by a personalized sales email.",
+  "runtime": {
+    "mode": "guided",
+    "default_review_required": true
+  },
+  "steps": [
+    {
+      "id": "step_1",
+      "sequence": 1,
+      "name": "Create Summary",
+      "prompt_form_id": "customer_summary",
+      "dynamic_fields": [
+        "company",
+        "industry",
+        "tone"
+      ],
+      "review": {
+        "required": true,
+        "editable": true
+      },
+      "output": {
+        "save_as": "client_recap",
+        "formats": [
+          "json",
+          "markdown"
+        ]
+      },
+      "next": "step_2"
+    },
+    {
+      "id": "step_2",
+      "sequence": 2,
+      "name": "Create Sales Email",
+      "prompt_form_id": "sales_email",
+      "input_bindings": {
+        "company": "company",
+        "summary": "client_recap"
+      },
+      "dynamic_fields": [
+        "prospect_name",
+        "job_title",
+        "goal",
+        "tone",
+        "length"
+      ],
+      "review": {
+        "required": true,
+        "editable": true
+      },
+      "output": {
+        "save_as": "sales_email",
+        "formats": [
+          "json",
+          "markdown"
+        ]
+      },
+      "next": null
+    }
+  ]
+}

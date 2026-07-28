@@ -1,0 +1,53 @@
+{
+  "id": "travel_itinerary",
+  "name": "Travel Itinerary",
+  "description": "Generate a personalized travel itinerary using the destination guide.",
+  "version": "1.0",
+  "fields": [
+    {
+      "id": "destination",
+      "label": "Destination",
+      "type": "hidden"
+    },
+    {
+      "id": "guide",
+      "label": "Destination Guide",
+      "type": "hidden"
+    },
+    {
+      "id": "interests",
+      "label": "Interests",
+      "type": "textarea",
+      "required": true
+    },
+    {
+      "id": "transportation",
+      "label": "Preferred Transportation",
+      "type": "dropdown",
+      "options": ["Walking", "Public Transport", "Rental Car", "Taxi / Ride Share"],
+      "required": true
+    },
+    {
+      "id": "pace",
+      "label": "Travel Pace",
+      "type": "dropdown",
+      "options": ["Relaxed", "Balanced", "Packed Schedule"],
+      "required": true
+    },
+    {
+      "id": "meal_preferences",
+      "label": "Meal Preferences",
+      "type": "textarea",
+      "required": false
+    }
+  ],
+  "prompt": {
+    "system": "You are an expert travel planner.",
+    "user": "Using the destination guide below:\n\n{{guide}}\n\nCreate a personalized itinerary for visiting {{destination}}.\n\nTraveler Interests:\n{{interests}}\n\nTransportation:\n{{transportation}}\n\nPreferred Pace:\n{{pace}}\n\nMeal Preferences:\n{{meal_preferences}}\n\nCreate a detailed day-by-day itinerary including:\n- Morning activities\n- Afternoon activities\n- Evening activities\n- Restaurant recommendations\n- Transportation suggestions\n- Estimated travel times\n- Daily travel tips"
+  },
+  "model": {
+    "provider": "openai",
+    "name": "gpt-4o-mini",
+    "temperature": 0.7
+  }
+}

@@ -1,0 +1,49 @@
+{
+    "id": "destination_summary",
+    "name": "Destination Summary",
+    "description": "Generate a travel destination guide based on traveler information.",
+    "version": "1.0",
+    "fields": [
+      {
+        "id": "destination",
+        "label": "Destination",
+        "type": "text",
+        "required": true
+      },
+      {
+        "id": "travel_dates",
+        "label": "Travel Dates",
+        "type": "text",
+        "required": true
+      },
+      {
+        "id": "travelers",
+        "label": "Number of Travelers",
+        "type": "text",
+        "required": true
+      },
+      {
+        "id": "budget",
+        "label": "Budget",
+        "type": "dropdown",
+        "options": ["Budget", "Mid-range", "Luxury"],
+        "required": true
+      },
+      {
+        "id": "travel_style",
+        "label": "Travel Style",
+        "type": "dropdown",
+        "options": ["Relaxation", "Adventure", "Culture", "Food", "Nature"],
+        "required": true
+      }
+    ],
+    "prompt": {
+      "system": "You are an experienced travel consultant.",
+      "user": "Create a travel destination guide for {{destination}}.\n\nTravel Dates: {{travel_dates}}\nNumber of Travelers: {{travelers}}\nBudget: {{budget}}\nTravel Style: {{travel_style}}\n\nInclude:\n- Destination overview\n- Weather expectations\n- Local transportation\n- Must-see attractions\n- Local customs\n- Safety tips\n- Packing recommendations\n- Estimated daily budget"
+    },
+    "model": {
+      "provider": "openai",
+      "name": "gpt-4o-mini",
+      "temperature": 0.7
+    }
+  }

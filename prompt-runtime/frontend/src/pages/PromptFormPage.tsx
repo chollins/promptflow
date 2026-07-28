@@ -15,10 +15,11 @@ export default function PromptFormPage() {
   const [executing, setExecuting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const formId = id;
+  const formId = id ?? null;
 
   useEffect(() => {
-    if (!formId) {
+    const currentFormId = formId;
+    if (!currentFormId) {
       setError("Form not found.");
       setLoading(false);
       return;
@@ -28,7 +29,7 @@ export default function PromptFormPage() {
       try {
         setLoading(true);
         setError(null);
-        const data = await getForm(formId);
+        const data = await getForm(currentFormId!);
         setForm(data);
       } catch (err) {
         const message = getErrorMessage(err);

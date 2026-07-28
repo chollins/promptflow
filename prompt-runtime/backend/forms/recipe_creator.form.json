@@ -1,0 +1,88 @@
+{
+  "id": "recipe_creator",
+  "name": "Recipe Creator",
+  "description": "Generate a personalized recipe based on available ingredients and preferences.",
+  "version": "1.0",
+  "fields": [
+    {
+      "id": "dish_type",
+      "label": "Dish Type",
+      "type": "dropdown",
+      "options": [
+        "Breakfast",
+        "Lunch",
+        "Dinner",
+        "Dessert",
+        "Snack"
+      ],
+      "required": true
+    },
+    {
+      "id": "main_ingredients",
+      "label": "Main Ingredients",
+      "type": "textarea",
+      "required": true
+    },
+    {
+      "id": "cuisine",
+      "label": "Cuisine",
+      "type": "dropdown",
+      "options": [
+        "Filipino",
+        "Italian",
+        "Japanese",
+        "Chinese",
+        "Mexican",
+        "Indian",
+        "American",
+        "Any"
+      ],
+      "required": true
+    },
+    {
+      "id": "difficulty",
+      "label": "Difficulty",
+      "type": "dropdown",
+      "options": [
+        "Easy",
+        "Intermediate",
+        "Advanced"
+      ],
+      "required": true
+    },
+    {
+      "id": "cooking_time",
+      "label": "Maximum Cooking Time",
+      "type": "dropdown",
+      "options": [
+        "15 minutes",
+        "30 minutes",
+        "45 minutes",
+        "1 hour",
+        "No Limit"
+      ],
+      "required": true
+    },
+    {
+      "id": "dietary_restrictions",
+      "label": "Dietary Restrictions",
+      "type": "textarea",
+      "required": false
+    },
+    {
+      "id": "servings",
+      "label": "Number of Servings",
+      "type": "text",
+      "required": true
+    }
+  ],
+  "prompt": {
+    "system": "You are a professional chef who creates delicious, practical recipes for home cooks.",
+    "user": "Create a {{difficulty}} {{cuisine}} {{dish_type}} recipe using the following ingredients:\n\n{{main_ingredients}}\n\nNumber of servings: {{servings}}\nMaximum cooking time: {{cooking_time}}\nDietary restrictions: {{dietary_restrictions}}\n\nInclude:\n- Recipe title\n- Ingredient list with measurements\n- Step-by-step instructions\n- Estimated preparation time\n- Estimated cooking time\n- Helpful cooking tips\n- Suggested side dishes or drinks"
+  },
+  "model": {
+    "provider": "openai",
+    "name": "gpt-4o-mini",
+    "temperature": 0.8
+  }
+}

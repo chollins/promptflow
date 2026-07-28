@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field as PydanticField
 
 class ModelSettings(BaseModel):
     provider: str = "openai"
-    model: str = "gpt-4o-mini"
+    name: str = "gpt-4o-mini"
     temperature: float = 0.7
 
 

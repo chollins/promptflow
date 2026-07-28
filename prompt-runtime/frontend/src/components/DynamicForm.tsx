@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 
 import type { Field, PromptForm } from "../types/promptForm";
 import FieldRenderer from "./FieldRenderer";
@@ -7,6 +7,9 @@ interface Props {
   form: PromptForm;
   loading?: boolean;
   onSubmit: (values: Record<string, string>) => void;
+  values?: Record<string, string>;
+  onValuesChange?: (values: Record<string, string>) => void;
+  submitLabel?: string;
 }
 
 function buildInitialValues(fields: Field[]): Record<string, string> {
@@ -16,13 +19,33 @@ function buildInitialValues(fields: Field[]): Record<string, string> {
   }, {});
 }
 
-export default function DynamicForm({ form, loading = false, onSubmit }: Props) {
-  const [values, setValues] = useState<Record<string, string>>(() =>
-    buildInitialValues(form.fields),
+export default function DynamicForm({
+  form,
+  loading = false,
+  onSubmit,
+  values: controlledValues,
+  onValuesChange,
+  submitLabel = "Generate",
+}: Props) {
+  const [internalValues, setInternalValues] = useState<Record<string, string>>(
+    () => buildInitialValues(form.fields),
   );
 
+  useEffect(() => {
+    if (controlledValues) {
+      setInternalValues((prev) => ({ ...buildInitialValues(form.fields), ...prev, ...controlledValues }));
+    }
+  }, [controlledValues, form.fields]);
+
+  const values = controlledValues ?? internalValues;
+
   function updateField(id: string, value: string) {
-    setValues((prev) => ({ ...prev, [id]: value }));
+    const next = { ...values, [id]: value };
+    if (controlledValues) {
+      onValuesChange?.(next);
+      return;
+    }
+    setInternalValues(next);
   }
 
   function handleSubmit(e: FormEvent) {
@@ -53,12 +76,12 @@ export default function DynamicForm({ form, loading = false, onSubmit }: Props) 
           {field.description && field.type !== "checkbox" && (
             <p className="text-sm text-gray-500">{field.description}</p>
           )}
-          <FieldRenderer
-            field={field}
-            value={values[field.id] ?? ""}
-            onChange={(value) => updateField(field.id, value)}
-          />
-        </div>
+        <FieldRenderer
+          field={field}
+          value={values[field.id] ?? ""}
+          onChange={(value) => updateField(field.id, value)}
+        />
+      </div>
       ))}
 
       <button
@@ -66,7 +89,7 @@ export default function DynamicForm({ form, loading = false, onSubmit }: Props) 
         disabled={loading}
         className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white px-4 py-2 rounded"
       >
-        {loading ? "Generating..." : "Generate"}
+        {loading ? "Generating..." : submitLabel}
       </button>
     </form>
   );

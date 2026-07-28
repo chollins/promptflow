@@ -1,0 +1,49 @@
+{
+    "id": "travel_checklist",
+    "name": "Travel Checklist",
+    "description": "Generate a personalized travel preparation checklist.",
+    "version": "1.0",
+    "fields": [
+      {
+        "id": "destination",
+        "label": "Destination",
+        "type": "hidden"
+      },
+      {
+        "id": "guide",
+        "label": "Destination Guide",
+        "type": "hidden"
+      },
+      {
+        "id": "itinerary",
+        "label": "Travel Itinerary",
+        "type": "hidden"
+      },
+      {
+        "id": "packing_priority",
+        "label": "Packing Priority",
+        "type": "dropdown",
+        "options": [
+          "Light Packing",
+          "Balanced",
+          "Be Fully Prepared"
+        ],
+        "required": true
+      },
+      {
+        "id": "special_requests",
+        "label": "Special Requests",
+        "type": "textarea",
+        "required": false
+      }
+    ],
+    "prompt": {
+      "system": "You are an experienced travel advisor.",
+      "user": "Using the destination guide:\n\n{{guide}}\n\nAnd the following travel itinerary:\n\n{{itinerary}}\n\nCreate a personalized travel preparation checklist for visiting {{destination}}.\n\nPacking Priority:\n{{packing_priority}}\n\nSpecial Requests:\n{{special_requests}}\n\nInclude:\n- Essential documents\n- Clothing recommendations\n- Electronics and chargers\n- Health and medication reminders\n- Currency and payment tips\n- Transportation reminders\n- Local etiquette reminders\n- Things to do before leaving home\n- Last-minute travel tips"
+    },
+    "model": {
+      "provider": "openai",
+      "name": "gpt-4o-mini",
+      "temperature": 0.7
+    }
+  }
