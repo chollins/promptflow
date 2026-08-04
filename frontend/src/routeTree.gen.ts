@@ -14,6 +14,7 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as CreateOrganizationRouteImport } from './routes/create-organization'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as FlowsRouteImport } from './routes/flows'
+import { Route as FormsRouteImport } from './routes/forms'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as OrganizationRouteImport } from './routes/organization'
 import { Route as ProfileRouteImport } from './routes/profile'
@@ -22,7 +23,9 @@ import { Route as UsersRouteImport } from './routes/users'
 import { Route as AdminFlowsRouteImport } from './routes/admin.flows'
 import { Route as AdminManageFlowsRouteImport } from './routes/admin.manage-flows'
 import { Route as AdminOrganizationsRouteImport } from './routes/admin.organizations'
-import { Route as AdminOrganizationsIdRouteImport } from './routes/admin.organizations.$id'
+import { Route as FlowsFlowIdRouteImport } from './routes/flows_.$flowId'
+import { Route as FormsFormIdRouteImport } from './routes/forms_.$formId'
+import { Route as AdminOrganizationsIdRouteImport } from './routes/admin.organizations_.$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -47,6 +50,11 @@ const DashboardRoute = DashboardRouteImport.update({
 const FlowsRoute = FlowsRouteImport.update({
   id: '/flows',
   path: '/flows',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FormsRoute = FormsRouteImport.update({
+  id: '/forms',
+  path: '/forms',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -89,10 +97,20 @@ const AdminOrganizationsRoute = AdminOrganizationsRouteImport.update({
   path: '/organizations',
   getParentRoute: () => AdminRoute,
 } as any)
+const FlowsFlowIdRoute = FlowsFlowIdRouteImport.update({
+  id: '/flows_/$flowId',
+  path: '/flows/$flowId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FormsFormIdRoute = FormsFormIdRouteImport.update({
+  id: '/forms_/$formId',
+  path: '/forms/$formId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminOrganizationsIdRoute = AdminOrganizationsIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => AdminOrganizationsRoute,
+  id: '/organizations_/$id',
+  path: '/organizations/$id',
+  getParentRoute: () => AdminRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -101,6 +119,7 @@ export interface FileRoutesByFullPath {
   '/create-organization': typeof CreateOrganizationRoute
   '/dashboard': typeof DashboardRoute
   '/flows': typeof FlowsRoute
+  '/forms': typeof FormsRoute
   '/login': typeof LoginRoute
   '/organization': typeof OrganizationRoute
   '/profile': typeof ProfileRoute
@@ -108,7 +127,9 @@ export interface FileRoutesByFullPath {
   '/users': typeof UsersRoute
   '/admin/flows': typeof AdminFlowsRoute
   '/admin/manage-flows': typeof AdminManageFlowsRoute
-  '/admin/organizations': typeof AdminOrganizationsRouteWithChildren
+  '/admin/organizations': typeof AdminOrganizationsRoute
+  '/flows/$flowId': typeof FlowsFlowIdRoute
+  '/forms/$formId': typeof FormsFormIdRoute
   '/admin/organizations/$id': typeof AdminOrganizationsIdRoute
 }
 export interface FileRoutesByTo {
@@ -117,6 +138,7 @@ export interface FileRoutesByTo {
   '/create-organization': typeof CreateOrganizationRoute
   '/dashboard': typeof DashboardRoute
   '/flows': typeof FlowsRoute
+  '/forms': typeof FormsRoute
   '/login': typeof LoginRoute
   '/organization': typeof OrganizationRoute
   '/profile': typeof ProfileRoute
@@ -124,7 +146,9 @@ export interface FileRoutesByTo {
   '/users': typeof UsersRoute
   '/admin/flows': typeof AdminFlowsRoute
   '/admin/manage-flows': typeof AdminManageFlowsRoute
-  '/admin/organizations': typeof AdminOrganizationsRouteWithChildren
+  '/admin/organizations': typeof AdminOrganizationsRoute
+  '/flows/$flowId': typeof FlowsFlowIdRoute
+  '/forms/$formId': typeof FormsFormIdRoute
   '/admin/organizations/$id': typeof AdminOrganizationsIdRoute
 }
 export interface FileRoutesById {
@@ -134,6 +158,7 @@ export interface FileRoutesById {
   '/create-organization': typeof CreateOrganizationRoute
   '/dashboard': typeof DashboardRoute
   '/flows': typeof FlowsRoute
+  '/forms': typeof FormsRoute
   '/login': typeof LoginRoute
   '/organization': typeof OrganizationRoute
   '/profile': typeof ProfileRoute
@@ -141,8 +166,10 @@ export interface FileRoutesById {
   '/users': typeof UsersRoute
   '/admin/flows': typeof AdminFlowsRoute
   '/admin/manage-flows': typeof AdminManageFlowsRoute
-  '/admin/organizations': typeof AdminOrganizationsRouteWithChildren
-  '/admin/organizations/$id': typeof AdminOrganizationsIdRoute
+  '/admin/organizations': typeof AdminOrganizationsRoute
+  '/flows_/$flowId': typeof FlowsFlowIdRoute
+  '/forms_/$formId': typeof FormsFormIdRoute
+  '/admin/organizations_/$id': typeof AdminOrganizationsIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -152,6 +179,7 @@ export interface FileRouteTypes {
     | '/create-organization'
     | '/dashboard'
     | '/flows'
+    | '/forms'
     | '/login'
     | '/organization'
     | '/profile'
@@ -160,6 +188,8 @@ export interface FileRouteTypes {
     | '/admin/flows'
     | '/admin/manage-flows'
     | '/admin/organizations'
+    | '/flows/$flowId'
+    | '/forms/$formId'
     | '/admin/organizations/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -168,6 +198,7 @@ export interface FileRouteTypes {
     | '/create-organization'
     | '/dashboard'
     | '/flows'
+    | '/forms'
     | '/login'
     | '/organization'
     | '/profile'
@@ -176,6 +207,8 @@ export interface FileRouteTypes {
     | '/admin/flows'
     | '/admin/manage-flows'
     | '/admin/organizations'
+    | '/flows/$flowId'
+    | '/forms/$formId'
     | '/admin/organizations/$id'
   id:
     | '__root__'
@@ -184,6 +217,7 @@ export interface FileRouteTypes {
     | '/create-organization'
     | '/dashboard'
     | '/flows'
+    | '/forms'
     | '/login'
     | '/organization'
     | '/profile'
@@ -192,7 +226,9 @@ export interface FileRouteTypes {
     | '/admin/flows'
     | '/admin/manage-flows'
     | '/admin/organizations'
-    | '/admin/organizations/$id'
+    | '/flows_/$flowId'
+    | '/forms_/$formId'
+    | '/admin/organizations_/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -201,11 +237,14 @@ export interface RootRouteChildren {
   CreateOrganizationRoute: typeof CreateOrganizationRoute
   DashboardRoute: typeof DashboardRoute
   FlowsRoute: typeof FlowsRoute
+  FormsRoute: typeof FormsRoute
   LoginRoute: typeof LoginRoute
   OrganizationRoute: typeof OrganizationRoute
   ProfileRoute: typeof ProfileRoute
   SignupRoute: typeof SignupRoute
   UsersRoute: typeof UsersRoute
+  FlowsFlowIdRoute: typeof FlowsFlowIdRoute
+  FormsFormIdRoute: typeof FormsFormIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -243,6 +282,13 @@ declare module '@tanstack/react-router' {
       path: '/flows'
       fullPath: '/flows'
       preLoaderRoute: typeof FlowsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/forms': {
+      id: '/forms'
+      path: '/forms'
+      fullPath: '/forms'
+      preLoaderRoute: typeof FormsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -301,37 +347,42 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminOrganizationsRouteImport
       parentRoute: typeof AdminRoute
     }
-    '/admin/organizations/$id': {
-      id: '/admin/organizations/$id'
-      path: '/$id'
+    '/flows_/$flowId': {
+      id: '/flows_/$flowId'
+      path: '/flows/$flowId'
+      fullPath: '/flows/$flowId'
+      preLoaderRoute: typeof FlowsFlowIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/forms_/$formId': {
+      id: '/forms_/$formId'
+      path: '/forms/$formId'
+      fullPath: '/forms/$formId'
+      preLoaderRoute: typeof FormsFormIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/organizations_/$id': {
+      id: '/admin/organizations_/$id'
+      path: '/organizations/$id'
       fullPath: '/admin/organizations/$id'
       preLoaderRoute: typeof AdminOrganizationsIdRouteImport
-      parentRoute: typeof AdminOrganizationsRoute
+      parentRoute: typeof AdminRoute
     }
   }
 }
 
-interface AdminOrganizationsRouteChildren {
-  AdminOrganizationsIdRoute: typeof AdminOrganizationsIdRoute
-}
-
-const AdminOrganizationsRouteChildren: AdminOrganizationsRouteChildren = {
-  AdminOrganizationsIdRoute: AdminOrganizationsIdRoute,
-}
-
-const AdminOrganizationsRouteWithChildren =
-  AdminOrganizationsRoute._addFileChildren(AdminOrganizationsRouteChildren)
-
 interface AdminRouteChildren {
   AdminFlowsRoute: typeof AdminFlowsRoute
   AdminManageFlowsRoute: typeof AdminManageFlowsRoute
-  AdminOrganizationsRoute: typeof AdminOrganizationsRouteWithChildren
+  AdminOrganizationsRoute: typeof AdminOrganizationsRoute
+  AdminOrganizationsIdRoute: typeof AdminOrganizationsIdRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
   AdminFlowsRoute: AdminFlowsRoute,
   AdminManageFlowsRoute: AdminManageFlowsRoute,
-  AdminOrganizationsRoute: AdminOrganizationsRouteWithChildren,
+  AdminOrganizationsRoute: AdminOrganizationsRoute,
+  AdminOrganizationsIdRoute: AdminOrganizationsIdRoute,
 }
 
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
@@ -342,11 +393,14 @@ const rootRouteChildren: RootRouteChildren = {
   CreateOrganizationRoute: CreateOrganizationRoute,
   DashboardRoute: DashboardRoute,
   FlowsRoute: FlowsRoute,
+  FormsRoute: FormsRoute,
   LoginRoute: LoginRoute,
   OrganizationRoute: OrganizationRoute,
   ProfileRoute: ProfileRoute,
   SignupRoute: SignupRoute,
   UsersRoute: UsersRoute,
+  FlowsFlowIdRoute: FlowsFlowIdRoute,
+  FormsFormIdRoute: FormsFormIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

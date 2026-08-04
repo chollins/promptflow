@@ -97,7 +97,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <div className="md:hidden fixed top-0 inset-x-0 h-14 border-b border-border bg-background z-30 flex items-center px-4 gap-3 overflow-x-auto">
         <Link to="/" className="flex items-center gap-2 font-semibold shrink-0">
           <Sparkles className="h-4 w-4" />
-          PromptFlow
+          PeromptFlow
         </Link>
         <div className="flex gap-1 ml-2">
           {items.map((item) => {

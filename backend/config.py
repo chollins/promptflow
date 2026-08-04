@@ -17,6 +17,10 @@ class Config:
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     JSON_SORT_KEYS = False
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = "None"
+    SESSION_COOKIE_SECURE = False
+    SESSION_COOKIE_PATH = "/"
 
 
 class DevelopmentConfig(Config):

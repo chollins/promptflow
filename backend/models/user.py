@@ -10,7 +10,7 @@ class User(db.Model, UUIDMixin, TimestampMixin):
     organization_id = db.Column(
         db.String(36),
         db.ForeignKey("organizations.id", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
     )
 
     email = db.Column(
@@ -43,6 +43,13 @@ class User(db.Model, UUIDMixin, TimestampMixin):
         db.Boolean,
         nullable=False,
         default=True,
+    )
+
+    session_token = db.Column(
+        db.String(64),
+        unique=True,
+        index=True,
+        nullable=True,
     )
 
     organization = db.relationship(

@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Sparkles } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Button, Input, Field } from "@/components/ui-kit";
+import { authService } from "@/lib/auth";
 
 export const Route = createFileRoute("/login")({
   component: LoginPage,
@@ -45,22 +46,39 @@ export function AuthLayout({
 function LoginPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setTimeout(() => navigate({ to: "/dashboard" }), 400);
+    setError(null);
+    const form = new FormData(e.currentTarget as HTMLFormElement);
+    const email = String(form.get("email") || "");
+    const password = String(form.get("password") || "");
+    authService
+      .login(email, password)
+      .then((user) => {
+        const role = user.role;
+        if (role === "superadmin") {
+          navigate({ to: "/admin/organizations" });
+          return;
+        }
+        navigate({ to: "/dashboard" });
+      })
+      .catch((err: Error) => setError(err.message))
+      .finally(() => setLoading(false));
   };
 
   return (
     <AuthLayout title="Welcome back" subtitle="Sign in to your PromptFlow workspace.">
       <form onSubmit={onSubmit} className="space-y-5">
         <Field label="Email">
-          <Input type="email" placeholder="you@company.com" required />
+          <Input name="email" type="email" placeholder="you@company.com" required />
         </Field>
         <Field label="Password">
-          <Input type="password" placeholder="Password" required />
+          <Input name="password" type="password" placeholder="Password" required />
         </Field>
+        {error && <div className="text-sm text-red-600">{error}</div>}
         <Button type="submit" className="w-full" disabled={loading}>
           {loading ? "Signing in..." : "Sign In"}
         </Button>

@@ -1,12 +1,19 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Sparkles, ArrowRight } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui-kit";
+import { authService } from "@/lib/auth";
 
 export const Route = createFileRoute("/")({
   component: Landing,
 });
 
 function Landing() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    authService.getMe().then(() => setIsLoggedIn(true)).catch(() => setIsLoggedIn(false));
+  }, []);
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
       <header className="h-16 border-b border-border">
@@ -16,8 +23,10 @@ function Landing() {
             PromptFlow
           </Link>
           <div className="flex items-center gap-2">
-            <Link to="/login">
-              <Button variant="ghost" size="sm">Sign in</Button>
+            <Link to={isLoggedIn ? "/dashboard" : "/login"}>
+                <Button variant="ghost" size="sm">
+                  {isLoggedIn ? "Dashboard" : "Sign In"}
+                </Button>
             </Link>
             <Link to="/create-organization">
               <Button size="sm">Get started</Button>
@@ -39,14 +48,14 @@ function Landing() {
             Build AI workflows for your organization. Invite your team, share prompts,
             and ship faster with structured flows.
           </p>
-          <div className="mt-10 flex justify-center">
-            <Link to="/login">
-              <Button>
-                Sign In
-                <ArrowRight className="h-4 w-4" />
-              </Button>
-            </Link>
-          </div>
+        <div className="mt-10 flex justify-center">
+          <Link to={isLoggedIn ? "/dashboard" : "/login"}>
+            <Button>
+              {isLoggedIn ? "Dashboard" : "Sign In"}
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          </Link>
+        </div>
         </div>
       </main>
 
