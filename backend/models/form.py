@@ -3,9 +3,8 @@ from __future__ import annotations
 from extensions import db
 from .base import TimestampMixin, UUIDMixin
 
-
-class Flow(db.Model, UUIDMixin, TimestampMixin):
-    __tablename__ = "flows"
+class Form(db.Model, UUIDMixin, TimestampMixin):
+    __tablename__ = "forms"
 
     name = db.Column(
         db.String(255),
@@ -39,9 +38,9 @@ class Flow(db.Model, UUIDMixin, TimestampMixin):
         default=True,
     )
 
-    organizations = db.relationship(
-        "OrganizationFlowAccess",
-        back_populates="flow",
+
+    flow_steps = db.relationship(
+        "FlowFormStep",
+        back_populates="form",
         cascade="all, delete-orphan",
-        passive_deletes=True,
     )

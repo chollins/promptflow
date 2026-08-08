@@ -12,10 +12,10 @@ function FormDetailPage() {
   return (
     <AppShell>
       <PageHeader
-        title="Form runner"
-        description="Render the selected PromptForm dynamically from the backend."
+        title="Form Runner"
+        description="Execute this reusable form. Management lives in the superadmin forms catalog."
       />
-      <FormRunner formId={formId} />
+      <FormRunner key={formId} formId={formId} />
     </AppShell>
   );
 }

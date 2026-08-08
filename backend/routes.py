@@ -8,7 +8,7 @@ from flask import Blueprint, jsonify, request, session
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from extensions import db
-from models import Flow, Invitation, Organization, OrganizationFlowAccess, Role, User
+from models import Flow, FlowFormStep, Form, Invitation, Organization, OrganizationFlowAccess, Role, User
 from services.flow_executor import execute_flow
 from services.flow_service import (
     FlowNotFoundError,
@@ -23,8 +23,11 @@ from services.form_executor import execute_form
 from services.form_service import (
     FormNotFoundError,
     InvalidFormError,
+    create_form,
+    delete_form,
     get_all_forms as list_all_forms,
     get_form as load_form,
+    update_form,
 )
 
 api = Blueprint("api", __name__)
@@ -57,6 +60,16 @@ def _build_invitation_link(token: str) -> str:
 
 def _utcnow() -> datetime:
     return datetime.utcnow()
+
+
+def _require_superadmin():
+    current_user = _get_current_user()
+    if not current_user:
+        return None, (jsonify({"error": "Unauthorized"}), 401)
+    role_name = current_user.role.name if current_user.role else ""
+    if role_name != "superadmin":
+        return None, (jsonify({"error": "Forbidden"}), 403)
+    return current_user, None
 
 
 # ---------------------------------------------------------------------------
@@ -147,6 +160,102 @@ def get_form(form_id: str):
     return jsonify(form.model_dump())
 
 
+@api.get("/api/admin/forms/<form_id>")
+def admin_form_detail(form_id: str):
+    _, error = _require_superadmin()
+    if error:
+        return error
+    form = Form.query.filter((Form.id == form_id) | (Form.slug == form_id)).first()
+    if not form:
+        return jsonify({"error": "Form not found"}), 404
+    return jsonify(
+        {
+            "id": form.id,
+            "name": form.name,
+            "slug": form.slug,
+            "description": form.description,
+            "content_json": form.content_json,
+            "file_path": form.file_path,
+            "is_active": form.is_active,
+            "created_at": form.created_at.isoformat() if form.created_at else None,
+            "updated_at": form.updated_at.isoformat() if form.updated_at else None,
+        }
+    )
+
+
+@api.get("/api/admin/forms")
+def admin_forms():
+    _, error = _require_superadmin()
+    if error:
+        return error
+    items = [
+        {
+            "id": form.id,
+            "name": form.name,
+            "slug": form.slug,
+            "description": form.description,
+            "file_path": form.file_path,
+            "content_json": form.content_json,
+            "is_active": form.is_active,
+            "created_at": form.created_at.isoformat() if form.created_at else None,
+            "updated_at": form.updated_at.isoformat() if form.updated_at else None,
+        }
+        for form in Form.query.order_by(Form.name.asc()).all()
+    ]
+    return jsonify({"items": items, "count": len(items)})
+
+
+@api.post("/api/admin/forms")
+def admin_form_create():
+    _, error = _require_superadmin()
+    if error:
+        return error
+    payload = request.get_json(silent=True) or {}
+    try:
+        form = create_form(
+            name=(payload.get("name") or "").strip(),
+            description=(payload.get("description") or "").strip() or None,
+            content_json=payload.get("content_json") or "{}",
+            is_active=bool(payload.get("is_active", True)),
+        )
+        return jsonify({"item": {"id": form.id, "slug": form.slug}}), 201
+    except InvalidFormError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+
+@api.put("/api/admin/forms/<form_id>")
+def admin_form_update(form_id: str):
+    _, error = _require_superadmin()
+    if error:
+        return error
+    payload = request.get_json(silent=True) or {}
+    try:
+        form = update_form(
+            form_id,
+            name=(payload.get("name") or "").strip(),
+            description=(payload.get("description") or "").strip() or None,
+            content_json=payload.get("content_json") or "{}",
+            is_active=bool(payload.get("is_active", True)),
+        )
+        return jsonify({"item": {"id": form.id, "slug": form.slug}})
+    except FormNotFoundError as exc:
+        return jsonify({"error": str(exc)}), 404
+    except InvalidFormError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+
+@api.delete("/api/admin/forms/<form_id>")
+def admin_form_delete(form_id: str):
+    _, error = _require_superadmin()
+    if error:
+        return error
+    try:
+        delete_form(form_id)
+        return jsonify({"ok": True})
+    except FormNotFoundError as exc:
+        return jsonify({"error": str(exc)}), 404
+
+
 @api.post("/api/forms/<form_id>/execute")
 def execute_form_route(form_id: str):
     payload = request.get_json(silent=True) or {}
@@ -183,6 +292,9 @@ def run_flow(flow_id: str):
 
 @api.get("/api/admin/flows")
 def admin_flows():
+    _, error = _require_superadmin()
+    if error:
+        return error
     items = [
         {
             "id": flow.id,
@@ -201,9 +313,23 @@ def admin_flows():
 
 @api.get("/api/admin/flows/<flow_id>")
 def admin_flow_detail(flow_id: str):
+    _, error = _require_superadmin()
+    if error:
+        return error
     flow = Flow.query.filter((Flow.id == flow_id) | (Flow.slug == flow_id)).first()
     if not flow:
       return jsonify({"error": "Flow not found"}), 404
+    steps = [
+        {
+            "flow_id": step.flow_id,
+            "form_id": step.form_id,
+            "form_name": step.form.name if step.form else None,
+            "form_slug": step.form.slug if step.form else None,
+            "step_number": step.step_number,
+            "is_required": step.is_required,
+        }
+        for step in sorted(flow.form_steps, key=lambda item: item.step_number)
+    ]
     return jsonify(
         {
             "id": flow.id,
@@ -213,6 +339,7 @@ def admin_flow_detail(flow_id: str):
             "content_json": flow.content_json,
             "file_path": flow.file_path,
             "is_active": flow.is_active,
+            "steps": steps,
             "created_at": flow.created_at.isoformat() if flow.created_at else None,
             "updated_at": flow.updated_at.isoformat() if flow.updated_at else None,
         }
@@ -221,6 +348,9 @@ def admin_flow_detail(flow_id: str):
 
 @api.post("/api/admin/flows")
 def admin_flow_create():
+    _, error = _require_superadmin()
+    if error:
+        return error
     payload = request.get_json(silent=True) or {}
     try:
         flow = create_flow(
@@ -236,6 +366,9 @@ def admin_flow_create():
 
 @api.put("/api/admin/flows/<flow_id>")
 def admin_flow_update(flow_id: str):
+    _, error = _require_superadmin()
+    if error:
+        return error
     payload = request.get_json(silent=True) or {}
     try:
         flow = update_flow(
@@ -254,11 +387,64 @@ def admin_flow_update(flow_id: str):
 
 @api.delete("/api/admin/flows/<flow_id>")
 def admin_flow_delete(flow_id: str):
+    _, error = _require_superadmin()
+    if error:
+        return error
     try:
         delete_flow(flow_id)
         return jsonify({"ok": True})
     except FlowNotFoundError as exc:
         return jsonify({"error": str(exc)}), 404
+
+
+@api.post("/api/admin/flows/<flow_id>/steps")
+def admin_flow_add_step(flow_id: str):
+    _, error = _require_superadmin()
+    if error:
+        return error
+    payload = request.get_json(silent=True) or {}
+    form_id = (payload.get("form_id") or "").strip()
+    try:
+        step_number = int(payload.get("step_number"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "step_number is required."}), 400
+    is_required = bool(payload.get("is_required", True))
+    if not form_id:
+        return jsonify({"error": "form_id is required."}), 400
+    flow = Flow.query.filter((Flow.id == flow_id) | (Flow.slug == flow_id)).first()
+    if not flow:
+        return jsonify({"error": "Flow not found"}), 404
+    form = Form.query.filter((Form.id == form_id) | (Form.slug == form_id)).first()
+    if not form:
+        return jsonify({"error": "Form not found"}), 404
+    existing = FlowFormStep.query.filter_by(flow_id=flow.id, step_number=step_number).first()
+    if existing:
+        existing.form_id = form.id
+        existing.is_required = is_required
+    else:
+        db.session.add(
+            FlowFormStep(
+                flow_id=flow.id,
+                form_id=form.id,
+                step_number=step_number,
+                is_required=is_required,
+            )
+        )
+    db.session.commit()
+    return jsonify({"ok": True})
+
+
+@api.delete("/api/admin/flows/<flow_id>/steps/<form_id>")
+def admin_flow_remove_step(flow_id: str, form_id: str):
+    _, error = _require_superadmin()
+    if error:
+        return error
+    step = FlowFormStep.query.filter_by(flow_id=flow_id, form_id=form_id).first()
+    if not step:
+        return jsonify({"error": "Step not found"}), 404
+    db.session.delete(step)
+    db.session.commit()
+    return jsonify({"ok": True})
 
 
 @api.get("/api/organizations")

@@ -24,13 +24,13 @@ function Landing() {
           </Link>
           <div className="flex items-center gap-2">
             <Link to={isLoggedIn ? "/dashboard" : "/login"}>
-                <Button variant="ghost" size="sm">
-                  {isLoggedIn ? "Dashboard" : "Sign In"}
-                </Button>
+              <Button variant="ghost" className="bg-black" size="sm">
+                {isLoggedIn ? "Dashboard" : "Sign In"}
+              </Button>
             </Link>
-            <Link to="/create-organization">
+            {/* <Link to="/create-organization">
               <Button size="sm">Get started</Button>
-            </Link>
+            </Link> */}
           </div>
         </div>
       </header>
@@ -48,14 +48,14 @@ function Landing() {
             Build AI workflows for your organization. Invite your team, share prompts,
             and ship faster with structured flows.
           </p>
-        <div className="mt-10 flex justify-center">
-          <Link to={isLoggedIn ? "/dashboard" : "/login"}>
-            <Button>
-              {isLoggedIn ? "Dashboard" : "Sign In"}
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-          </Link>
-        </div>
+          <div className="mt-10 flex justify-center">
+            <Link to={isLoggedIn ? "/dashboard" : "/login"}>
+              <Button>
+                {isLoggedIn ? "Dashboard" : "Sign In"}
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
         </div>
       </main>
 

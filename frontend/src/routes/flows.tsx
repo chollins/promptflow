@@ -9,7 +9,7 @@ type FlowItem = {
   version: string;
   name: string;
   description: string;
-  runtime: { mode: "guided" | "automatic"; default_review_required: boolean };
+  runtime?: { mode: "guided" | "automatic"; default_review_required: boolean };
   steps: Array<{ id: string; name: string; sequence: number }>;
 };
 
@@ -30,14 +30,14 @@ function FlowsPage() {
     <AppShell>
       <PageHeader
         title="Flows"
-        description="Prompt flows are loaded from JSON files and run step by step."
+        description="Prompt flows are loaded from the backend database and run step by step."
       />
       <div className="grid grid-cols-1 gap-4">
         {items.length === 0 ? (
           <Card className="p-5">
             <div className="font-medium">No flows found</div>
             <p className="mt-2 text-sm text-muted-foreground">
-              Add flow JSON files to backend/flows to populate this page.
+              Add flows and flow steps in the backend database to populate this page.
             </p>
           </Card>
         ) : (
@@ -50,7 +50,7 @@ function FlowsPage() {
                     {flow.description || "No description."}
                   </p>
                   <p className="mt-2 text-xs text-muted-foreground">
-                    {flow.steps.length} steps · {flow.runtime.mode}
+                    {flow.steps.length} steps · {flow.runtime?.mode ?? "guided"}
                   </p>
                 </div>
                 <Link

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 
 from extensions import db
@@ -27,5 +26,5 @@ class UUIDMixin:
     id = db.Column(
         db.String(36),
         primary_key=True,
-        default=uuid.uuid4,
+        default=lambda: str(uuid.uuid4()),
     )

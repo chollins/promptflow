@@ -3,12 +3,11 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Any
 
 from pydantic import ValidationError
 
 from extensions import db
-from models.flow import Flow
+from models import Flow
 from .schemas.prompt_flow import PromptFlow
 
 logger = logging.getLogger(__name__)
@@ -43,9 +42,32 @@ def _load_flow_from_file(flow_id: str, file_path: str) -> PromptFlow:
 
 
 def load_flow_definition(flow: Flow) -> PromptFlow:
-    if flow.content_json:
-        return _load_flow_from_text(flow.slug, flow.content_json)
-    return _load_flow_from_file(flow.slug, flow.file_path)
+    steps = sorted(flow.form_steps, key=lambda step: step.step_number)
+    if not steps:
+        if flow.content_json:
+            return _load_flow_from_text(flow.slug, flow.content_json)
+        return _load_flow_from_file(flow.slug, flow.file_path)
+
+    return PromptFlow(
+        id=flow.slug,
+        version="1.0",
+        name=flow.name,
+        description=flow.description or "",
+        steps=[
+            {
+                "id": f"step-{step.step_number}",
+                "sequence": step.step_number,
+                "name": step.form.name if step.form else step.form_id,
+                "prompt_form_id": step.form.slug if step.form else step.form_id,
+                "input_bindings": {},
+                "dynamic_fields": [],
+                "review": {"required": step.is_required, "editable": True},
+                "output": None,
+                "next": None,
+            }
+            for step in steps
+        ],
+    )
 
 
 def get_flow(flow_id: str) -> PromptFlow:

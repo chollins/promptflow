@@ -29,14 +29,14 @@ function FormsPage() {
     <AppShell>
       <PageHeader
         title="Forms"
-        description="Prompt forms are loaded from JSON and executed by the backend service."
+        description="Prompt forms are loaded from the backend database and executed by the backend service."
       />
       <div className="grid grid-cols-1 gap-4">
         {items.length === 0 ? (
           <Card className="p-5">
             <div className="font-medium">No forms found</div>
             <p className="mt-2 text-sm text-muted-foreground">
-              Add form JSON files to backend/forms to populate this page.
+              Add forms in the backend database to populate this page.
             </p>
           </Card>
         ) : (

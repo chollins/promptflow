@@ -170,9 +170,10 @@ export function FlowRunner({ flowId }: FlowRunnerProps) {
 
   useEffect(() => {
     if (!currentStep || forms[currentStep.prompt_form_id]) return;
-    apiGet<RuntimeForm>(`/forms/${currentStep.prompt_form_id}`)
+    const formKey = currentStep.prompt_form_id;
+    apiGet<RuntimeForm>(`/forms/${formKey}`)
       .then((form) => {
-        setForms((prev) => ({ ...prev, [form.id]: form }));
+        setForms((prev) => ({ ...prev, [form.id]: form, [formKey]: form }));
         setValues((prev) => {
           const next = { ...prev };
           for (const field of form.fields) {
@@ -186,7 +187,7 @@ export function FlowRunner({ flowId }: FlowRunnerProps) {
 
   const renderedFields = useMemo(() => {
     if (!currentStep || !currentForm) return [];
-    if (currentStep.dynamic_fields.length > 0) {
+    if (currentStep.dynamic_fields && currentStep.dynamic_fields.length > 0) {
       return currentStep.dynamic_fields
         .map((fieldId) => currentForm.fields.find((field) => field.id === fieldId))
         .filter(Boolean) as RuntimeField[];

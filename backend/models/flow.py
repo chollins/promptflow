@@ -39,6 +39,13 @@ class Flow(db.Model, UUIDMixin, TimestampMixin):
         default=True,
     )
 
+    form_steps = db.relationship(
+        "FlowFormStep",
+        back_populates="flow",
+        cascade="all, delete-orphan",
+        order_by="FlowFormStep.step_number",
+    )
+
     organizations = db.relationship(
         "OrganizationFlowAccess",
         back_populates="flow",
