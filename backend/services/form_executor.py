@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 import logging
 import re
 
@@ -18,6 +19,7 @@ class FormExecuteResponse(BaseModel):
     prompt: str
     result: str
     values: dict = Field(default_factory=dict)
+    debug: dict | None = None
 
 
 def _find_unresolved_placeholders(rendered_prompt: str) -> list[str]:
@@ -32,7 +34,13 @@ def _render_prompt_with_validation(template: str, values: dict[str, str]) -> str
     return rendered
 
 
-def execute_form(form_id: str, values: dict | None = None) -> FormExecuteResponse:
+def execute_form(
+    form_id: str,
+    values: dict | None = None,
+    *,
+    include_debug: bool = False,
+) -> FormExecuteResponse:
+    started_at = datetime.utcnow()
     form = get_form(form_id)
     merged_values = {key: str(value) for key, value in (values or {}).items()}
     rendered_system_prompt = _render_prompt_with_validation(form.prompt.system, merged_values)
@@ -43,5 +51,68 @@ def execute_form(form_id: str, values: dict | None = None) -> FormExecuteRespons
         model=form.model.name,
         temperature=form.model.temperature,
     )
+    completed_at = datetime.utcnow()
+    debug = None
+    if include_debug:
+        debug = {
+            "input_sources": [
+                {
+                    "field_id": field.id,
+                    "label": field.label,
+                    "source_type": "Current Form Input",
+                    "source_name": "Current Form Input",
+                    "path": f"values.{field.id}",
+                    "value": merged_values.get(field.id),
+                }
+                for field in form.fields
+            ],
+            "prompt_template": {
+                "system": form.prompt.system,
+                "user": form.prompt.user,
+            },
+            "resolved_prompt": {
+                "system": rendered_system_prompt,
+                "user": rendered_prompt,
+            },
+            "model_configuration": {
+                "provider": form.model.provider,
+                "name": form.model.name,
+                "temperature": form.model.temperature,
+            },
+            "output_schema": {
+                "type": "object",
+                "properties": {
+                    field.id: {
+                        "label": field.label,
+                        "type": field.type,
+                        "required": field.required,
+                        "description": field.description,
+                        "default": field.default,
+                        "options": field.options,
+                    }
+                    for field in form.fields
+                },
+                "required": [field.id for field in form.fields if field.required],
+            },
+            "raw_response": result,
+            "execution_details": {
+                "form_id": form.id,
+                "started_at": started_at.isoformat() + "Z",
+                "completed_at": completed_at.isoformat() + "Z",
+                "duration_ms": round((completed_at - started_at).total_seconds() * 1000, 2),
+                "status": "completed",
+            },
+            "runtime_state": {
+                "status": "completed",
+                "current_form_id": form.id,
+                "values": merged_values,
+            },
+        }
     logger.info("Form executed form=%s", form_id)
-    return FormExecuteResponse(form_id=form_id, prompt=rendered_prompt, result=result, values=merged_values)
+    return FormExecuteResponse(
+        form_id=form_id,
+        prompt=rendered_prompt,
+        result=result,
+        values=merged_values,
+        debug=debug,
+    )

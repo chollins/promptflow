@@ -4,6 +4,7 @@ import json
 import logging
 import re
 import time
+from datetime import datetime
 from pathlib import Path
 
 from pydantic import BaseModel, Field
@@ -38,6 +39,7 @@ class FlowStepResult(BaseModel):
 class FlowExecuteResponse(BaseModel):
     context: dict = Field(default_factory=dict)
     steps: list[FlowStepResult] = Field(default_factory=list)
+    debug: dict | None = None
 
 
 def _find_step(flow: PromptFlow, step_id: str) -> FlowStep:
@@ -47,14 +49,49 @@ def _find_step(flow: PromptFlow, step_id: str) -> FlowStep:
     raise FlowStepNotFoundError(f"Step '{step_id}' not found in flow '{flow.id}'")
 
 
-def _build_step_values(step: FlowStep, user_values: dict, context: ExecutionContext) -> dict[str, str]:
+def _build_step_values(
+    step: FlowStep,
+    user_values: dict,
+    context: ExecutionContext,
+) -> tuple[dict[str, str], list[dict[str, object]]]:
     values = {key: str(value) for key, value in (user_values or {}).items()}
+    input_sources: list[dict[str, object]] = [
+        {
+            "field_id": key,
+            "label": key,
+            "source_type": "Current Form Input",
+            "source_name": "Current Form Input",
+            "path": f"values.{key}",
+            "value": str(value),
+        }
+        for key, value in (user_values or {}).items()
+    ]
     for key, value in context.all().items():
         values[key] = str(value)
+        input_sources.append(
+            {
+                "field_id": key,
+                "label": key,
+                "source_type": "Context Value",
+                "source_name": "Execution Context",
+                "path": f"context.{key}",
+                "value": str(value),
+            }
+        )
     for prompt_var, context_key in step.input_bindings.items():
         bound = context.get(context_key)
         if bound is not None:
             values[prompt_var] = str(bound)
+            input_sources.append(
+                {
+                    "field_id": prompt_var,
+                    "label": prompt_var,
+                    "source_type": "Bound Context",
+                    "source_name": context_key,
+                    "path": f"context.{context_key}",
+                    "value": str(bound),
+                }
+            )
         else:
             logger.warning(
                 "Missing context key for binding flow_step=%s prompt_var=%s context_key=%s",
@@ -62,7 +99,7 @@ def _build_step_values(step: FlowStep, user_values: dict, context: ExecutionCont
                 prompt_var,
                 context_key,
             )
-    return values
+    return values, input_sources
 
 
 def _find_unresolved_placeholders(rendered_prompt: str) -> list[str]:
@@ -90,10 +127,18 @@ def _save_output(flow_id: str, output: OutputSettings, result: str) -> None:
             (output_dir / f"{output.save_as}.md").write_text(result, encoding="utf-8")
 
 
-def _execute_step(flow: PromptFlow, step: FlowStep, user_values: dict, context: ExecutionContext) -> FlowStepResult:
+def _execute_step(
+    flow: PromptFlow,
+    step: FlowStep,
+    user_values: dict,
+    context: ExecutionContext,
+    *,
+    include_debug: bool = False,
+) -> tuple[FlowStepResult, dict | None]:
     started = time.perf_counter()
+    started_at = datetime.utcnow()
     form = get_form(step.prompt_form_id)
-    values = _build_step_values(step, user_values, context)
+    values, input_sources = _build_step_values(step, user_values, context)
     rendered_system_prompt = _render_prompt_with_validation(form.prompt.system, values)
     rendered_prompt = _render_prompt_with_validation(form.prompt.user, values)
     result = execute_prompt(
@@ -102,6 +147,7 @@ def _execute_step(flow: PromptFlow, step: FlowStep, user_values: dict, context: 
         model=form.model.name,
         temperature=form.model.temperature,
     )
+    completed_at = datetime.utcnow()
     if step.output:
         context.set(step.output.save_as, result)
         _save_output(flow.id, step.output, result)
@@ -111,7 +157,7 @@ def _execute_step(flow: PromptFlow, step: FlowStep, user_values: dict, context: 
         step.id,
         (time.perf_counter() - started) * 1000,
     )
-    return FlowStepResult(
+    step_result = FlowStepResult(
         id=step.id,
         name=step.name,
         sequence=step.sequence,
@@ -121,11 +167,68 @@ def _execute_step(flow: PromptFlow, step: FlowStep, user_values: dict, context: 
         next=step.next,
         output=step.output.model_dump() if step.output else None,
     )
+    debug = None
+    if include_debug:
+        debug = {
+            "input_sources": input_sources,
+            "prompt_template": {
+                "system": form.prompt.system,
+                "user": form.prompt.user,
+            },
+            "resolved_prompt": {
+                "system": rendered_system_prompt,
+                "user": rendered_prompt,
+            },
+            "model_configuration": {
+                "provider": form.model.provider,
+                "name": form.model.name,
+                "temperature": form.model.temperature,
+            },
+            "output_schema": {
+                "type": "object",
+                "properties": {
+                    field.id: {
+                        "label": field.label,
+                        "type": field.type,
+                        "required": field.required,
+                        "description": field.description,
+                        "default": field.default,
+                        "options": field.options,
+                    }
+                    for field in form.fields
+                },
+                "required": [field.id for field in form.fields if field.required],
+            },
+            "raw_response": result,
+            "execution_details": {
+                "flow_id": flow.id,
+                "step_id": step.id,
+                "started_at": started_at.isoformat() + "Z",
+                "completed_at": completed_at.isoformat() + "Z",
+                "duration_ms": round((completed_at - started_at).total_seconds() * 1000, 2),
+                "status": "completed",
+                "retry_count": 0,
+                "validation_status": "passed",
+            },
+            "runtime_state": {
+                "status": "completed",
+                "current_step": step.id,
+                "context": context.all(),
+            },
+        }
+    return step_result, debug
 
 
-def execute_flow(flow_id: str, values: dict | None = None, context: dict | None = None, step_id: str | None = None) -> FlowExecuteResponse:
+def execute_flow(
+    flow_id: str,
+    values: dict | None = None,
+    context: dict | None = None,
+    step_id: str | None = None,
+    *,
+    include_debug: bool = False,
+) -> FlowExecuteResponse:
     flow = get_flow(flow_id)
     step = _find_step(flow, step_id) if step_id else sorted(flow.steps, key=lambda item: item.sequence)[0]
     execution_context = ExecutionContext(context)
-    step_result = _execute_step(flow, step, values or {}, execution_context)
-    return FlowExecuteResponse(context=execution_context.all(), steps=[step_result])
+    step_result, debug = _execute_step(flow, step, values or {}, execution_context, include_debug=include_debug)
+    return FlowExecuteResponse(context=execution_context.all(), steps=[step_result], debug=debug)

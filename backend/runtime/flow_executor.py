@@ -38,6 +38,7 @@ class FlowStepResult(BaseModel):
 class FlowExecuteResponse(BaseModel):
     context: dict = Field(default_factory=dict)
     steps: list[FlowStepResult] = Field(default_factory=list)
+    debug: dict | None = None
 
 
 def _find_step(flow: PromptFlow, step_id: str) -> FlowStep:
@@ -85,7 +86,7 @@ def _save_output(flow_id: str, output: OutputSettings, result: str) -> None:
             (output_dir / f"{output.save_as}.md").write_text(result, encoding="utf-8")
 
 
-def _execute_step(flow: PromptFlow, step: FlowStep, user_values: dict, context: ExecutionContext) -> FlowStepResult:
+def _execute_step(flow: PromptFlow, step: FlowStep, user_values: dict, context: ExecutionContext, include_debug: bool = False) -> tuple[FlowStepResult, dict | None]:
     started = time.perf_counter()
     form = get_form(step.prompt_form_id)
     values = _build_step_values(step, user_values, context)
@@ -97,11 +98,13 @@ def _execute_step(flow: PromptFlow, step: FlowStep, user_values: dict, context: 
         model=form.model.name,
         temperature=form.model.temperature,
     )
+    duration_ms = (time.perf_counter() - started) * 1000
     if step.output:
         context.set(step.output.save_as, result)
         _save_output(flow.id, step.output, result)
-    logger.info("Step completed flow=%s step=%s in %.1f ms", flow.id, step.id, (time.perf_counter() - started) * 1000)
-    return FlowStepResult(
+    logger.info("Step completed flow=%s step=%s in %.1f ms", flow.id, step.id, duration_ms)
+    
+    step_result = FlowStepResult(
         id=step.id,
         name=step.name,
         sequence=step.sequence,
@@ -112,11 +115,106 @@ def _execute_step(flow: PromptFlow, step: FlowStep, user_values: dict, context: 
         output=step.output.model_dump() if step.output else None,
     )
 
+    debug_info = None
+    if include_debug:
+        input_sources = []
+        for field in form.fields:
+            if field.id in user_values:
+                val = user_values[field.id]
+                input_sources.append({
+                    "field_id": field.id,
+                    "label": field.label,
+                    "source_type": "Current Form Input",
+                    "source_name": "Current Form Input",
+                    "path": f"values.{field.id}",
+                    "value": val,
+                })
+            elif field.id in context.all():
+                val = context.get(field.id)
+                input_sources.append({
+                    "field_id": field.id,
+                    "label": field.label,
+                    "source_type": "Previous Step Output",
+                    "source_name": "Context",
+                    "path": f"context.{field.id}",
+                    "value": val,
+                })
 
-def execute_flow(flow_id: str, values: dict | None = None, context: dict | None = None, step_id: str | None = None) -> FlowExecuteResponse:
+        for prompt_var, context_key in step.input_bindings.items():
+            if context_key in context.all():
+                # Find if there is a corresponding field
+                field_label = prompt_var
+                for f in form.fields:
+                    if f.id == prompt_var:
+                        field_label = f.label
+                        break
+                input_sources.append({
+                    "field_id": prompt_var,
+                    "label": field_label,
+                    "source_type": "Previous Step Output",
+                    "source_name": "Context Binding",
+                    "path": f"context.{context_key}",
+                    "value": context.get(context_key),
+                })
+
+        output_schema = None
+        if step.output:
+            output_schema = {
+                "type": "object",
+                "save_as": step.output.save_as,
+                "formats": step.output.formats
+            }
+            
+        debug_info = {
+            "input_sources": input_sources,
+            "prompt_template": {
+                "system": form.prompt.system,
+                "user": form.prompt.user,
+            },
+            "resolved_prompt": {
+                "system": rendered_system_prompt,
+                "user": rendered_prompt,
+            },
+            "model_configuration": {
+                "provider": form.model.provider,
+                "name": form.model.name,
+                "temperature": form.model.temperature,
+            },
+            "output_schema": output_schema,
+            "raw_response": result,
+            "execution_details": {
+                "duration_ms": int(duration_ms),
+            }
+        }
+
+    return step_result, debug_info
+
+
+def execute_flow(flow_id: str, values: dict | None = None, context: dict | None = None, step_id: str | None = None, include_debug: bool = False) -> FlowExecuteResponse:
     flow = get_flow(flow_id)
     step = _find_step(flow, step_id) if step_id else sorted(flow.steps, key=lambda item: item.sequence)[0]
     execution_context = ExecutionContext(context)
-    step_result = _execute_step(flow, step, values or {}, execution_context)
-    return FlowExecuteResponse(context=execution_context.all(), steps=[step_result])
+    step_result, debug_info = _execute_step(flow, step, values or {}, execution_context, include_debug)
+    
+    if debug_info:
+        completed = []
+        pending = []
+        found_current = False
+        for s in sorted(flow.steps, key=lambda item: item.sequence):
+            if s.id == step.id:
+                found_current = True
+                completed.append(s.id)
+            elif not found_current:
+                completed.append(s.id)
+            else:
+                pending.append(s.id)
+                
+        debug_info["runtime_state"] = {
+            "status": "completed",
+            "current_step": step.id,
+            "completed_steps": completed,
+            "pending_steps": pending,
+        }
+        
+    return FlowExecuteResponse(context=execution_context.all(), steps=[step_result], debug=debug_info)
 

@@ -8,6 +8,38 @@ type FormExecuteResult = {
   prompt: string;
   result: string;
   values: Record<string, string>;
+  debug?: FormExecutionDebug | null;
+};
+
+export type FormExecutionDebug = {
+  input_sources?: Array<{
+    field_id: string;
+    label: string;
+    source_type: string;
+    source_name: string;
+    path: string;
+    value: unknown;
+  }>;
+  prompt_template?: { system: string; user: string } | null;
+  resolved_prompt?: { system: string; user: string } | null;
+  model_configuration?: Record<string, unknown> | null;
+  output_schema?: unknown;
+  raw_response?: unknown;
+  execution_details?: Record<string, unknown> | null;
+  runtime_state?: Record<string, unknown> | null;
+};
+
+export type FormRunnerSnapshot = {
+  form: PromptForm;
+  values: Record<string, string>;
+  prompt: string;
+  result: string;
+  debug: FormExecutionDebug | null;
+};
+
+type FormRunnerProps = {
+  formId: string;
+  onDebugSnapshot?: (snapshot: FormRunnerSnapshot | null) => void;
 };
 
 function formatLlmResult(text: string) {
@@ -23,11 +55,12 @@ function formatLlmResult(text: string) {
     .trim();
 }
 
-export function FormRunner({ formId }: { formId: string }) {
+export function FormRunner({ formId, onDebugSnapshot }: FormRunnerProps) {
   const [form, setForm] = useState<PromptForm | null>(null);
   const [values, setValues] = useState<Record<string, string>>({});
   const [prompt, setPrompt] = useState("");
   const [result, setResult] = useState("");
+  const [debug, setDebug] = useState<FormExecutionDebug | null>(null);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +73,7 @@ export function FormRunner({ formId }: { formId: string }) {
       .then((data) => {
         if (!active) return;
         setForm(data);
+        setDebug(null);
         const next: Record<string, string> = {};
         for (const field of data.fields) {
           next[field.id] = field.type === "checkbox" ? "false" : (field.default ?? "");
@@ -65,12 +99,28 @@ export function FormRunner({ formId }: { formId: string }) {
       });
       setPrompt(response.prompt);
       setResult(response.result);
+      setDebug(response.debug ?? null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to execute form");
     } finally {
       setRunning(false);
     }
   }
+
+  useEffect(() => {
+    if (!onDebugSnapshot) return;
+    if (!form) {
+      onDebugSnapshot(null);
+      return;
+    }
+    onDebugSnapshot({
+      form,
+      values,
+      prompt,
+      result,
+      debug,
+    });
+  }, [onDebugSnapshot, form, values, prompt, result, debug]);
 
   if (loading) {
     return <Card className="p-5">Loading form...</Card>;

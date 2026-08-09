@@ -23,6 +23,7 @@ export type RuntimeForm = {
   version: string;
   fields: RuntimeField[];
   prompt: { system: string; user: string };
+  model?: { provider: string; name: string; temperature: number };
 };
 
 export type RuntimeStep = {
@@ -60,10 +61,43 @@ type FlowExecuteStep = {
 type FlowExecuteResponse = {
   context: Record<string, unknown>;
   steps: FlowExecuteStep[];
+  debug?: FlowExecutionDebug | null;
+};
+
+export type FlowExecutionDebug = {
+  input_sources?: Array<{
+    field_id: string;
+    label: string;
+    source_type: string;
+    source_name: string;
+    path: string;
+    value: unknown;
+  }>;
+  prompt_template?: { system: string; user: string } | null;
+  resolved_prompt?: { system: string; user: string } | null;
+  model_configuration?: Record<string, unknown> | null;
+  output_schema?: unknown;
+  raw_response?: unknown;
+  execution_details?: Record<string, unknown> | null;
+  runtime_state?: Record<string, unknown> | null;
+};
+
+export type FlowRunnerSnapshot = {
+  flow: RuntimeFlow;
+  currentStep: RuntimeStep;
+  currentForm: RuntimeForm | null;
+  currentStepIndex: number;
+  values: FieldState;
+  context: Record<string, unknown>;
+  stepPrompt: string;
+  stepResult: string;
+  stepResults: FlowExecuteStep[];
+  debug: FlowExecutionDebug | null;
 };
 
 type FlowRunnerProps = {
   flowId: string;
+  onDebugSnapshot?: (snapshot: FlowRunnerSnapshot | null) => void;
 };
 
 type FieldState = Record<string, string>;
@@ -130,7 +164,7 @@ function FieldEditor({
   );
 }
 
-export function FlowRunner({ flowId }: FlowRunnerProps) {
+export function FlowRunner({ flowId, onDebugSnapshot }: FlowRunnerProps) {
   const [flow, setFlow] = useState<RuntimeFlow | null>(null);
   const [forms, setForms] = useState<Record<string, RuntimeForm>>({});
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
@@ -139,6 +173,7 @@ export function FlowRunner({ flowId }: FlowRunnerProps) {
   const [stepResults, setStepResults] = useState<FlowExecuteStep[]>([]);
   const [stepPrompt, setStepPrompt] = useState<string>("");
   const [stepResult, setStepResult] = useState<string>("");
+  const [stepDebug, setStepDebug] = useState<FlowExecutionDebug | null>(null);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -155,6 +190,7 @@ export function FlowRunner({ flowId }: FlowRunnerProps) {
         setStepResults([]);
         setStepPrompt("");
         setStepResult("");
+        setStepDebug(null);
         setActiveAccordion("step-0");
       })
       .catch((err: Error) => setError(err.message))
@@ -185,6 +221,38 @@ export function FlowRunner({ flowId }: FlowRunnerProps) {
       .catch((err: Error) => setError(err.message));
   }, [currentStep, forms]);
 
+  useEffect(() => {
+    if (!onDebugSnapshot) return;
+    if (!flow || !currentStep) {
+      onDebugSnapshot(null);
+      return;
+    }
+    onDebugSnapshot({
+      flow,
+      currentStep,
+      currentForm: currentForm ?? null,
+      currentStepIndex,
+      values,
+      context,
+      stepPrompt,
+      stepResult,
+      stepResults,
+      debug: stepDebug,
+    });
+  }, [
+    onDebugSnapshot,
+    flow,
+    currentStep,
+    currentForm,
+    currentStepIndex,
+    values,
+    context,
+    stepPrompt,
+    stepResult,
+    stepResults,
+    stepDebug,
+  ]);
+
   const renderedFields = useMemo(() => {
     if (!currentStep || !currentForm) return [];
     if (currentStep.dynamic_fields && currentStep.dynamic_fields.length > 0) {
@@ -209,6 +277,7 @@ export function FlowRunner({ flowId }: FlowRunnerProps) {
       setContext(response.context);
       setStepPrompt(executed.prompt);
       setStepResult(executed.result);
+      setStepDebug(response.debug ?? null);
       setStepResults((prev) => [...prev.slice(0, currentStepIndex), executed]);
       setActiveAccordion(`step-${currentStepIndex}`);
     } catch (err) {

@@ -259,9 +259,11 @@ def admin_form_delete(form_id: str):
 @api.post("/api/forms/<form_id>/execute")
 def execute_form_route(form_id: str):
     payload = request.get_json(silent=True) or {}
+    current_user = _get_current_user()
     result = execute_form(
         form_id=form_id,
         values=payload.get("values") or {},
+        include_debug=bool(current_user and current_user.role and current_user.role.name == "superadmin"),
     )
     return jsonify(result.model_dump())
 
@@ -281,11 +283,13 @@ def get_flow(flow_id: str):
 @api.post("/api/flows/<flow_id>/execute")
 def run_flow(flow_id: str):
     payload = request.get_json(silent=True) or {}
+    current_user = _get_current_user()
     result = execute_flow(
         flow_id=flow_id,
         values=payload.get("values"),
         context=payload.get("context"),
-        step_id=payload.get("step_id")
+        step_id=payload.get("step_id"),
+        include_debug=bool(current_user and current_user.role and current_user.role.name == "superadmin"),
     )
     return jsonify(result.model_dump())
 
