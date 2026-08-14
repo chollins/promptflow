@@ -1,1 +1,3 @@
 .env
+backend/_pycache__/
+backend/models/__pycache__/
