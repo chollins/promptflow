@@ -12,6 +12,14 @@ function getSessionToken() {
   return window.localStorage.getItem(SESSION_TOKEN_KEY);
 }
 
+export function hasSessionToken() {
+  return Boolean(getSessionToken());
+}
+
+export function readSessionToken() {
+  return getSessionToken();
+}
+
 export function setSessionToken(token: string | null) {
   if (typeof window === "undefined") return;
   if (!token) {

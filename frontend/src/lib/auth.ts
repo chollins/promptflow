@@ -26,7 +26,10 @@ export const authService = {
   },
 
   getMe() {
-    return apiGet<AuthUser>("/auth/me");
+    return apiGet<AuthUser>("/auth/me").then((user) => {
+      if (user.session_token) setSessionToken(user.session_token);
+      return user;
+    });
   },
 
   clearSession() {

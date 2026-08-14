@@ -29,6 +29,7 @@ import { Route as AdminManageFlowsRouteImport } from './routes/admin.manage-flow
 import { Route as AdminOrganizationsRouteImport } from './routes/admin.organizations'
 import { Route as FlowsFlowIdRouteImport } from './routes/flows_.$flowId'
 import { Route as FormsFormIdRouteImport } from './routes/forms_.$formId'
+import { Route as AdminFlowsIdRouteImport } from './routes/admin.flows_.$id'
 import { Route as AdminFormsIdRouteImport } from './routes/admin.forms_.$id'
 import { Route as AdminOrganizationsIdRouteImport } from './routes/admin.organizations_.$id'
 
@@ -132,6 +133,11 @@ const FormsFormIdRoute = FormsFormIdRouteImport.update({
   path: '/forms/$formId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminFlowsIdRoute = AdminFlowsIdRouteImport.update({
+  id: '/flows_/$id',
+  path: '/flows/$id',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminFormsIdRoute = AdminFormsIdRouteImport.update({
   id: '/forms_/$id',
   path: '/forms/$id',
@@ -164,6 +170,7 @@ export interface FileRoutesByFullPath {
   '/admin/organizations': typeof AdminOrganizationsRoute
   '/flows/$flowId': typeof FlowsFlowIdRoute
   '/forms/$formId': typeof FormsFormIdRoute
+  '/admin/flows/$id': typeof AdminFlowsIdRoute
   '/admin/forms/$id': typeof AdminFormsIdRoute
   '/admin/organizations/$id': typeof AdminOrganizationsIdRoute
 }
@@ -188,6 +195,7 @@ export interface FileRoutesByTo {
   '/admin/organizations': typeof AdminOrganizationsRoute
   '/flows/$flowId': typeof FlowsFlowIdRoute
   '/forms/$formId': typeof FormsFormIdRoute
+  '/admin/flows/$id': typeof AdminFlowsIdRoute
   '/admin/forms/$id': typeof AdminFormsIdRoute
   '/admin/organizations/$id': typeof AdminOrganizationsIdRoute
 }
@@ -213,6 +221,7 @@ export interface FileRoutesById {
   '/admin/organizations': typeof AdminOrganizationsRoute
   '/flows_/$flowId': typeof FlowsFlowIdRoute
   '/forms_/$formId': typeof FormsFormIdRoute
+  '/admin/flows_/$id': typeof AdminFlowsIdRoute
   '/admin/forms_/$id': typeof AdminFormsIdRoute
   '/admin/organizations_/$id': typeof AdminOrganizationsIdRoute
 }
@@ -239,6 +248,7 @@ export interface FileRouteTypes {
     | '/admin/organizations'
     | '/flows/$flowId'
     | '/forms/$formId'
+    | '/admin/flows/$id'
     | '/admin/forms/$id'
     | '/admin/organizations/$id'
   fileRoutesByTo: FileRoutesByTo
@@ -263,6 +273,7 @@ export interface FileRouteTypes {
     | '/admin/organizations'
     | '/flows/$flowId'
     | '/forms/$formId'
+    | '/admin/flows/$id'
     | '/admin/forms/$id'
     | '/admin/organizations/$id'
   id:
@@ -287,6 +298,7 @@ export interface FileRouteTypes {
     | '/admin/organizations'
     | '/flows_/$flowId'
     | '/forms_/$formId'
+    | '/admin/flows_/$id'
     | '/admin/forms_/$id'
     | '/admin/organizations_/$id'
   fileRoutesById: FileRoutesById
@@ -452,6 +464,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FormsFormIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/flows_/$id': {
+      id: '/admin/flows_/$id'
+      path: '/flows/$id'
+      fullPath: '/admin/flows/$id'
+      preLoaderRoute: typeof AdminFlowsIdRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/forms_/$id': {
       id: '/admin/forms_/$id'
       path: '/forms/$id'
@@ -474,6 +493,7 @@ interface AdminRouteChildren {
   AdminFormsRoute: typeof AdminFormsRoute
   AdminManageFlowsRoute: typeof AdminManageFlowsRoute
   AdminOrganizationsRoute: typeof AdminOrganizationsRoute
+  AdminFlowsIdRoute: typeof AdminFlowsIdRoute
   AdminFormsIdRoute: typeof AdminFormsIdRoute
   AdminOrganizationsIdRoute: typeof AdminOrganizationsIdRoute
 }
@@ -483,6 +503,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminFormsRoute: AdminFormsRoute,
   AdminManageFlowsRoute: AdminManageFlowsRoute,
   AdminOrganizationsRoute: AdminOrganizationsRoute,
+  AdminFlowsIdRoute: AdminFlowsIdRoute,
   AdminFormsIdRoute: AdminFormsIdRoute,
   AdminOrganizationsIdRoute: AdminOrganizationsIdRoute,
 }

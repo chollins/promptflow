@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes, InputHTMLAttributes, LabelHTMLAttributes, ReactNode } from "react";
+import { Slot } from "@radix-ui/react-slot";
 
 type ButtonVariant = "primary" | "secondary" | "ghost";
 type ButtonSize = "md" | "sm";
@@ -7,8 +8,13 @@ export function Button({
   variant = "primary",
   size = "md",
   className = "",
+  asChild = false,
   ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: ButtonVariant; size?: ButtonSize }) {
+}: ButtonHTMLAttributes<HTMLButtonElement> & {
+  variant?: ButtonVariant;
+  size?: ButtonSize;
+  asChild?: boolean;
+}) {
   const base =
     "inline-flex items-center justify-center gap-2 font-medium rounded-md transition-colors disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
   const sizes = {
@@ -20,7 +26,8 @@ export function Button({
     secondary: "bg-background text-foreground border border-border hover:bg-muted",
     ghost: "bg-transparent text-foreground hover:bg-muted",
   } as const;
-  return <button className={`${base} ${sizes[size]} ${variants[variant]} ${className}`} {...props} />;
+  const Comp = asChild ? Slot : "button";
+  return <Comp className={`${base} ${sizes[size]} ${variants[variant]} ${className}`} {...props} />;
 }
 
 export function Input({ className = "", ...props }: InputHTMLAttributes<HTMLInputElement>) {

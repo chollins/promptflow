@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { authService } from "@/lib/auth";
+import { hasSessionToken } from "@/lib/api";
 import { Button } from "@/components/ui-kit";
 import {
   Dialog,
@@ -35,7 +36,7 @@ const ALL_ITEMS: {
       title: "Dashboard",
       url: "/dashboard",
       icon: LayoutDashboard,
-      roles: ["admin", "user", "superadmin"],
+      roles: ["admin", "user", "superadmin", "member"],
     },
     { title: "Flows", url: "/flows", icon: Workflow, roles: ["admin", "member", "superadmin"] },
     { title: "Forms", url: "/forms", icon: Form, roles: ["admin", "member", "superadmin"] },
@@ -79,6 +80,9 @@ export function AppShell({ children }: { children: ReactNode }) {
       })
       .catch(() => {
         if (!active) return;
+        if (hasSessionToken()) {
+          return;
+        }
         setRole(null);
         setName(null);
         navigate({ to: "/login" });

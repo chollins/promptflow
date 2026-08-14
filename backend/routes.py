@@ -189,7 +189,7 @@ def auth_me():
         "email": user.email,
         "role": user.role.name if user.role else None,
         "organization_id": user.organization_id,
-        "session_token": session.get("session_token"),
+        "session_token": user.session_token,
     })
 
 
@@ -276,15 +276,29 @@ def forgot_password():
                 ]
             }
             try:
-                requests.post(
+                response = requests.post(
                     "https://api.mailjet.com/v3.1/send",
                     json=email_payload,
                     auth=HTTPBasicAuth(api_key, secret_key),
                     timeout=10
                 )
-            except Exception:
-                # Silent fail on sending to prevent enumeration/crashes
-                pass
+
+                print("========== MAILJET DEBUG ==========")
+                print("Status code:", response.status_code)
+                print("Response:", response.text)
+                print("===================================")
+
+                response.raise_for_status()
+
+            except requests.RequestException as e:
+                print("========== MAILJET ERROR ==========")
+                print("Error:", str(e))
+
+                if getattr(e, "response", None) is not None:
+                    print("Status:", e.response.status_code)
+                    print("Response:", e.response.text)
+
+                print("===================================")
 
     return jsonify({"ok": True, "message": "If an account exists, a verification code has been sent."})
 

@@ -1,20 +1,11 @@
-import { createFileRoute, redirect, isRedirect } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { AppShell, PageHeader } from "@/components/app-shell";
 import { FormRunner } from "@/components/form-runner";
 import { SuperadminFormRunner } from "@/components/SuperadminFormRunner";
 import { authService } from "@/lib/auth";
-import { apiGet } from "@/lib/api";
 
 export const Route = createFileRoute("/forms_/$formId")({
-  beforeLoad: async () => {
-    try {
-      await apiGet<{ role: string | null }>("/auth/me");
-    } catch (e) {
-      if (isRedirect(e)) throw e;
-      throw redirect({ to: "/login" });
-    }
-  },
   component: FormDetailPage,
 });
 

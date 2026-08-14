@@ -1,21 +1,12 @@
-import { createFileRoute, redirect, isRedirect } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { AppShell, PageHeader } from "@/components/app-shell";
 import { Card } from "@/components/ui-kit";
 import { FlowRunner } from "@/components/flow-runner";
 import { SuperadminFlowRunner } from "@/components/SuperadminFlowRunner";
 import { authService } from "@/lib/auth";
-import { apiGet } from "@/lib/api";
 
 export const Route = createFileRoute("/flows_/$flowId")({
-  beforeLoad: async () => {
-    try {
-      await apiGet<{ role: string | null }>("/auth/me");
-    } catch (e) {
-      if (isRedirect(e)) throw e;
-      throw redirect({ to: "/login" });
-    }
-  },
   component: FlowDetailPage,
 });
 
