@@ -6,7 +6,7 @@ from flask import Flask
 
 from config import Config
 from extensions import cors, db, migrate
-from models import Flow, Invitation, Organization, OrganizationFlowAccess, Role, User
+from models import Flow, Invitation, Organization, OrganizationFlowAccess, Role, User, PasswordResetOTP
 from routes import api
 
 
@@ -38,7 +38,7 @@ def create_app(config_object: type[Config] | None = None) -> Flask:
     )
 
     # Ensure Alembic sees all models through the app import path.
-    _ = (Flow, Invitation, Organization, OrganizationFlowAccess, Role, User)
+    _ = (Flow, Invitation, Organization, OrganizationFlowAccess, Role, User, PasswordResetOTP)
 
     app.register_blueprint(api)
 

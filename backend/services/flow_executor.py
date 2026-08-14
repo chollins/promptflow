@@ -18,7 +18,7 @@ from .schemas.prompt_flow import FlowStep, OutputSettings, PromptFlow
 
 logger = logging.getLogger(__name__)
 OUTPUTS_DIR = Path(__file__).resolve().parent.parent / "outputs"
-_PLACEHOLDER_RE = re.compile(r"\{\{(\w+)\}\}")
+_PLACEHOLDER_RE = re.compile(r"\{\{([\w\.]+)\}\}")
 
 
 class FlowStepNotFoundError(Exception):
@@ -53,8 +53,8 @@ def _build_step_values(
     step: FlowStep,
     user_values: dict,
     context: ExecutionContext,
-) -> tuple[dict[str, str], list[dict[str, object]]]:
-    values = {key: str(value) for key, value in (user_values or {}).items()}
+) -> tuple[dict[str, object], list[dict[str, object]]]:
+    values: dict[str, object] = dict(user_values or {})
     input_sources: list[dict[str, object]] = [
         {
             "field_id": key,
@@ -67,7 +67,7 @@ def _build_step_values(
         for key, value in (user_values or {}).items()
     ]
     for key, value in context.all().items():
-        values[key] = str(value)
+        values[key] = value
         input_sources.append(
             {
                 "field_id": key,
@@ -81,7 +81,7 @@ def _build_step_values(
     for prompt_var, context_key in step.input_bindings.items():
         bound = context.get(context_key)
         if bound is not None:
-            values[prompt_var] = str(bound)
+            values[prompt_var] = bound
             input_sources.append(
                 {
                     "field_id": prompt_var,
@@ -106,7 +106,7 @@ def _find_unresolved_placeholders(rendered_prompt: str) -> list[str]:
     return sorted(set(_PLACEHOLDER_RE.findall(rendered_prompt)))
 
 
-def _render_prompt_with_validation(template: str, values: dict[str, str]) -> str:
+def _render_prompt_with_validation(template: str, values: dict[str, object]) -> str:
     rendered = render_prompt(template, values)
     unresolved = _find_unresolved_placeholders(rendered)
     if unresolved:
@@ -148,6 +148,39 @@ def _execute_step(
         temperature=form.model.temperature,
     )
     completed_at = datetime.utcnow()
+
+    # Parse structured LLM output when the form declares an output schema
+    parsed_result: object = result
+    if form.output:
+        try:
+            clean_result = result.strip()
+            if clean_result.startswith("```json"):
+                clean_result = clean_result[7:]
+            elif clean_result.startswith("```"):
+                clean_result = clean_result[3:]
+            if clean_result.endswith("```"):
+                clean_result = clean_result[:-3]
+            clean_result = clean_result.strip()
+
+            parsed_result = json.loads(clean_result)
+            if not isinstance(parsed_result, (dict, list)):
+                raise ValueError("Expected an object or array.")
+        except (json.JSONDecodeError, ValueError) as exc:
+            logger.warning(
+                "LLM output is not valid JSON for step=%s: %s (raw: %.200s)",
+                step.id, exc, result,
+            )
+            parsed_result = result  # fall back to raw string
+
+    # Store step result in context so subsequent forms can reference it
+    # via data_source: { type: "step_output", step_id: "<step.id>", path: "<key>" }
+    context.store_step_result(
+        step_id=step.id,
+        user_values=user_values or {},
+        raw_result=result,
+        parsed_result=parsed_result,
+    )
+
     if step.output:
         context.set(step.output.save_as, result)
         _save_output(flow.id, step.output, result)

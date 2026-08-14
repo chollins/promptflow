@@ -10,15 +10,15 @@ const ALL_ITEMS: {
   icon: typeof LayoutDashboard;
   roles: Role[];
 }[] = [
-  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, roles: ["admin", "user"] },
-  { title: "Flows", url: "/flows", icon: Workflow, roles: ["admin", "user"] },
-  { title: "Users", url: "/users", icon: Users, roles: ["admin"] },
-  { title: "Organization", url: "/organization", icon: Building2, roles: ["admin"] },
-  { title: "Profile", url: "/profile", icon: User, roles: ["admin", "user", "superadmin"] },
-  { title: "Organizations", url: "/admin/organizations", icon: Building2, roles: ["superadmin"] },
-  { title: "Flows Catalog", url: "/admin/flows", icon: ListTree, roles: ["superadmin"] },
-  { title: "Manage Flow Access", url: "/admin/manage-flows", icon: ShieldCheck, roles: ["superadmin"] },
-];
+    { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, roles: ["admin", "user"] },
+    { title: "Flows", url: "/flows", icon: Workflow, roles: ["admin", "user"] },
+    { title: "Users", url: "/users", icon: Users, roles: ["admin"] },
+    { title: "Organization", url: "/organization", icon: Building2, roles: ["admin"] },
+    { title: "Profile", url: "/settings", icon: User, roles: ["admin", "user", "superadmin"] },
+    { title: "Organizations", url: "/admin/organizations", icon: Building2, roles: ["superadmin"] },
+    { title: "Flows Catalog", url: "/admin/flows", icon: ListTree, roles: ["superadmin"] },
+    { title: "Manage Flow Access", url: "/admin/manage-flows", icon: ShieldCheck, roles: ["superadmin"] },
+  ];
 
 const ROLES: Role[] = ["admin", "user", "superadmin"];
 const ROLE_LABEL: Record<Role, string> = {

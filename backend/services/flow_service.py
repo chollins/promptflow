@@ -55,7 +55,7 @@ def load_flow_definition(flow: Flow) -> PromptFlow:
         description=flow.description or "",
         steps=[
             {
-                "id": f"step-{step.step_number}",
+                "id": step.form.slug.replace("-", "_") if step.form else step.form_id,
                 "sequence": step.step_number,
                 "name": step.form.name if step.form else step.form_id,
                 "prompt_form_id": step.form.slug if step.form else step.form_id,

@@ -1,0 +1,197 @@
+{
+    "flow_context": {
+        "id": "stretch_guide",
+        "name": "Personalized Stretch Guide Generator",
+        "description": "Generate a personalized stretching guide using AI-generated muscles and stretches.",
+        "forms": [
+            {
+                "id": "stretch_information",
+                "name": "Stretch Information",
+                "version": "1.0",
+                "fields": [
+                    {
+                        "id": "first_name",
+                        "label": "First Name",
+                        "type": "text",
+                        "required": true
+                    },
+                    {
+                        "id": "last_name",
+                        "label": "Last Name",
+                        "type": "text",
+                        "required": true
+                    },
+                    {
+                        "id": "area",
+                        "label": "Body Area",
+                        "type": "radio",
+                        "options": [
+                            "Arms",
+                            "Legs",
+                            "Chest",
+                            "Abs",
+                            "Back",
+                            "Shoulders",
+                            "Neck"
+                        ],
+                        "required": true
+                    }
+                ],
+                "prompt": {
+                    "system": "You are an expert in human anatomy and stretching.",
+                    "user": "List 5 key muscles associated with the human {{area}}. Return only a JSON object containing a muscles array of strings."
+                },
+                "output": {
+                    "type": "object",
+                    "schema": {
+                        "muscles": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                },
+                "execution": {
+                    "mode": "interactive"
+                },
+                "model": {
+                    "provider": "openai",
+                    "name": "gpt-4o-mini",
+                    "temperature": 0.3
+                }
+            },
+            {
+                "id": "stretch_muscle",
+                "name": "Select Muscle",
+                "version": "1.0",
+                "fields": [
+                    {
+                        "id": "muscle",
+                        "label": "Muscle",
+                        "type": "radio",
+                        "data_source": {
+                            "type": "step_output",
+                            "step_id": "stretch_information",
+                            "path": "muscles"
+                        },
+                        "required": true
+                    }
+                ],
+                "prompt": {
+                    "system": "You are an expert stretching coach.",
+                    "user": "List 5 common stretches specifically targeting the {{muscle}}. Return only a JSON object containing a stretches array of strings."
+                },
+                "output": {
+                    "type": "object",
+                    "schema": {
+                        "stretches": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                },
+                "execution": {
+                    "mode": "interactive"
+                },
+                "model": {
+                    "provider": "openai",
+                    "name": "gpt-4o-mini",
+                    "temperature": 0.3
+                }
+            },
+            {
+                "id": "stretch_guide",
+                "name": "Generate Stretch Guide",
+                "version": "1.0",
+                "fields": [
+                    {
+                        "id": "stretches",
+                        "label": "Select Stretches",
+                        "type": "checkbox",
+                        "data_source": {
+                            "type": "step_output",
+                            "step_id": "stretch_muscle",
+                            "path": "stretches"
+                        },
+                        "required": true
+                    }
+                ],
+                "prompt": {
+                    "system": "You are an expert stretching coach.",
+                    "user": "Create a personalized stretching guide for {{steps.stretch_information.output.first_name}} {{steps.stretch_information.output.last_name}}. Body area: {{steps.stretch_information.output.area}}. Target muscle: {{steps.stretch_muscle.output.muscle}}. Selected stretches: {{stretches}}. For each stretch provide step-by-step instructions, benefits, and precautions."
+                },
+                "output": {
+                    "type": "object",
+                    "schema": {
+                        "title": {
+                            "type": "string"
+                        },
+                        "introduction": {
+                            "type": "string"
+                        },
+                        "stretches": {
+                            "type": "array"
+                        },
+                        "precautions": {
+                            "type": "array"
+                        }
+                    }
+                },
+                "execution": {
+                    "mode": "interactive"
+                },
+                "model": {
+                    "provider": "openai",
+                    "name": "gpt-4o-mini",
+                    "temperature": 0.7
+                }
+            }
+        ]
+    }
+}
+
+---
+{
+    "id": "stretch_muscle",
+    "name": "Select Muscle",
+    "version": "1.0",
+    "fields": [
+        {
+            "id": "muscle",
+            "label": "Muscle",
+            "type": "radio",
+            "data_source": {
+                "type": "step_output",
+                "step_id": "stretch_information",
+                "path": "muscles"
+            },
+            "required": true
+        }
+    ],
+    "prompt": {
+        "system": "You are an expert stretching coach.",
+        "user": "List 5 common stretches specifically targeting the {{muscle}}. Return only a JSON object containing a stretches array of strings."
+    },
+    "output": {
+        "type": "object",
+        "schema": {
+            "stretches": {
+                "type": "array",
+                "items": {
+                    "type": "string"
+                }
+            }
+        }
+    },
+    "execution": {
+        "mode": "interactive"
+    },
+    "model": {
+        "provider": "openai",
+        "name": "gpt-4o-mini",
+        "temperature": 0.3
+    }
+},

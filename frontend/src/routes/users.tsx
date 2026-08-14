@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect, isRedirect } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { Mail, PencilLine, Plus, RefreshCw, Search, Send, Trash2 } from "lucide-react";
 import { AppShell, PageHeader } from "@/components/app-shell";
@@ -50,6 +50,19 @@ type InviteForm = {
 const PAGE_SIZE = 8;
 
 export const Route = createFileRoute("/users")({
+  beforeLoad: async () => {
+    try {
+      const user = await apiGet<{ role: string | null }>("/auth/me");
+      if (user.role !== "superadmin" && user.role !== "admin") {
+        throw redirect({ to: "/dashboard" });
+      }
+    } catch (e) {
+      if (isRedirect(e)) {
+         throw e;
+      }
+      throw redirect({ to: "/login" });
+    }
+  },
   component: UsersPage,
 });
 

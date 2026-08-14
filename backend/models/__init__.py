@@ -7,6 +7,7 @@ from .form import Form
 from .flow_form_step import FlowFormStep
 from .organization_flow_access import OrganizationFlowAccess
 from .invitation import Invitation
+from .password_reset_otp import PasswordResetOTP
 
 __all__ = [
     "TimestampMixin",
@@ -16,7 +17,8 @@ __all__ = [
     "Organization",
     "Invitation",
     "Flow",
-    "Form",             
+    "Form",
     "FlowFormStep",
     "OrganizationFlowAccess",
+    "PasswordResetOTP",
 ]

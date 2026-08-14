@@ -5,6 +5,7 @@ import {
   Users,
   Building2,
   User,
+  Settings,
   ListTree,
   ShieldCheck,
   Form,
@@ -22,6 +23,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Toaster } from "sonner";
 
 const ALL_ITEMS: {
   title: string;
@@ -29,29 +31,29 @@ const ALL_ITEMS: {
   icon: typeof LayoutDashboard;
   roles: Array<"admin" | "user" | "member" | "superadmin">;
 }[] = [
-  {
-    title: "Dashboard",
-    url: "/dashboard",
-    icon: LayoutDashboard,
-    roles: ["admin", "user", "superadmin"],
-  },
-  { title: "Flows", url: "/flows", icon: Workflow, roles: ["admin", "member", "superadmin"] },
-  { title: "Forms", url: "/forms", icon: Form, roles: ["admin", "member", "superadmin"] },
-  { title: "Users", url: "/users", icon: Users, roles: ["admin", "superadmin"] },
-  { title: "Organization", url: "/organization", icon: Building2, roles: ["admin"] },
-  { title: "Organizations", url: "/admin/organizations", icon: Building2, roles: ["superadmin"] },
-  { title: "Forms Catalog", url: "/admin/forms", icon: Form, roles: ["superadmin"] },
-  { title: "Flow Composer", url: "/admin/flows", icon: ListTree, roles: ["superadmin"] },
+    {
+      title: "Dashboard",
+      url: "/dashboard",
+      icon: LayoutDashboard,
+      roles: ["admin", "user", "superadmin"],
+    },
+    { title: "Flows", url: "/flows", icon: Workflow, roles: ["admin", "member", "superadmin"] },
+    { title: "Forms", url: "/forms", icon: Form, roles: ["admin", "member", "superadmin"] },
+    { title: "Users", url: "/users", icon: Users, roles: ["admin", "superadmin"] },
+    { title: "Organization", url: "/organization", icon: Building2, roles: ["admin"] },
+    { title: "Organizations", url: "/admin/organizations", icon: Building2, roles: ["superadmin"] },
+    { title: "Forms Catalog", url: "/admin/forms", icon: Form, roles: ["superadmin"] },
+    { title: "Flow Composer", url: "/admin/flows", icon: ListTree, roles: ["superadmin"] },
 
-  { 
-    title: "Flow Access",
-    url: "/admin/manage-flows",
-    icon: ShieldCheck,
-    roles: ["superadmin"],
-  },
-  { title: "Profile", url: "/profile", icon: User, roles: ["admin", "user", "member", "superadmin"] },
- 
-];
+    {
+      title: "Flow Access",
+      url: "/admin/manage-flows",
+      icon: ShieldCheck,
+      roles: ["superadmin"],
+    },
+    { title: "Settings", url: "/settings", icon: Settings, roles: ["admin", "user", "member", "superadmin"] },
+
+  ];
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -109,7 +111,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen flex w-full bg-background text-foreground">
+    <div className="h-screen overflow-hidden flex w-full bg-background text-foreground">
+      <Toaster position="top-center" richColors />
       <aside className="hidden md:flex w-64 shrink-0 flex-col border-r border-border bg-background">
         <div className="h-16 flex items-center justify-between px-6 border-b border-border">
           <Link to="/" className="flex items-center gap-2 font-semibold tracking-tight">
@@ -192,7 +195,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </div>
 
-      <main className="flex-1 min-w-0 pt-14 md:pt-0">
+      <main className="flex-1 min-w-0 overflow-y-auto pt-14 md:pt-0">
         <div className="max-w-5xl mx-auto px-6 md:px-10 py-10 md:py-14">{children}</div>
       </main>
 

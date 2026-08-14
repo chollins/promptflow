@@ -14,18 +14,22 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as CreateOrganizationRouteImport } from './routes/create-organization'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as FlowsRouteImport } from './routes/flows'
+import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as FormsRouteImport } from './routes/forms'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as OrganizationRouteImport } from './routes/organization'
-import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as UsersRouteImport } from './routes/users'
+import { Route as VerifyOtpRouteImport } from './routes/verify-otp'
 import { Route as AdminFlowsRouteImport } from './routes/admin.flows'
 import { Route as AdminFormsRouteImport } from './routes/admin.forms'
 import { Route as AdminManageFlowsRouteImport } from './routes/admin.manage-flows'
 import { Route as AdminOrganizationsRouteImport } from './routes/admin.organizations'
 import { Route as FlowsFlowIdRouteImport } from './routes/flows_.$flowId'
 import { Route as FormsFormIdRouteImport } from './routes/forms_.$formId'
+import { Route as AdminFormsIdRouteImport } from './routes/admin.forms_.$id'
 import { Route as AdminOrganizationsIdRouteImport } from './routes/admin.organizations_.$id'
 
 const IndexRoute = IndexRouteImport.update({
@@ -53,6 +57,11 @@ const FlowsRoute = FlowsRouteImport.update({
   path: '/flows',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
+  id: '/forgot-password',
+  path: '/forgot-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const FormsRoute = FormsRouteImport.update({
   id: '/forms',
   path: '/forms',
@@ -68,9 +77,14 @@ const OrganizationRoute = OrganizationRouteImport.update({
   path: '/organization',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ProfileRoute = ProfileRouteImport.update({
-  id: '/profile',
-  path: '/profile',
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SignupRoute = SignupRouteImport.update({
@@ -81,6 +95,11 @@ const SignupRoute = SignupRouteImport.update({
 const UsersRoute = UsersRouteImport.update({
   id: '/users',
   path: '/users',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VerifyOtpRoute = VerifyOtpRouteImport.update({
+  id: '/verify-otp',
+  path: '/verify-otp',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminFlowsRoute = AdminFlowsRouteImport.update({
@@ -113,6 +132,11 @@ const FormsFormIdRoute = FormsFormIdRouteImport.update({
   path: '/forms/$formId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminFormsIdRoute = AdminFormsIdRouteImport.update({
+  id: '/forms_/$id',
+  path: '/forms/$id',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminOrganizationsIdRoute = AdminOrganizationsIdRouteImport.update({
   id: '/organizations_/$id',
   path: '/organizations/$id',
@@ -125,18 +149,22 @@ export interface FileRoutesByFullPath {
   '/create-organization': typeof CreateOrganizationRoute
   '/dashboard': typeof DashboardRoute
   '/flows': typeof FlowsRoute
+  '/forgot-password': typeof ForgotPasswordRoute
   '/forms': typeof FormsRoute
   '/login': typeof LoginRoute
   '/organization': typeof OrganizationRoute
-  '/profile': typeof ProfileRoute
+  '/reset-password': typeof ResetPasswordRoute
+  '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
   '/users': typeof UsersRoute
+  '/verify-otp': typeof VerifyOtpRoute
   '/admin/flows': typeof AdminFlowsRoute
   '/admin/forms': typeof AdminFormsRoute
   '/admin/manage-flows': typeof AdminManageFlowsRoute
   '/admin/organizations': typeof AdminOrganizationsRoute
   '/flows/$flowId': typeof FlowsFlowIdRoute
   '/forms/$formId': typeof FormsFormIdRoute
+  '/admin/forms/$id': typeof AdminFormsIdRoute
   '/admin/organizations/$id': typeof AdminOrganizationsIdRoute
 }
 export interface FileRoutesByTo {
@@ -145,18 +173,22 @@ export interface FileRoutesByTo {
   '/create-organization': typeof CreateOrganizationRoute
   '/dashboard': typeof DashboardRoute
   '/flows': typeof FlowsRoute
+  '/forgot-password': typeof ForgotPasswordRoute
   '/forms': typeof FormsRoute
   '/login': typeof LoginRoute
   '/organization': typeof OrganizationRoute
-  '/profile': typeof ProfileRoute
+  '/reset-password': typeof ResetPasswordRoute
+  '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
   '/users': typeof UsersRoute
+  '/verify-otp': typeof VerifyOtpRoute
   '/admin/flows': typeof AdminFlowsRoute
   '/admin/forms': typeof AdminFormsRoute
   '/admin/manage-flows': typeof AdminManageFlowsRoute
   '/admin/organizations': typeof AdminOrganizationsRoute
   '/flows/$flowId': typeof FlowsFlowIdRoute
   '/forms/$formId': typeof FormsFormIdRoute
+  '/admin/forms/$id': typeof AdminFormsIdRoute
   '/admin/organizations/$id': typeof AdminOrganizationsIdRoute
 }
 export interface FileRoutesById {
@@ -166,18 +198,22 @@ export interface FileRoutesById {
   '/create-organization': typeof CreateOrganizationRoute
   '/dashboard': typeof DashboardRoute
   '/flows': typeof FlowsRoute
+  '/forgot-password': typeof ForgotPasswordRoute
   '/forms': typeof FormsRoute
   '/login': typeof LoginRoute
   '/organization': typeof OrganizationRoute
-  '/profile': typeof ProfileRoute
+  '/reset-password': typeof ResetPasswordRoute
+  '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
   '/users': typeof UsersRoute
+  '/verify-otp': typeof VerifyOtpRoute
   '/admin/flows': typeof AdminFlowsRoute
   '/admin/forms': typeof AdminFormsRoute
   '/admin/manage-flows': typeof AdminManageFlowsRoute
   '/admin/organizations': typeof AdminOrganizationsRoute
   '/flows_/$flowId': typeof FlowsFlowIdRoute
   '/forms_/$formId': typeof FormsFormIdRoute
+  '/admin/forms_/$id': typeof AdminFormsIdRoute
   '/admin/organizations_/$id': typeof AdminOrganizationsIdRoute
 }
 export interface FileRouteTypes {
@@ -188,18 +224,22 @@ export interface FileRouteTypes {
     | '/create-organization'
     | '/dashboard'
     | '/flows'
+    | '/forgot-password'
     | '/forms'
     | '/login'
     | '/organization'
-    | '/profile'
+    | '/reset-password'
+    | '/settings'
     | '/signup'
     | '/users'
+    | '/verify-otp'
     | '/admin/flows'
     | '/admin/forms'
     | '/admin/manage-flows'
     | '/admin/organizations'
     | '/flows/$flowId'
     | '/forms/$formId'
+    | '/admin/forms/$id'
     | '/admin/organizations/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -208,18 +248,22 @@ export interface FileRouteTypes {
     | '/create-organization'
     | '/dashboard'
     | '/flows'
+    | '/forgot-password'
     | '/forms'
     | '/login'
     | '/organization'
-    | '/profile'
+    | '/reset-password'
+    | '/settings'
     | '/signup'
     | '/users'
+    | '/verify-otp'
     | '/admin/flows'
     | '/admin/forms'
     | '/admin/manage-flows'
     | '/admin/organizations'
     | '/flows/$flowId'
     | '/forms/$formId'
+    | '/admin/forms/$id'
     | '/admin/organizations/$id'
   id:
     | '__root__'
@@ -228,18 +272,22 @@ export interface FileRouteTypes {
     | '/create-organization'
     | '/dashboard'
     | '/flows'
+    | '/forgot-password'
     | '/forms'
     | '/login'
     | '/organization'
-    | '/profile'
+    | '/reset-password'
+    | '/settings'
     | '/signup'
     | '/users'
+    | '/verify-otp'
     | '/admin/flows'
     | '/admin/forms'
     | '/admin/manage-flows'
     | '/admin/organizations'
     | '/flows_/$flowId'
     | '/forms_/$formId'
+    | '/admin/forms_/$id'
     | '/admin/organizations_/$id'
   fileRoutesById: FileRoutesById
 }
@@ -249,12 +297,15 @@ export interface RootRouteChildren {
   CreateOrganizationRoute: typeof CreateOrganizationRoute
   DashboardRoute: typeof DashboardRoute
   FlowsRoute: typeof FlowsRoute
+  ForgotPasswordRoute: typeof ForgotPasswordRoute
   FormsRoute: typeof FormsRoute
   LoginRoute: typeof LoginRoute
   OrganizationRoute: typeof OrganizationRoute
-  ProfileRoute: typeof ProfileRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
+  SettingsRoute: typeof SettingsRoute
   SignupRoute: typeof SignupRoute
   UsersRoute: typeof UsersRoute
+  VerifyOtpRoute: typeof VerifyOtpRoute
   FlowsFlowIdRoute: typeof FlowsFlowIdRoute
   FormsFormIdRoute: typeof FormsFormIdRoute
 }
@@ -296,6 +347,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FlowsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/forgot-password': {
+      id: '/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof ForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/forms': {
       id: '/forms'
       path: '/forms'
@@ -317,11 +375,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OrganizationRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/profile': {
-      id: '/profile'
-      path: '/profile'
-      fullPath: '/profile'
-      preLoaderRoute: typeof ProfileRouteImport
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/signup': {
@@ -336,6 +401,13 @@ declare module '@tanstack/react-router' {
       path: '/users'
       fullPath: '/users'
       preLoaderRoute: typeof UsersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/verify-otp': {
+      id: '/verify-otp'
+      path: '/verify-otp'
+      fullPath: '/verify-otp'
+      preLoaderRoute: typeof VerifyOtpRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/flows': {
@@ -380,6 +452,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FormsFormIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/forms_/$id': {
+      id: '/admin/forms_/$id'
+      path: '/forms/$id'
+      fullPath: '/admin/forms/$id'
+      preLoaderRoute: typeof AdminFormsIdRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/organizations_/$id': {
       id: '/admin/organizations_/$id'
       path: '/organizations/$id'
@@ -395,6 +474,7 @@ interface AdminRouteChildren {
   AdminFormsRoute: typeof AdminFormsRoute
   AdminManageFlowsRoute: typeof AdminManageFlowsRoute
   AdminOrganizationsRoute: typeof AdminOrganizationsRoute
+  AdminFormsIdRoute: typeof AdminFormsIdRoute
   AdminOrganizationsIdRoute: typeof AdminOrganizationsIdRoute
 }
 
@@ -403,6 +483,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminFormsRoute: AdminFormsRoute,
   AdminManageFlowsRoute: AdminManageFlowsRoute,
   AdminOrganizationsRoute: AdminOrganizationsRoute,
+  AdminFormsIdRoute: AdminFormsIdRoute,
   AdminOrganizationsIdRoute: AdminOrganizationsIdRoute,
 }
 
@@ -414,12 +495,15 @@ const rootRouteChildren: RootRouteChildren = {
   CreateOrganizationRoute: CreateOrganizationRoute,
   DashboardRoute: DashboardRoute,
   FlowsRoute: FlowsRoute,
+  ForgotPasswordRoute: ForgotPasswordRoute,
   FormsRoute: FormsRoute,
   LoginRoute: LoginRoute,
   OrganizationRoute: OrganizationRoute,
-  ProfileRoute: ProfileRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
+  SettingsRoute: SettingsRoute,
   SignupRoute: SignupRoute,
   UsersRoute: UsersRoute,
+  VerifyOtpRoute: VerifyOtpRoute,
   FlowsFlowIdRoute: FlowsFlowIdRoute,
   FormsFormIdRoute: FormsFormIdRoute,
 }

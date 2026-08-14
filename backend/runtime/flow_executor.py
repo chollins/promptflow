@@ -17,7 +17,7 @@ from .schemas.prompt_flow import FlowStep, OutputSettings, PromptFlow
 
 logger = logging.getLogger(__name__)
 OUTPUTS_DIR = Path(__file__).resolve().parent.parent / "outputs"
-_PLACEHOLDER_RE = re.compile(r"\{\{(\w+)\}\}")
+_PLACEHOLDER_RE = re.compile(r"\{\{([\w\.]+)\}\}")
 
 
 class FlowStepNotFoundError(Exception):
@@ -48,14 +48,30 @@ def _find_step(flow: PromptFlow, step_id: str) -> FlowStep:
     raise FlowStepNotFoundError(f"Step '{step_id}' not found in flow '{flow.id}'")
 
 
+def _resolve_path(context_dict: dict, path: str) -> object | None:
+    parts = path.split(".")
+    current = context_dict
+    for part in parts:
+        if isinstance(current, dict) and part in current:
+            current = current[part]
+        elif isinstance(current, list) and part.isdigit() and int(part) < len(current):
+            current = current[int(part)]
+        else:
+            return None
+    return current
+
+
 def _build_step_values(step: FlowStep, user_values: dict, context: ExecutionContext) -> dict[str, str]:
     values = {key: str(value) for key, value in (user_values or {}).items()}
     for key, value in context.all().items():
         values[key] = str(value)
     for prompt_var, context_key in step.input_bindings.items():
-        bound = context.get(context_key)
+        if context_key.startswith("steps."):
+            bound = _resolve_path(context.all(), context_key)
+        else:
+            bound = context.get(context_key)
         if bound is not None:
-            values[prompt_var] = str(bound)
+            values[prompt_var] = str(bound) if not isinstance(bound, (dict, list)) else json.dumps(bound)
         else:
             logger.warning("Missing context key for binding flow_step=%s prompt_var=%s context_key=%s", step.id, prompt_var, context_key)
     return values
@@ -99,6 +115,28 @@ def _execute_step(flow: PromptFlow, step: FlowStep, user_values: dict, context: 
         temperature=form.model.temperature,
     )
     duration_ms = (time.perf_counter() - started) * 1000
+    parsed_result = result
+    if form.output:
+        try:
+            parsed_result = json.loads(result)
+            if not isinstance(parsed_result, (dict, list)):
+                raise ValueError("Expected an object or array.")
+        except (json.JSONDecodeError, ValueError) as exc:
+            raise LLMExecutionError(f"LLM output did not match expected structure: {exc}")
+
+    context_vars = context.all()
+    if "steps" not in context_vars:
+        context_vars["steps"] = {}
+    context_vars["steps"][step.id] = {
+        "input": values,
+        "output": parsed_result,
+        "status": "completed",
+        "error": None
+    }
+    # Sync back to context
+    for k, v in context_vars.items():
+        context.set(k, v)
+
     if step.output:
         context.set(step.output.save_as, result)
         _save_output(flow.id, step.output, result)
@@ -141,7 +179,13 @@ def _execute_step(flow: PromptFlow, step: FlowStep, user_values: dict, context: 
                 })
 
         for prompt_var, context_key in step.input_bindings.items():
-            if context_key in context.all():
+            if context_key.startswith("steps."):
+                bound = _resolve_path(context.all(), context_key)
+                has_key = bound is not None
+            else:
+                bound = context.get(context_key)
+                has_key = context_key in context.all()
+            if has_key:
                 # Find if there is a corresponding field
                 field_label = prompt_var
                 for f in form.fields:
@@ -154,7 +198,7 @@ def _execute_step(flow: PromptFlow, step: FlowStep, user_values: dict, context: 
                     "source_type": "Previous Step Output",
                     "source_name": "Context Binding",
                     "path": f"context.{context_key}",
-                    "value": context.get(context_key),
+                    "value": bound,
                 })
 
         output_schema = None

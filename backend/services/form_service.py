@@ -96,7 +96,7 @@ def create_form(*, name: str, description: str | None, content_json: str, is_act
         name=name,
         slug=slug,
         description=description,
-        content_json=json.dumps(form_def.model_dump(), indent=2),
+        content_json=json.dumps(form_def.model_dump(exclude_none=True, by_alias=True), indent=2),
         file_path=file_path,
         is_active=is_active,
     )
@@ -120,7 +120,7 @@ def update_form(
     form_def = PromptForm.model_validate_json(content_json)
     form.name = name
     form.description = description
-    form.content_json = json.dumps(form_def.model_dump(), indent=2)
+    form.content_json = json.dumps(form_def.model_dump(exclude_none=True, by_alias=True), indent=2)
     form.is_active = is_active
     form.slug = _unique_slug(_slugify(name), form.id)
     db.session.commit()

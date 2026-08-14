@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Building2, PencilLine, Plus, RefreshCw, Trash2, EyeIcon } from "lucide-react";
+import { Building2, PencilLine, Plus, RefreshCw, Trash2, EyeIcon, X } from "lucide-react";
 import { AppShell, PageHeader } from "@/components/app-shell";
 import { Badge, Button, Card, Field, Input } from "@/components/ui-kit";
 import {
@@ -13,6 +13,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { apiDelete, apiGet, apiPost, apiPut } from "@/lib/api";
 
 type OrganizationItem = {
@@ -72,12 +79,15 @@ function OrganizationsAdmin() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  // Modal state
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<OrganizationFormState>(EMPTY_FORM);
 
-  const selectedItem = useMemo(
-    () => items.find((item) => item.id === selectedId) ?? null,
-    [items, selectedId],
+  const editingItem = useMemo(
+    () => items.find((item) => item.id === editingId) ?? null,
+    [items, editingId],
   );
 
   async function refresh() {
@@ -96,17 +106,16 @@ function OrganizationsAdmin() {
     };
   }, []);
 
-  function startCreate() {
+  function openCreateModal() {
     setError(null);
-    setSelectedId(null);
+    setEditingId(null);
     setForm(EMPTY_FORM);
+    setModalOpen(true);
   }
-  function startView(item: OrganizationItem) {
-    navigate({ to: "/admin/organizations/$id", params: { id: item.id } });
-  }
-  function startEdit(item: OrganizationItem) {
+
+  function openEditModal(item: OrganizationItem) {
     setError(null);
-    setSelectedId(item.id);
+    setEditingId(item.id);
     setForm({
       name: item.name,
       slug: item.slug,
@@ -117,6 +126,14 @@ function OrganizationsAdmin() {
       admin_password: "",
       admin_confirm_password: "",
     });
+    setModalOpen(true);
+  }
+
+  function closeModal() {
+    setModalOpen(false);
+    setEditingId(null);
+    setForm(EMPTY_FORM);
+    setError(null);
   }
 
   async function handleSave() {
@@ -134,8 +151,8 @@ function OrganizationsAdmin() {
         throw new Error("Name is required.");
       }
 
-      if (selectedId) {
-        await apiPut(`/admin/organizations/${selectedId}`, payload);
+      if (editingId) {
+        await apiPut(`/admin/organizations/${editingId}`, payload);
       } else {
         if (!form.admin_name.trim()) {
           throw new Error("Admin name is required.");
@@ -162,8 +179,7 @@ function OrganizationsAdmin() {
       }
 
       await refresh();
-      setSelectedId(null);
-      setForm(EMPTY_FORM);
+      closeModal();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save organization");
     } finally {
@@ -174,10 +190,6 @@ function OrganizationsAdmin() {
   async function handleDelete(id: string) {
     await apiDelete(`/admin/organizations/${id}`);
     await refresh();
-    if (selectedId === id) {
-      setSelectedId(null);
-      setForm(EMPTY_FORM);
-    }
   }
 
   return (
@@ -191,7 +203,7 @@ function OrganizationsAdmin() {
               <RefreshCw className="h-4 w-4" />
               Refresh
             </Button>
-            <Button onClick={startCreate}>
+            <Button onClick={openCreateModal}>
               <Plus className="h-4 w-4" />
               New organization
             </Button>
@@ -199,84 +211,93 @@ function OrganizationsAdmin() {
         }
       />
 
-      {error && (
-        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-          {error}
+      <Card className="p-5">
+        <div className="mb-4 flex items-center gap-2 text-sm font-medium">
+          <Building2 className="h-4 w-4" />
+          Organization list
         </div>
-      )}
-
-      <div className="grid gap-6 lg:grid-cols-[1fr_1.1fr]">
-        <Card className="p-5">
-          <div className="mb-4 flex items-center gap-2 text-sm font-medium">
-            <Building2 className="h-4 w-4" />
-            Organization list
-          </div>
-          {loading ? (
-            <div className="text-sm text-muted-foreground">Loading organizations...</div>
-          ) : items.length === 0 ? (
-            <div className="text-sm text-muted-foreground">No organizations found.</div>
-          ) : (
-            <div className="space-y-3">
-              {items.map((item) => (
-                <div
-                  key={item.id}
-                  className={
-                    "rounded-xl border p-4 transition-colors " +
-                    (selectedId === item.id
-                      ? "border-foreground bg-muted/40"
-                      : "border-border bg-background")
-                  }
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedId(item.id)}
-                      className="text-left"
-                    >
-                      <div className="flex items-center gap-2">
-                        <div className="font-medium">{item.name}</div>
-                        <Badge tone={item.is_active ? "neutral" : "muted"}>
-                          {item.is_active ? "Active" : "Inactive"}
-                        </Badge>
-                      </div>
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        {item.code} · {item.slug}
-                      </div>
-                    </button>
+        {loading ? (
+          <div className="text-sm text-muted-foreground">Loading organizations...</div>
+        ) : items.length === 0 ? (
+          <div className="text-sm text-muted-foreground">No organizations found.</div>
+        ) : (
+          <div className="space-y-3">
+            {items.map((item) => (
+              <div
+                key={item.id}
+                className="rounded-xl border border-border bg-background p-4 transition-colors hover:bg-muted/20"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="text-left">
                     <div className="flex items-center gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => startView(item)}>
-                        <EyeIcon className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => startEdit(item)}>
-                        <PencilLine className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => setDeleteId(item.id)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <div className="font-medium">{item.name}</div>
+                      <Badge tone={item.is_active ? "neutral" : "muted"}>
+                        {item.is_active ? "Active" : "Inactive"}
+                      </Badge>
+                    </div>
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      {item.code} · {item.slug}
                     </div>
                   </div>
-                  <div className="mt-3">
-                    <Link
-                      to="/admin/organizations/$id"
-                      params={{ id: item.id }}
-                      className="text-xs text-muted-foreground hover:text-foreground"
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() =>
+                        void navigate({
+                          to: "/admin/organizations/$id",
+                          params: { id: item.id },
+                        })
+                      }
+                      title="View details"
                     >
-                      View details
-                    </Link>
+                      <EyeIcon className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => openEditModal(item)}
+                      title="Edit"
+                    >
+                      <PencilLine className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setDeleteId(item.id)}
+                      title="Delete"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
-              ))}
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      {/* Create / Edit Modal */}
+      <Dialog open={modalOpen} onOpenChange={(open) => { if (!open) closeModal(); }}>
+        <DialogContent className="w-full max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {editingItem ? `Edit ${editingItem.name}` : "New organization"}
+            </DialogTitle>
+            <DialogDescription>
+              {editingItem
+                ? "Update the organization's details below."
+                : "Fill in the details to create a new organization."}
+            </DialogDescription>
+          </DialogHeader>
+
+          {error && (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              {error}
             </div>
           )}
-        </Card>
 
-        <Card className="p-5 space-y-4">
-          <div className="flex items-center gap-2 text-sm font-medium">
-            <Building2 className="h-4 w-4" />
-            {selectedItem ? `Edit ${selectedItem.name}` : "New organization"}
-          </div>
-
-          <div className="grid gap-4">
+          <div className="grid gap-4 mt-2">
             <Field
               label="Name"
               hint="This drives the instant slug and code unless you override them."
@@ -321,7 +342,7 @@ function OrganizationsAdmin() {
               Active
             </label>
 
-            {!selectedId && (
+            {!editingId && (
               <div className="space-y-4 rounded-xl border border-border bg-muted/20 p-4">
                 <div>
                   <div className="text-sm font-medium">First admin</div>
@@ -373,24 +394,19 @@ function OrganizationsAdmin() {
               </div>
             )}
 
-            <div className="flex gap-2">
+            <div className="flex gap-2 pt-2">
               <Button onClick={() => void handleSave()} disabled={saving}>
-                {saving ? "Saving..." : selectedId ? "Update organization" : "Create organization"}
+                {saving ? "Saving..." : editingId ? "Update organization" : "Create organization"}
               </Button>
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  setForm(EMPTY_FORM);
-                  setSelectedId(null);
-                }}
-              >
-                Reset
+              <Button variant="secondary" onClick={closeModal} disabled={saving}>
+                Cancel
               </Button>
             </div>
           </div>
-        </Card>
-      </div>
+        </DialogContent>
+      </Dialog>
 
+      {/* Delete Confirmation */}
       <AlertDialog open={Boolean(deleteId)} onOpenChange={(open) => !open && setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>

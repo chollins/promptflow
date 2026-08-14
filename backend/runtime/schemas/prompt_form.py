@@ -16,6 +16,21 @@ class Prompt(BaseModel):
     user: str
 
 
+class DataSource(BaseModel):
+    type: Literal["step_output"]
+    step_id: str
+    path: str
+
+
+class OutputSchema(BaseModel):
+    type: str
+    schema_: dict | None = Field(default=None, alias="schema")
+
+
+class ExecutionSchema(BaseModel):
+    mode: Literal["interactive", "automatic"] = "interactive"
+
+
 class FieldSchema(BaseModel):
     id: str
     label: str
@@ -23,7 +38,8 @@ class FieldSchema(BaseModel):
     type: Literal["text", "textarea", "checkbox", "radio", "dropdown", "hidden"]
     required: bool = False
     default: str | None = None
-    options: list[str] = Field(default_factory=list)
+    options: list[str] | None = None
+    data_source: DataSource | None = None
 
 
 class PromptForm(BaseModel):
@@ -34,4 +50,6 @@ class PromptForm(BaseModel):
     fields: list[FieldSchema]
     prompt: Prompt
     model: ModelSettings = Field(default_factory=ModelSettings)
+    output: OutputSchema | None = None
+    execution: ExecutionSchema | None = None
 

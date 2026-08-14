@@ -4,6 +4,8 @@ from __future__ import annotations
 class ExecutionContext:
     def __init__(self, initial: dict | None = None) -> None:
         self.variables: dict = dict(initial or {})
+        if "steps" not in self.variables:
+            self.variables["steps"] = {}
 
     def set(self, key: str, value: object) -> None:
         self.variables[key] = value

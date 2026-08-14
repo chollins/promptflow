@@ -8,7 +8,7 @@ from flask import Blueprint, jsonify, request, session
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from extensions import db
-from models import Flow, FlowFormStep, Form, Invitation, Organization, OrganizationFlowAccess, Role, User
+from models import Flow, FlowFormStep, Form, Invitation, Organization, OrganizationFlowAccess, Role, User, PasswordResetOTP
 from services.flow_executor import execute_flow
 from services.flow_service import (
     FlowNotFoundError,
@@ -72,6 +72,68 @@ def _require_superadmin():
     return current_user, None
 
 
+def _require_admin():
+    current_user = _get_current_user()
+    if not current_user:
+        return None, (jsonify({"error": "Unauthorized"}), 401)
+    role_name = current_user.role.name if current_user.role else ""
+    if role_name not in ["admin", "superadmin"]:
+        return None, (jsonify({"error": "Forbidden"}), 403)
+    return current_user, None
+
+
+def _require_auth():
+    current_user = _get_current_user()
+    if not current_user:
+        return None, (jsonify({"error": "Unauthorized"}), 401)
+    return current_user, None
+
+def _require_flow_access(flow_id: str):
+    current_user, error = _require_auth()
+    if error:
+        return None, error
+    if current_user.role.name == "superadmin":
+        return current_user, None
+        
+    flow = Flow.query.filter((Flow.id == flow_id) | (Flow.slug == flow_id)).first()
+    if not flow:
+        return None, (jsonify({"error": "Flow not found"}), 404)
+        
+    access = OrganizationFlowAccess.query.filter_by(
+        organization_id=current_user.organization_id,
+        flow_id=flow.id
+    ).first()
+    
+    if not access:
+        return None, (jsonify({"error": "Forbidden"}), 403)
+    return current_user, None
+
+def _require_form_access(form_id: str):
+    current_user, error = _require_auth()
+    if error:
+        return None, error
+    if current_user.role.name == "superadmin":
+        return current_user, None
+        
+    form = Form.query.filter((Form.id == form_id) | (Form.slug == form_id)).first()
+    if not form:
+        return None, (jsonify({"error": "Form not found"}), 404)
+        
+    allowed_flow_ids = {
+        access.flow_id for access in OrganizationFlowAccess.query.filter_by(
+            organization_id=current_user.organization_id
+        ).all()
+    }
+    allowed_flows = Flow.query.filter(Flow.id.in_(allowed_flow_ids)).all()
+    
+    for flow in allowed_flows:
+        for step in flow.form_steps:
+            if step.form_id == form.id:
+                return current_user, None
+                
+    return None, (jsonify({"error": "Forbidden"}), 403)
+
+
 # ---------------------------------------------------------------------------
 # Auth
 # ---------------------------------------------------------------------------
@@ -131,6 +193,184 @@ def auth_me():
     })
 
 
+@api.post("/api/auth/change-password")
+def change_password():
+    user = _get_current_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    data = request.get_json(silent=True) or {}
+    current_password = data.get("current_password") or ""
+    new_password = data.get("new_password") or ""
+    confirm_password = data.get("confirm_password") or ""
+
+    if not current_password or not new_password or not confirm_password:
+        return jsonify({"error": "All password fields are required."}), 400
+
+    if new_password != confirm_password:
+        return jsonify({"error": "New passwords do not match."}), 400
+
+    if not check_password_hash(user.password_hash, current_password):
+        return jsonify({"error": "Invalid current password."}), 400
+
+    user.password_hash = generate_password_hash(new_password)
+    db.session.commit()
+
+    return jsonify({"ok": True, "message": "Password changed successfully."})
+
+
+@api.post("/api/auth/forgot-password")
+def forgot_password():
+    import random
+    import requests
+    from requests.auth import HTTPBasicAuth
+
+    data = request.get_json(silent=True) or {}
+    email = (data.get("email") or "").strip().lower()
+
+    if not email:
+        return jsonify({"error": "Email is required."}), 400
+
+    user = User.query.filter_by(email=email, is_active=True).first()
+    if user:
+        # Invalidate old OTPs
+        PasswordResetOTP.query.filter_by(user_id=user.id, verified_at=None).delete()
+
+        # Generate OTP
+        otp_code = "".join([str(random.randint(0, 9)) for _ in range(6)])
+        otp_hash = sha256(otp_code.encode("utf-8")).hexdigest()
+        expires_at = _utcnow() + timedelta(minutes=10)
+
+        otp_record = PasswordResetOTP(
+            user_id=user.id,
+            otp_hash=otp_hash,
+            expires_at=expires_at,
+            attempts=0
+        )
+        db.session.add(otp_record)
+        db.session.commit()
+
+        # Send Email via Mailjet
+        api_key = os.getenv("MAILJET_API_KEY")
+        secret_key = os.getenv("MAILJET_SECRET_KEY")
+        from_email = os.getenv("MAILJET_FROM_EMAIL")
+        from_name = os.getenv("MAILJET_FROM_NAME") or "PromptFlow Support"
+
+        if api_key and secret_key and from_email:
+            email_payload = {
+                "Messages": [
+                    {
+                        "From": {
+                            "Email": from_email,
+                            "Name": from_name
+                        },
+                        "To": [
+                            {
+                                "Email": user.email,
+                                "Name": user.name
+                            }
+                        ],
+                        "Subject": "PromptFlow Password Reset Code",
+                        "TextPart": f"Your password reset code is:\n\n{otp_code}\n\nThis code expires in 10 minutes.\n\nIf you did not request this, you can safely ignore this email."
+                    }
+                ]
+            }
+            try:
+                requests.post(
+                    "https://api.mailjet.com/v3.1/send",
+                    json=email_payload,
+                    auth=HTTPBasicAuth(api_key, secret_key),
+                    timeout=10
+                )
+            except Exception:
+                # Silent fail on sending to prevent enumeration/crashes
+                pass
+
+    return jsonify({"ok": True, "message": "If an account exists, a verification code has been sent."})
+
+
+@api.post("/api/auth/forgot-password/verify-otp")
+def verify_otp():
+    data = request.get_json(silent=True) or {}
+    email = (data.get("email") or "").strip().lower()
+    otp = (data.get("otp") or "").strip()
+
+    if not email or not otp:
+        return jsonify({"error": "Email and OTP are required."}), 400
+
+    user = User.query.filter_by(email=email, is_active=True).first()
+    if not user:
+        return jsonify({"error": "Invalid email or OTP."}), 400
+
+    otp_record = PasswordResetOTP.query.filter_by(user_id=user.id, verified_at=None).order_by(PasswordResetOTP.created_at.desc()).first()
+    if not otp_record:
+        return jsonify({"error": "Invalid email or OTP."}), 400
+
+    if otp_record.attempts >= 5:
+        return jsonify({"error": "Maximum verification attempts exceeded."}), 400
+
+    if _utcnow() > otp_record.expires_at:
+        return jsonify({"error": "OTP has expired."}), 400
+
+    input_hash = sha256(otp.encode("utf-8")).hexdigest()
+    if otp_record.otp_hash != input_hash:
+        otp_record.attempts += 1
+        db.session.commit()
+        return jsonify({"error": "Invalid email or OTP."}), 400
+
+    # Mark OTP as verified
+    otp_record.verified_at = _utcnow()
+    
+    # Generate restricted, short-lived reset token
+    reset_token = uuid4().hex
+    # Save the reset token hash in the session or db. Let's store it in session for restricted reset auth
+    session[f"reset_token_{reset_token}"] = {
+        "user_id": user.id,
+        "expires_at": (_utcnow() + timedelta(minutes=10)).isoformat(),
+        "otp_record_id": otp_record.id
+    }
+    db.session.commit()
+
+    return jsonify({"ok": True, "reset_token": reset_token})
+
+
+@api.post("/api/auth/forgot-password/reset")
+def reset_password():
+    data = request.get_json(silent=True) or {}
+    reset_token = data.get("reset_token") or ""
+    new_password = data.get("new_password") or ""
+
+    if not reset_token or not new_password:
+        return jsonify({"error": "Reset token and new password are required."}), 400
+
+    token_data = session.get(f"reset_token_{reset_token}")
+    if not token_data:
+        return jsonify({"error": "Invalid or expired reset token."}), 400
+
+    expires_at = datetime.fromisoformat(token_data["expires_at"])
+    if _utcnow() > expires_at:
+        session.pop(f"reset_token_{reset_token}", None)
+        return jsonify({"error": "Reset token has expired."}), 400
+
+    user_id = token_data["user_id"]
+    user = User.query.get(user_id)
+    if not user or not user.is_active:
+        session.pop(f"reset_token_{reset_token}", None)
+        return jsonify({"error": "User not found or inactive."}), 400
+
+    # Update password
+    user.password_hash = generate_password_hash(new_password)
+    
+    # Invalidate session token to force log out of other devices
+    user.session_token = None
+    
+    # Invalidate reset token & session
+    session.pop(f"reset_token_{reset_token}", None)
+
+    db.session.commit()
+    return jsonify({"ok": True, "message": "Password reset successfully."})
+
+
 # ---------------------------------------------------------------------------
 
 @api.get("/health")
@@ -150,12 +390,38 @@ def api_root():
 
 @api.get("/api/forms")
 def list_forms():
-    items = [form.model_dump() for form in list_all_forms()]
+    current_user, error = _require_auth()
+    if error:
+        return error
+        
+    all_forms = [form.model_dump() for form in list_all_forms()]
+    
+    if current_user.role.name == "superadmin":
+        items = all_forms
+    else:
+        allowed_flow_ids = {
+            access.flow_id for access in OrganizationFlowAccess.query.filter_by(
+                organization_id=current_user.organization_id
+            ).all()
+        }
+        allowed_flows = Flow.query.filter(Flow.id.in_(allowed_flow_ids)).all()
+        
+        allowed_form_slugs = set()
+        for flow in allowed_flows:
+            for step in flow.form_steps:
+                if step.form:
+                    allowed_form_slugs.add(step.form.slug)
+                    
+        items = [f for f in all_forms if f.get("id") in allowed_form_slugs]
+        
     return jsonify({"items": items, "count": len(items)})
 
 
 @api.get("/api/forms/<form_id>")
 def get_form(form_id: str):
+    _, error = _require_form_access(form_id)
+    if error:
+        return error
     form = load_form(form_id)
     return jsonify(form.model_dump())
 
@@ -258,8 +524,10 @@ def admin_form_delete(form_id: str):
 
 @api.post("/api/forms/<form_id>/execute")
 def execute_form_route(form_id: str):
+    current_user, error = _require_form_access(form_id)
+    if error:
+        return error
     payload = request.get_json(silent=True) or {}
-    current_user = _get_current_user()
     result = execute_form(
         form_id=form_id,
         values=payload.get("values") or {},
@@ -270,20 +538,43 @@ def execute_form_route(form_id: str):
 
 @api.get("/api/flows")
 def list_flows():
-    items = [flow.model_dump() for flow in list_all_flows()]
+    current_user, error = _require_auth()
+    if error:
+        return error
+        
+    all_flows = [flow.model_dump() for flow in list_all_flows()]
+    
+    if current_user.role.name == "superadmin":
+        items = all_flows
+    else:
+        allowed_flow_ids = {
+            access.flow_id for access in OrganizationFlowAccess.query.filter_by(
+                organization_id=current_user.organization_id
+            ).all()
+        }
+        allowed_flow_slugs = {
+            f.slug for f in Flow.query.filter(Flow.id.in_(allowed_flow_ids)).all()
+        }
+        items = [f for f in all_flows if f.get("id") in allowed_flow_slugs]
+        
     return jsonify({"items": items, "count": len(items)})
 
 
 @api.get("/api/flows/<flow_id>")
 def get_flow(flow_id: str):
+    _, error = _require_flow_access(flow_id)
+    if error:
+        return error
     flow = load_flow(flow_id)
     return jsonify(flow.model_dump())
 
 
 @api.post("/api/flows/<flow_id>/execute")
 def run_flow(flow_id: str):
+    current_user, error = _require_flow_access(flow_id)
+    if error:
+        return error
     payload = request.get_json(silent=True) or {}
-    current_user = _get_current_user()
     result = execute_flow(
         flow_id=flow_id,
         values=payload.get("values"),
@@ -451,6 +742,48 @@ def admin_flow_remove_step(flow_id: str, form_id: str):
     return jsonify({"ok": True})
 
 
+@api.put("/api/admin/flows/<flow_id>/steps/reorder")
+def admin_flow_reorder_steps(flow_id: str):
+    _, error = _require_superadmin()
+    if error:
+        return error
+    payload = request.get_json(silent=True) or {}
+    steps_data = payload.get("steps", [])
+    if not isinstance(steps_data, list):
+        return jsonify({"error": "steps must be a list."}), 400
+        
+    flow = Flow.query.filter((Flow.id == flow_id) | (Flow.slug == flow_id)).first()
+    if not flow:
+        return jsonify({"error": "Flow not found"}), 404
+
+    for existing_step in flow.form_steps:
+        db.session.delete(existing_step)
+    
+    db.session.flush()
+
+    for i, step_info in enumerate(steps_data):
+        form_id = step_info.get("form_id")
+        is_required = bool(step_info.get("is_required", True))
+        if not form_id:
+            continue
+        
+        form = Form.query.filter((Form.id == form_id) | (Form.slug == form_id)).first()
+        if not form:
+            db.session.rollback()
+            return jsonify({"error": f"Form not found: {form_id}"}), 404
+            
+        new_step = FlowFormStep(
+            flow_id=flow.id,
+            form_id=form.id,
+            step_number=i + 1,
+            is_required=is_required,
+        )
+        db.session.add(new_step)
+        
+    db.session.commit()
+    return jsonify({"ok": True})
+
+
 @api.get("/api/organizations")
 def list_organizations():
     items = [
@@ -559,6 +892,58 @@ def admin_create_organization():
     if role_name != "superadmin":
         return jsonify({"error": "Forbidden"}), 403
     return _create_organization_from_request()
+
+
+@api.put("/api/admin/organizations/<organization_id>")
+def admin_update_organization(organization_id: str):
+    current_user = _get_current_user()
+    if not current_user:
+        return jsonify({"error": "Unauthorized"}), 401
+    role_name = current_user.role.name if current_user.role else ""
+    if role_name != "superadmin":
+        return jsonify({"error": "Forbidden"}), 403
+
+    organization = Organization.query.get_or_404(organization_id)
+    data = request.get_json(silent=True) or {}
+
+    name = (data.get("name") or "").strip()
+    slug = (data.get("slug") or "").strip().lower()
+    code = (data.get("code") or "").strip().upper()
+    is_active = data.get("is_active", organization.is_active)
+
+    if not name:
+        return jsonify({"error": "Organization name is required."}), 400
+    if not slug:
+        return jsonify({"error": "Organization slug is required."}), 400
+    if not code:
+        return jsonify({"error": "Organization code is required."}), 400
+
+    # Check for slug/code conflicts (excluding current org)
+    slug_conflict = Organization.query.filter(
+        Organization.slug == slug, Organization.id != organization_id
+    ).first()
+    if slug_conflict:
+        return jsonify({"error": "Organization slug already in use."}), 409
+
+    code_conflict = Organization.query.filter(
+        Organization.code == code, Organization.id != organization_id
+    ).first()
+    if code_conflict:
+        return jsonify({"error": "Organization code already in use."}), 409
+
+    organization.name = name
+    organization.slug = slug
+    organization.code = code
+    organization.is_active = bool(is_active)
+    db.session.commit()
+
+    return jsonify({
+        "id": organization.id,
+        "name": organization.name,
+        "slug": organization.slug,
+        "code": organization.code,
+        "is_active": organization.is_active,
+    })
 
 
 def _create_organization_from_request():
@@ -752,17 +1137,14 @@ def accept_invitation():
 
 @api.get("/api/users")
 def list_users():
-    current_user = _get_current_user()
-    if not current_user:
-        return jsonify({"error": "Unauthorized"}), 401
+    current_user, error = _require_admin()
+    if error:
+        return error
         
     query = User.query
     role_name = current_user.role.name if current_user.role else ""
-    if role_name != "superadmin":
-        if role_name == "admin":
-            query = query.filter_by(organization_id=current_user.organization_id)
-        else:
-            return jsonify({"error": "Forbidden"}), 403
+    if role_name == "admin":
+        query = query.filter_by(organization_id=current_user.organization_id)
 
     items = [
         {
@@ -808,16 +1190,16 @@ def list_users():
 
 @api.post("/api/invitations")
 def create_invitation():
-    current_user = _get_current_user()
-    if not current_user:
-        return jsonify({"error": "Unauthorized"}), 401
-    role_name = current_user.role.name if current_user.role else ""
-    if role_name not in {"admin", "superadmin"}:
-        return jsonify({"error": "Forbidden"}), 403
+    current_user, error = _require_admin()
+    if error:
+        return error
 
     data = request.get_json(silent=True) or {}
     email = (data.get("email") or "").strip().lower()
     invite_role_name = (data.get("role") or "member").strip()
+    
+    if current_user.role.name == "admin" and invite_role_name == "superadmin":
+        return jsonify({"error": "Forbidden: Cannot invite superadmin"}), 403
     organization_id = current_user.organization_id
 
     if not organization_id:
@@ -874,11 +1256,11 @@ def create_invitation():
 
 @api.post("/api/invitations/<invitation_id>/resend")
 def resend_invitation(invitation_id: str):
-    current_user = _get_current_user()
-    if not current_user:
-        return jsonify({"error": "Unauthorized"}), 401
+    current_user, error = _require_admin()
+    if error:
+        return error
     invitation = Invitation.query.get_or_404(invitation_id)
-    if current_user.role and current_user.role.name == "admin" and invitation.organization_id != current_user.organization_id:
+    if current_user.role.name == "admin" and invitation.organization_id != current_user.organization_id:
         return jsonify({"error": "Forbidden"}), 403
     token = uuid4().hex
     invitation.token_hash = sha256(token.encode("utf-8")).hexdigest()
@@ -892,11 +1274,11 @@ def resend_invitation(invitation_id: str):
 
 @api.delete("/api/invitations/<invitation_id>")
 def cancel_invitation(invitation_id: str):
-    current_user = _get_current_user()
-    if not current_user:
-        return jsonify({"error": "Unauthorized"}), 401
+    current_user, error = _require_admin()
+    if error:
+        return error
     invitation = Invitation.query.get_or_404(invitation_id)
-    if current_user.role and current_user.role.name == "admin" and invitation.organization_id != current_user.organization_id:
+    if current_user.role.name == "admin" and invitation.organization_id != current_user.organization_id:
         return jsonify({"error": "Forbidden"}), 403
     db.session.delete(invitation)
     db.session.commit()
@@ -905,12 +1287,11 @@ def cancel_invitation(invitation_id: str):
 
 @api.put("/api/users/<user_id>")
 def update_user(user_id: str):
-    current_user = _get_current_user()
-    if not current_user:
-        return jsonify({"error": "Unauthorized"}), 401
+    current_user, error = _require_admin()
+    if error:
+        return error
     target = User.query.get_or_404(user_id)
-    role_name = current_user.role.name if current_user.role else ""
-    if role_name == "admin" and target.organization_id != current_user.organization_id:
+    if current_user.role.name == "admin" and target.organization_id != current_user.organization_id:
         return jsonify({"error": "Forbidden"}), 403
 
     data = request.get_json(silent=True) or {}
@@ -918,6 +1299,9 @@ def update_user(user_id: str):
     new_role_name = (data.get("role") or (target.role.name if target.role else "member")).strip()
     if new_role_name == "user":
         new_role_name = "member"
+        
+    if current_user.role.name == "admin" and new_role_name == "superadmin":
+        return jsonify({"error": "Forbidden: Cannot assign superadmin role"}), 403
     new_role = Role.query.filter_by(name=new_role_name).first()
     if not new_role:
         return jsonify({"error": f"Role '{new_role_name}' not found."}), 400
@@ -945,12 +1329,11 @@ def update_user(user_id: str):
 
 @api.delete("/api/users/<user_id>")
 def deactivate_user(user_id: str):
-    current_user = _get_current_user()
-    if not current_user:
-        return jsonify({"error": "Unauthorized"}), 401
+    current_user, error = _require_admin()
+    if error:
+        return error
     target = User.query.get_or_404(user_id)
-    role_name = current_user.role.name if current_user.role else ""
-    if role_name == "admin" and target.organization_id != current_user.organization_id:
+    if current_user.role.name == "admin" and target.organization_id != current_user.organization_id:
         return jsonify({"error": "Forbidden"}), 403
 
     active_admins = User.query.join(Role).filter(
@@ -966,8 +1349,8 @@ def deactivate_user(user_id: str):
     return jsonify({"ok": True})
 
 
-@api.get("/api/profile")
-def profile():
+@api.get("/api/settings")
+def settings():
     user = _get_current_user()
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
@@ -984,6 +1367,12 @@ def profile():
             }
         }
     )
+
+
+# Backward-compatible alias
+@api.get("/api/profile")
+def profile():
+    return settings()
 
 
 

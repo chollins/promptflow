@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect, isRedirect } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { AppShell, PageHeader } from "@/components/app-shell";
 import { Card } from "@/components/ui-kit";
@@ -13,6 +13,14 @@ type FormItem = {
 };
 
 export const Route = createFileRoute("/forms")({
+  beforeLoad: async () => {
+    try {
+      await apiGet<{ role: string | null }>("/auth/me");
+    } catch (e) {
+      if (isRedirect(e)) throw e;
+      throw redirect({ to: "/login" });
+    }
+  },
   component: FormsPage,
 });
 

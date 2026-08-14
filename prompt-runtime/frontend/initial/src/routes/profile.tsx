@@ -4,7 +4,7 @@ import { Card, Field, Input, Button } from "@/components/ui-kit";
 import { useMockUser } from "@/hooks/use-mock-user";
 import { ORG } from "@/lib/mock-store";
 
-export const Route = createFileRoute("/profile")({
+export const Route = createFileRoute("/settings")({
   component: ProfilePage,
 });
 

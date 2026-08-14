@@ -83,9 +83,9 @@ function LoginPage() {
           {loading ? "Signing in..." : "Sign In"}
         </Button>
         <div className="text-center">
-          <a href="#" className="text-xs text-muted-foreground hover:text-foreground">
+          <Link to="/forgot-password" className="text-xs text-muted-foreground hover:text-foreground">
             Forgot password?
-          </a>
+          </Link>
         </div>
       </form>
       <div className="mt-6 pt-6 border-t border-border text-center text-xs text-muted-foreground">
