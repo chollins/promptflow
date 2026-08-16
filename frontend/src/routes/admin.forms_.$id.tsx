@@ -5,6 +5,7 @@ import { AppShell, PageHeader } from "@/components/app-shell";
 import { Button, Card, Input } from "@/components/ui-kit";
 import { Textarea } from "@/components/ui/textarea";
 import { apiDelete, apiGet, apiPut } from "@/lib/api";
+import { logActivity } from "@/lib/activity";
 import { toast } from "sonner";
 
 type FormDetail = {
@@ -34,6 +35,7 @@ function FormDetailView() {
     apiGet<FormDetail>(`/admin/forms/${id}`)
       .then((data) => {
         if (active) setForm(data);
+        if (active) logActivity("viewed form", data.name);
       })
       .catch((err: Error) => {
         if (active) toast.error(err.message || "Failed to load form");
@@ -58,6 +60,7 @@ function FormDetailView() {
       };
       await apiPut(`/admin/forms/${form.id}`, payload);
       toast.success("Form saved successfully");
+      logActivity("updated form", form.name);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to save form");
     } finally {
@@ -71,6 +74,7 @@ function FormDetailView() {
     try {
       await apiDelete(`/admin/forms/${form.id}`);
       toast.success("Form deleted");
+      logActivity("deleted form", form.name);
       void navigate({ to: "/admin/forms" });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to delete form");

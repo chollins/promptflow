@@ -33,7 +33,10 @@ function Dashboard() {
 
   useEffect(() => {
     let active = true;
-    setActivities(getRecentActivity());
+    const refreshActivities = () => setActivities(getRecentActivity());
+    refreshActivities();
+    window.addEventListener("storage", refreshActivities);
+    window.addEventListener("promptflow-activity-updated", refreshActivities as EventListener);
     
     Promise.all([
       apiGet<{ count: number }>("/flows").catch(() => ({ count: 0 })),
@@ -67,6 +70,8 @@ function Dashboard() {
 
     return () => {
       active = false;
+      window.removeEventListener("storage", refreshActivities);
+      window.removeEventListener("promptflow-activity-updated", refreshActivities as EventListener);
     };
   }, []);
 
@@ -241,7 +246,7 @@ function Dashboard() {
                     {activities.map(activity => (
                       <li key={activity.id} className="flex justify-between items-start text-sm">
                         <div>
-                          <span className="font-medium">{stats.profileName}</span> {activity.action} <span className="font-medium">"{activity.target}"</span>
+                          <span className="font-medium">{stats.profileName || "You"}</span> {activity.action} <span className="font-medium">"{activity.target}"</span>
                         </div>
                         <span className="text-muted-foreground whitespace-nowrap ml-4">
                           {formatTimeAgo(activity.timestamp)}

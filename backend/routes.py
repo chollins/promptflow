@@ -436,8 +436,38 @@ def get_form(form_id: str):
     _, error = _require_form_access(form_id)
     if error:
         return error
-    form = load_form(form_id)
-    return jsonify(form.model_dump())
+    try:
+        form = load_form(form_id)
+    except FormNotFoundError:
+        return (
+            jsonify(
+                {
+                    "error": f"Form '{form_id}' not found.",
+                    "code": "form_not_found",
+                    "hint": (
+                        "This form is not available in the database and no matching "
+                        "backend/forms asset was found. If this form is expected, seed "
+                        "the backend or save the form from the admin UI."
+                    ),
+                }
+            ),
+            404,
+        )
+    except InvalidFormError as exc:
+        return (
+            jsonify(
+                {
+                    "error": str(exc),
+                    "code": "invalid_form_definition",
+                    "hint": (
+                        "The form exists, but its JSON definition could not be parsed. "
+                        "Check the stored content_json or the .form.json asset."
+                    ),
+                }
+            ),
+            422,
+        )
+    return jsonify(form.model_dump(by_alias=True))
 
 
 @api.get("/api/admin/forms/<form_id>")

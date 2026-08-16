@@ -21,13 +21,20 @@ export function getRecentActivity(): ActivityLog[] {
 export function logActivity(action: string, target: string) {
   if (typeof window === "undefined") return;
   const activity: ActivityLog = {
-    id: Math.random().toString(36).substring(7),
+    id: typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : Math.random().toString(36).substring(7),
     action,
     target,
     timestamp: new Date().toISOString(),
   };
-  
+
   const existing = getRecentActivity();
-  const updated = [activity, ...existing].slice(0, 10); // Keep last 10
+  const updated = [activity, ...existing].slice(0, 10);
   localStorage.setItem(ACTIVITY_KEY, JSON.stringify(updated));
+  window.dispatchEvent(new Event("promptflow-activity-updated"));
+}
+
+export function clearRecentActivity() {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(ACTIVITY_KEY);
+  window.dispatchEvent(new Event("promptflow-activity-updated"));
 }

@@ -1,16 +1,3 @@
-Yes. Since this is for your developers, I’d make the README **practical and copy-pasteable**, with the setup order:
-
-1. Prerequisites
-2. Backend
-3. Frontend
-4. Database
-5. Environment variables
-6. Run the application
-7. Verify installation
-8. Common troubleshooting
-
-I’d also explicitly document that **`jericca` contains the environment/configuration file**, so developers know where to get it rather than accidentally committing secrets.
-
 # PromptFlow — Local Development Setup
 
 This document explains how to set up PromptFlow locally for development.
@@ -116,14 +103,14 @@ requirements.txt
 
 The project requires environment variables for local development.
 
-The development environment file is provided through the `jericca` environment/configuration source.
+The development environment file is provided by jericca`.
 
 IMPORTANT:
 
 * Do not commit `.env` files containing secrets.
 * Do not copy API keys directly into Python source code.
 * Do not hardcode database passwords.
-* Ask for/access the project's approved `jericca` environment configuration when setting up a new machine.
+* Ask for/access the project's approved environment configuration when setting up a new machine.
 
 The backend should load configuration from environment variables.
 
@@ -436,7 +423,7 @@ npm run dev
 * [ ] Install Node.js/npm
 * [ ] Install XAMPP
 * [ ] Clone the repository
-* [ ] Obtain the approved `jericca` environment configuration
+* [ ] Obtain the approved environment configuration from `jericca` 
 * [ ] Create/activate Python virtual environment
 * [ ] Install backend dependencies
 * [ ] Start MySQL through XAMPP

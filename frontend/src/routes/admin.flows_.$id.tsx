@@ -5,6 +5,7 @@ import { AppShell, PageHeader } from "@/components/app-shell";
 import { Button, Card, Input } from "@/components/ui-kit";
 import { Textarea } from "@/components/ui/textarea";
 import { apiDelete, apiGet, apiPost, apiPut } from "@/lib/api";
+import { logActivity } from "@/lib/activity";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin/flows_/$id")({
@@ -74,6 +75,7 @@ function EditFlowPage() {
         is_active: isActive,
       });
       toast.success("Flow updated");
+      logActivity("updated flow", name);
       await loadDetail();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to save");
@@ -92,6 +94,7 @@ function EditFlowPage() {
       });
       setStepFormId("");
       toast.success("Step added");
+      logActivity("added form to flow", `${detail.name} - ${stepFormId}`);
       await loadDetail();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to add step");
@@ -102,6 +105,7 @@ function EditFlowPage() {
     try {
       await apiDelete(`/admin/flows/${id}/steps/${formId}`);
       toast.success("Step removed");
+      logActivity("removed form from flow", `${detail.name} - ${formId}`);
       await loadDetail();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to remove step");
@@ -134,6 +138,7 @@ function EditFlowPage() {
         steps: newSteps.map((s) => ({ form_id: s.form_id, is_required: s.is_required })),
       });
       toast.success("Steps reordered");
+      logActivity("reordered flow steps", detail.name);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to reorder");
       await loadDetail();
@@ -264,7 +269,7 @@ function EditFlowPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => void navigate({ to: "/admin/forms_/$id", params: { id: step.form_id } })}
+                              onClick={() => void navigate({ to: "/admin/forms/$id", params: { id: step.form_id } })}
                             >
                               <Edit className="h-3.5 w-3.5" />
                             </Button>

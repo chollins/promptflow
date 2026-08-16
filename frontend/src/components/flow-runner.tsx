@@ -7,6 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { apiGet, apiPost } from "@/lib/api";
+import { logActivity } from "@/lib/activity";
 
 export type RuntimeField = {
   id: string;
@@ -228,6 +229,7 @@ export function FlowRunner({ flowId, onDebugSnapshot }: FlowRunnerProps) {
     apiGet<RuntimeFlow>(`/flows/${flowId}`)
       .then((data) => {
         setFlow(data);
+        logActivity("viewed flow", data.name);
         setCurrentStepIndex(0);
         setValues({});
         setContext({});
@@ -393,6 +395,7 @@ export function FlowRunner({ flowId, onDebugSnapshot }: FlowRunnerProps) {
       setStepDebug(response.debug ?? null);
       setStepResults((prev) => [...prev.slice(0, currentStepIndex), executed]);
       setActiveAccordion(`step-${currentStepIndex}`);
+      logActivity("executed flow step", `${flow.name} - ${currentStep.name}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to execute flow step");
     } finally {

@@ -12,6 +12,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { apiDelete, apiGet, apiPost, apiPut } from "@/lib/api";
+import { logActivity } from "@/lib/activity";
 import { toast } from "sonner";
 
 type FormItem = {
@@ -119,8 +120,10 @@ function AdminFormsPage() {
       };
       if (editingItem) {
         await apiPut(`/admin/forms/${editingItem.id}`, payload);
+        logActivity("updated form", payload.name);
       } else {
         await apiPost("/admin/forms", payload);
+        logActivity("created form", payload.name);
       }
       await refresh();
       closeModal();
@@ -138,6 +141,7 @@ function AdminFormsPage() {
       await apiDelete(`/admin/forms/${id}`);
       await refresh();
       toast.success("Form deleted");
+      logActivity("deleted form", id);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to delete form");
     }

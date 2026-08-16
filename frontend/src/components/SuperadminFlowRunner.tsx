@@ -3,6 +3,7 @@ import { DebugJsonViewer } from "@/components/debug-json-viewer";
 import { ExecutionDebugPanel } from "@/components/execution-debug-panel";
 import { InputSourcesTable } from "@/components/input-sources-table";
 import { FlowRunner, type FlowRunnerSnapshot } from "@/components/flow-runner";
+import { PromptTabs } from "@/components/prompt-tabs";
 
 export function SuperadminFlowRunner({ flowId }: { flowId: string }) {
   const [snapshot, setSnapshot] = useState<FlowRunnerSnapshot | null>(null);
@@ -78,49 +79,13 @@ export function SuperadminFlowRunner({ flowId }: { flowId: string }) {
             content: <InputSourcesTable sources={inputSources} />,
           },
           {
-            id: "prompt-template",
-            title: "Prompt Template",
-            content: promptTemplate ? (
-              <div className="space-y-3">
-                <div>
-                  <div className="text-xs uppercase tracking-wide text-muted-foreground">System</div>
-                  <pre className="mt-1 whitespace-pre-wrap rounded-lg border border-border bg-background p-4 text-sm">
-                    {promptTemplate.system}
-                  </pre>
-                </div>
-                <div>
-                  <div className="text-xs uppercase tracking-wide text-muted-foreground">User</div>
-                  <pre className="mt-1 whitespace-pre-wrap rounded-lg border border-border bg-background p-4 text-sm">
-                    {promptTemplate.user}
-                  </pre>
-                </div>
-              </div>
-            ) : (
-              <div className="text-sm text-muted-foreground">Execute a step to inspect the prompt template.</div>
-            ),
-          },
-          {
-            id: "resolved-prompt",
-            title: "Resolved Prompt",
-            content: resolvedPrompt ? (
-              <div className="space-y-3">
-                <div>
-                  <div className="text-xs uppercase tracking-wide text-muted-foreground">System</div>
-                  <pre className="mt-1 whitespace-pre-wrap rounded-lg border border-border bg-background p-4 text-sm">
-                    {resolvedPrompt.system}
-                  </pre>
-                </div>
-                <div>
-                  <div className="text-xs uppercase tracking-wide text-muted-foreground">User</div>
-                  <pre className="mt-1 whitespace-pre-wrap rounded-lg border border-border bg-background p-4 text-sm">
-                    {resolvedPrompt.user}
-                  </pre>
-                </div>
-              </div>
-            ) : (
-              <div className="text-sm text-muted-foreground">
-                Execute a step to inspect the resolved prompt.
-              </div>
+            id: "prompt",
+            title: "Prompt",
+            content: (
+              <PromptTabs
+                template={promptTemplate}
+                rendered={resolvedPrompt}
+              />
             ),
           },
           {

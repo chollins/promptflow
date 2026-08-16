@@ -4,6 +4,7 @@ import { Database, Plus, Trash2, Workflow } from "lucide-react";
 import { AppShell, PageHeader } from "@/components/app-shell";
 import { Button, Card, Input } from "@/components/ui-kit";
 import { apiDelete, apiGet, apiPost } from "@/lib/api";
+import { logActivity } from "@/lib/activity";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
@@ -71,6 +72,7 @@ function FlowsCatalog() {
       setCreateDialogOpen(false);
       setForm(EMPTY_FORM);
       toast.success("Flow created");
+      logActivity("created flow", form.name);
       void navigate({ to: "/admin/flows/$id", params: { id: created.item.id } });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to create flow");
@@ -85,6 +87,7 @@ function FlowsCatalog() {
       await apiDelete(`/admin/flows/${id}`);
       await refresh();
       toast.success("Flow deleted");
+      logActivity("deleted flow", id);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to delete flow");
     }

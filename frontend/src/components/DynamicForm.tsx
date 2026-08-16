@@ -1,5 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
-import { Button } from "@/components/ui-kit";
+import { useEffect, useState } from "react";
 import FieldRenderer, { type Field } from "@/components/FieldRenderer";
 
 export type PromptForm = {
@@ -14,11 +13,8 @@ export type PromptForm = {
 
 interface Props {
   form: PromptForm;
-  loading?: boolean;
-  onSubmit: (values: Record<string, string>) => void;
   values?: Record<string, string>;
   onValuesChange?: (values: Record<string, string>) => void;
-  submitLabel?: string;
 }
 
 function buildInitialValues(fields: Field[]): Record<string, string> {
@@ -30,11 +26,8 @@ function buildInitialValues(fields: Field[]): Record<string, string> {
 
 export default function DynamicForm({
   form,
-  loading = false,
-  onSubmit,
   values: controlledValues,
   onValuesChange,
-  submitLabel = "Generate",
 }: Props) {
   const [internalValues, setInternalValues] = useState<Record<string, string>>(() =>
     buildInitialValues(form.fields),
@@ -57,13 +50,10 @@ export default function DynamicForm({
     setInternalValues(next);
   }
 
-  function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    onSubmit(values);
-  }
+
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight text-foreground">{form.name}</h1>
         {form.description && <p className="mt-1 text-sm text-muted-foreground">{form.description}</p>}
@@ -88,9 +78,7 @@ export default function DynamicForm({
         </div>
       ))}
 
-      <Button type="submit" disabled={loading}>
-        {loading ? "Generating..." : submitLabel}
-      </Button>
-    </form>
+
+    </div>
   );
 }

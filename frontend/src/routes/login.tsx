@@ -65,10 +65,31 @@ function LoginPage() {
         }
         navigate({ to: "/dashboard" });
       })
-      .catch((err: Error) => setError(err.message))
+      .catch((err: Error) => setError(getErrorMessage(err)))
       .finally(() => setLoading(false));
   };
 
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    try {
+      const parsed = JSON.parse(error.message);
+
+      if (typeof parsed.detail === "string") {
+        return parsed.detail;
+      }
+
+      if (typeof parsed.message === "string") {
+        return parsed.message;
+      }
+    } catch {
+      // Not JSON, use the original message
+    }
+
+    return error.message;
+  }
+
+  return "Something went wrong. Please try again.";
+}
   return (
     <AuthLayout title="Welcome back" subtitle="Sign in to your PromptFlow workspace.">
       <form onSubmit={onSubmit} className="space-y-5">

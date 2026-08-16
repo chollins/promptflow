@@ -15,6 +15,7 @@ import {
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { authService } from "@/lib/auth";
 import { hasSessionToken } from "@/lib/api";
+import { clearRecentActivity } from "@/lib/activity";
 import { Button } from "@/components/ui-kit";
 import {
   Dialog,
@@ -218,6 +219,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Button
               onClick={() =>
                 authService.logout().then(() => {
+                  clearRecentActivity();
                   setLogoutOpen(false);
                   navigate({ to: "/login" });
                 })

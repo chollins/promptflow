@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import DynamicForm, { type PromptForm } from "@/components/DynamicForm";
-import { Card } from "@/components/ui-kit";
+import { Button, Card } from "@/components/ui-kit";
 import { apiGet, apiPost } from "@/lib/api";
+import { logActivity } from "@/lib/activity";
+import { RotateCcw, Zap } from "lucide-react";
 
 type FormExecuteResult = {
   form_id: string;
@@ -63,6 +65,7 @@ export function FormRunner({ formId, onDebugSnapshot }: FormRunnerProps) {
   const [debug, setDebug] = useState<FormExecutionDebug | null>(null);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
+  const [isExecuted, setIsExecuted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -73,6 +76,8 @@ export function FormRunner({ formId, onDebugSnapshot }: FormRunnerProps) {
       .then((data) => {
         if (!active) return;
         setForm(data);
+        logActivity("viewed form", data.name);
+        setIsExecuted(false);
         setDebug(null);
         const next: Record<string, string> = {};
         for (const field of data.fields) {
@@ -94,12 +99,19 @@ export function FormRunner({ formId, onDebugSnapshot }: FormRunnerProps) {
     setError(null);
     setValues(nextValues);
     try {
-      const response = await apiPost<FormExecuteResult>(`/forms/${form.id}/execute`, {
-        values: nextValues,
-      });
+      const response = await apiPost<FormExecuteResult>(
+        `/forms/${form.id}/execute`,
+        {
+          values: nextValues,
+        },
+      );
+
       setPrompt(response.prompt);
       setResult(response.result);
       setDebug(response.debug ?? null);
+      setIsExecuted(true);
+      logActivity("executed form", form.name);
+
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to execute form");
     } finally {
@@ -134,17 +146,47 @@ export function FormRunner({ formId, onDebugSnapshot }: FormRunnerProps) {
     return <Card className="p-5">Form not found.</Card>;
   }
 
+  const hasRequiredValues = form.fields
+  .filter((field) => field.required)
+  .every((field) => {
+    const value = values[field.id];
+    return value !== undefined && value.trim() !== "";
+  });
+
   return (
     <div className="space-y-6">
       <Card className="p-5">
-        <DynamicForm
-          form={form}
-          loading={running}
-          onSubmit={runForm}
-          values={values}
-          onValuesChange={setValues}
-          submitLabel="Execute form"
-        />
+      <DynamicForm
+        form={form}
+        values={values}
+        onValuesChange={setValues}
+      />
+  
+      <div className="flex items-center gap-2 pt-2">
+        <Button
+          variant="default"
+          onClick={() => void runForm(values)}
+          disabled={running || !hasRequiredValues}
+          className="gap-2 bg-black text-white hover:bg-black/90"
+        >
+          {running ? (
+            <>
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              Running...
+            </>
+          ) : isExecuted ? (
+            <>
+              <RotateCcw className="h-4 w-4" />
+              Execute again
+            </>
+          ) : (
+            <>
+              <Zap className="h-4 w-4" />
+              Execute
+            </>
+          )}
+        </Button>
+      </div>
       </Card>
 
       {prompt && (

@@ -1,0 +1,42 @@
+{
+  "id": "stretch_muscle",
+  "name": "Select Muscle",
+  "description": "Choose a target muscle for the stretch guide.",
+  "version": "1.0",
+  "fields": [
+    {
+      "id": "muscle",
+      "label": "Muscle",
+      "type": "radio",
+      "data_source": {
+        "type": "step_output",
+        "step_id": "stretch_information",
+        "path": "muscles"
+      },
+      "required": true
+    }
+  ],
+  "prompt": {
+    "system": "You are an expert stretching coach.",
+    "user": "List 5 common stretches specifically targeting the {{muscle}}. Return only a JSON object containing a stretches array of strings."
+  },
+  "output": {
+    "type": "object",
+    "schema": {
+      "stretches": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "execution": {
+    "mode": "interactive"
+  },
+  "model": {
+    "provider": "openai",
+    "name": "gpt-4o-mini",
+    "temperature": 0.3
+  }
+}
