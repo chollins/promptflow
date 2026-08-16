@@ -42,6 +42,39 @@ export function AuthLayout({
     </div>
   );
 }
+function getErrorMessage(error: unknown): string {
+  if (!(error instanceof Error)) {
+    return "Something went wrong. Please try again.";
+  }
+
+  try {
+    const parsed = JSON.parse(error.message);
+
+    if (typeof parsed.detail === "string") {
+      return parsed.detail;
+    }
+
+    if (typeof parsed.message === "string") {
+      return parsed.message;
+    }
+  } catch {
+    // Error message isn't JSON
+  }
+
+  if (error.message.includes("401")) {
+    return "Invalid email or password.";
+  }
+
+  if (error.message.includes("403")) {
+    return "You don't have permission to sign in.";
+  }
+
+  if (error.message.includes("Network")) {
+    return "Unable to connect to the server. Please try again.";
+  }
+
+  return error.message || "Unable to sign in. Please try again.";
+} 
 
 function LoginPage() {
   const navigate = useNavigate();
@@ -69,27 +102,6 @@ function LoginPage() {
       .finally(() => setLoading(false));
   };
 
-function getErrorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    try {
-      const parsed = JSON.parse(error.message);
-
-      if (typeof parsed.detail === "string") {
-        return parsed.detail;
-      }
-
-      if (typeof parsed.message === "string") {
-        return parsed.message;
-      }
-    } catch {
-      // Not JSON, use the original message
-    }
-
-    return error.message;
-  }
-
-  return "Something went wrong. Please try again.";
-}
   return (
     <AuthLayout title="Welcome back" subtitle="Sign in to your PromptFlow workspace.">
       <form onSubmit={onSubmit} className="space-y-5">

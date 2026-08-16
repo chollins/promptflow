@@ -19,6 +19,7 @@ from services.flow_service import (
     get_flow as load_flow,
     update_flow,
 )
+from services.email_service import send_invitation_email, send_password_reset_email
 from services.form_executor import execute_form
 from services.form_service import (
     FormNotFoundError,
@@ -222,8 +223,6 @@ def change_password():
 @api.post("/api/auth/forgot-password")
 def forgot_password():
     import random
-    import requests
-    from requests.auth import HTTPBasicAuth
 
     data = request.get_json(silent=True) or {}
     email = (data.get("email") or "").strip().lower()
@@ -250,55 +249,12 @@ def forgot_password():
         db.session.add(otp_record)
         db.session.commit()
 
-        # Send Email via Mailjet
-        api_key = os.getenv("MAILJET_API_KEY")
-        secret_key = os.getenv("MAILJET_SECRET_KEY")
-        from_email = os.getenv("MAILJET_FROM_EMAIL")
-        from_name = os.getenv("MAILJET_FROM_NAME") or "PromptFlow Support"
-
-        if api_key and secret_key and from_email:
-            email_payload = {
-                "Messages": [
-                    {
-                        "From": {
-                            "Email": from_email,
-                            "Name": from_name
-                        },
-                        "To": [
-                            {
-                                "Email": user.email,
-                                "Name": user.name
-                            }
-                        ],
-                        "Subject": "PromptFlow Password Reset Code",
-                        "TextPart": f"Your password reset code is:\n\n{otp_code}\n\nThis code expires in 10 minutes.\n\nIf you did not request this, you can safely ignore this email."
-                    }
-                ]
-            }
-            try:
-                response = requests.post(
-                    "https://api.mailjet.com/v3.1/send",
-                    json=email_payload,
-                    auth=HTTPBasicAuth(api_key, secret_key),
-                    timeout=10
-                )
-
-                print("========== MAILJET DEBUG ==========")
-                print("Status code:", response.status_code)
-                print("Response:", response.text)
-                print("===================================")
-
-                response.raise_for_status()
-
-            except requests.RequestException as e:
-                print("========== MAILJET ERROR ==========")
-                print("Error:", str(e))
-
-                if getattr(e, "response", None) is not None:
-                    print("Status:", e.response.status_code)
-                    print("Response:", e.response.text)
-
-                print("===================================")
+        try:
+            send_password_reset_email(to_email=user.email, to_name=user.name, otp_code=otp_code)
+        except Exception as e:
+            print("========== EMAIL ERROR ==========")
+            print("Error:", str(e))
+            print("=================================")
 
     return jsonify({"ok": True, "message": "If an account exists, a verification code has been sent."})
 
@@ -1290,6 +1246,16 @@ def create_invitation():
     )
     db.session.add(invitation)
     db.session.commit()
+    try:
+        send_invitation_email(
+            to_email=invitation.email,
+            to_name=current_user.name,
+            registration_link=_build_invitation_link(token),
+        )
+    except Exception as e:
+        print("========== EMAIL ERROR ==========")
+        print("Error:", str(e))
+        print("=================================")
     return jsonify({
         "ok": True,
         "message": "Invitation created.",
@@ -1310,6 +1276,16 @@ def resend_invitation(invitation_id: str):
     invitation.token_hash = sha256(token.encode("utf-8")).hexdigest()
     invitation.expires_at = _utcnow() + timedelta(days=7)
     db.session.commit()
+    try:
+        send_invitation_email(
+            to_email=invitation.email,
+            to_name=invitation.creator.name if invitation.creator else invitation.email,
+            registration_link=_build_invitation_link(token),
+        )
+    except Exception as e:
+        print("========== EMAIL ERROR ==========")
+        print("Error:", str(e))
+        print("=================================")
     return jsonify({
         "ok": True,
         "registration_link": _build_invitation_link(token),
