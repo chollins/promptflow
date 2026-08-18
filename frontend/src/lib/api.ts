@@ -4,7 +4,7 @@ export type ApiListResponse<T> = {
 };
 
 const DEFAULT_API_BASE =
-  import.meta.env.VITE_API_BASE_URL?.toString().trim() || "http://localhost:5000/api";
+  import.meta.env.VITE_API_BASE_URL?.toString().trim();
 const SESSION_TOKEN_KEY = "promptflow_session_token";
 
 function getSessionToken() {
