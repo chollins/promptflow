@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { ArrowLeft, Database, Trash2 } from "lucide-react";
 import { AppShell, PageHeader } from "@/components/app-shell";
@@ -17,12 +17,8 @@ type FormDetail = {
   is_active: boolean;
 };
 
-export const Route = createFileRoute("/admin/forms_/$id")({
-  component: FormDetailView,
-});
-
-function FormDetailView() {
-  const { id } = Route.useParams();
+export default function FormDetailView() {
+  const { id } = useParams();
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
@@ -75,7 +71,7 @@ function FormDetailView() {
       await apiDelete(`/admin/forms/${form.id}`);
       toast.success("Form deleted");
       logActivity("deleted form", form.name);
-      void navigate({ to: "/admin/forms" });
+      void navigate("/admin/forms");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to delete form");
     }
@@ -84,7 +80,7 @@ function FormDetailView() {
   if (loading) {
     return (
       <AppShell>
-        <div className="mx-auto w-full max-w-4xl p-8 text-center text-muted-foreground">
+        <div className="w-full p-8 text-center text-muted-foreground">
           Loading form details...
         </div>
       </AppShell>
@@ -94,7 +90,7 @@ function FormDetailView() {
   if (!form) {
     return (
       <AppShell>
-        <div className="mx-auto w-full max-w-4xl p-8 text-center">
+        <div className="w-full p-8 text-center">
           <div className="text-destructive mb-4">Form not found.</div>
           <Button asChild variant="outline">
             <Link to="/admin/forms">Back to Forms</Link>
@@ -106,7 +102,7 @@ function FormDetailView() {
 
   return (
     <AppShell>
-      <div className="mx-auto w-full max-w-4xl">
+      <div className="w-full">
         <div className="mb-6">
           <Button variant="ghost" onClick={() => window.history.back()} className="gap-2 -ml-3 text-muted-foreground hover:text-foreground">
             <ArrowLeft className="h-4 w-4" /> Back
@@ -177,3 +173,4 @@ function FormDetailView() {
     </AppShell>
   );
 }
+

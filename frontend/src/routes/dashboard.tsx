@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { Link } from "react-router-dom";
 import { ArrowRight, Plus, Users, Activity, FileText, Database } from "lucide-react";
 import { useEffect, useState } from "react";
 import { AppShell, PageHeader } from "@/components/app-shell";
@@ -15,11 +15,7 @@ type DashboardStats = {
   role: string | null;
 };
 
-export const Route = createFileRoute("/dashboard")({
-  component: Dashboard,
-});
-
-function Dashboard() {
+export default function Dashboard() {
   const [stats, setStats] = useState<DashboardStats>({
     flows: 0,
     forms: 0,
@@ -92,12 +88,12 @@ function Dashboard() {
 
   return (
     <AppShell>
-      <PageHeader
-        title="Dashboard"
-        description={`Welcome back, ${stats.profileName || 'User'}.`}
-      />
+      <div className="w-full space-y-6">
+        <PageHeader
+          title="Dashboard"
+          description={`Welcome back, ${stats.profileName || 'User'}.`}
+        />
 
-      <div className="space-y-6">
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card className="p-5 flex flex-col justify-between">
@@ -263,3 +259,4 @@ function Dashboard() {
     </AppShell>
   );
 }
+

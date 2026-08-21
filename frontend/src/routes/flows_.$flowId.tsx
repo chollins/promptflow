@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { AppShell, PageHeader } from "@/components/app-shell";
 import { Card } from "@/components/ui-kit";
@@ -6,12 +6,8 @@ import { FlowRunner } from "@/components/flow-runner";
 import { SuperadminFlowRunner } from "@/components/SuperadminFlowRunner";
 import { authService } from "@/lib/auth";
 
-export const Route = createFileRoute("/flows_/$flowId")({
-  component: FlowDetailPage,
-});
-
-function FlowDetailPage() {
-  const { flowId } = Route.useParams();
+export default function FlowDetailPage() {
+  const { flowId } = useParams();
   const [role, setRole] = useState<string | null>(null);
   const [loadingRole, setLoadingRole] = useState(true);
 
@@ -55,3 +51,4 @@ function FlowDetailPage() {
     </AppShell>
   );
 }
+

@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { Link, useParams } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Plus, Trash2, UserPlus } from "lucide-react";
 import { AppShell, PageHeader } from "@/components/app-shell";
@@ -36,12 +36,8 @@ const EMPTY_ADMIN_FORM: AdminInviteForm = {
   confirmPassword: "",
 };
 
-export const Route = createFileRoute("/admin/organizations_/$id")({
-  component: OrganizationDetailPage,
-});
-
-function OrganizationDetailPage() {
-  const { id } = Route.useParams();
+export default function OrganizationDetailPage() {
+  const { id } = useParams();
   const [item, setItem] = useState<OrganizationDetail | null>(null);
   const [flows, setFlows] = useState<FlowItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -285,3 +281,4 @@ function OrganizationDetailPage() {
     </AppShell>
   );
 }
+

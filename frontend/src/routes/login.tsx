@@ -1,12 +1,8 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, Sparkles } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Button, Input, Field } from "@/components/ui-kit";
 import { authService } from "@/lib/auth";
-
-export const Route = createFileRoute("/login")({
-  component: LoginPage,
-});
 
 export function AuthLayout({
   children,
@@ -76,7 +72,7 @@ function getErrorMessage(error: unknown): string {
   return error.message || "Unable to sign in. Please try again.";
 } 
 
-function LoginPage() {
+export default function LoginPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -93,10 +89,10 @@ function LoginPage() {
       .then((user) => {
         const role = user.role;
         if (role === "superadmin") {
-          navigate({ to: "/admin/organizations" });
+          navigate("/admin/organizations");
           return;
         }
-        navigate({ to: "/dashboard" });
+        navigate("/dashboard");
       })
       .catch((err: Error) => setError(getErrorMessage(err)))
       .finally(() => setLoading(false));
@@ -130,3 +126,4 @@ function LoginPage() {
     </AuthLayout>
   );
 }
+

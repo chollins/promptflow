@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { ShieldCheck, Plus, Trash2, Link2 } from "lucide-react";
 import { AppShell, PageHeader } from "@/components/app-shell";
@@ -43,11 +43,7 @@ type FlowItem = {
   slug: string;
 };
 
-export const Route = createFileRoute("/admin/manage-flows")({
-  component: ManageFlowsPage,
-});
-
-function ManageFlowsPage() {
+export default function ManageFlowsPage() {
   const [items, setItems] = useState<AccessItem[]>([]);
   const [organizations, setOrganizations] = useState<OrganizationItem[]>([]);
   const [flows, setFlows] = useState<FlowItem[]>([]);
@@ -281,3 +277,4 @@ function ManageFlowsPage() {
     </AppShell>
   );
 }
+

@@ -27,6 +27,9 @@ def _get_cors_origins() -> list[str]:
 
 def create_app(config_object: type[Config] | None = None) -> Flask:
     app = Flask(__name__)
+    
+    app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
+    
     app.config.from_object(config_object or Config)
 
     db.init_app(app)

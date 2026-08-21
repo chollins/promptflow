@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { CheckCircle2 } from "lucide-react";
 import { apiPost } from "@/lib/api";
@@ -14,10 +14,6 @@ type CreateOrganizationPayload = {
   admin_confirm_password: string;
 };
 
-export const Route = createFileRoute("/create-organization")({
-  component: CreateOrgPage,
-});
-
 function slugLikeCode(value: string) {
   return value
     .trim()
@@ -26,7 +22,7 @@ function slugLikeCode(value: string) {
     .replace(/^-+|-+$/g, "");
 }
 
-function CreateOrgPage() {
+export default function CreateOrgPage() {
   const navigate = useNavigate();
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -86,7 +82,7 @@ function CreateOrgPage() {
             <CheckCircle2 className="h-6 w-6" />
           </div>
           <p className="mb-6 text-sm text-muted-foreground">Redirecting you to your dashboard...</p>
-          <Button onClick={() => void navigate({ to: "/dashboard" })}>Go to Dashboard</Button>
+          <Button onClick={() => void navigate("/dashboard")}>Go to Dashboard</Button>
         </div>
       </AuthLayout>
     );
@@ -187,3 +183,4 @@ function CreateOrgPage() {
     </AuthLayout>
   );
 }
+

@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { AppShell, PageHeader } from "@/components/app-shell";
 import { Card } from "@/components/ui-kit";
@@ -12,11 +12,7 @@ type FormItem = {
   fields: Array<{ id: string; type: string }>;
 };
 
-export const Route = createFileRoute("/forms")({
-  component: FormsPage,
-});
-
-function FormsPage() {
+export default function FormsPage() {
   const [items, setItems] = useState<FormItem[]>([]);
 
   useEffect(() => {
@@ -53,8 +49,8 @@ function FormsPage() {
                   </p>
                 </div>
                 <Link
-                  to="/forms/$formId"
-                  params={{ formId: form.id }}
+                  to={`/forms/${form.id}`}
+                  
                   className="inline-flex h-10 items-center justify-center rounded-md border border-border bg-background px-4 text-sm font-medium text-foreground transition-colors hover:bg-muted"
                 >
                   Open
@@ -67,3 +63,4 @@ function FormsPage() {
     </AppShell>
   );
 }
+

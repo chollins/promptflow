@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { AppShell, PageHeader } from "@/components/app-shell";
 import { Card, Button, Input, Field } from "@/components/ui-kit";
@@ -15,11 +15,7 @@ type UserProfile = {
   is_active: boolean;
 };
 
-export const Route = createFileRoute("/settings")({
-  component: SettingsPage,
-});
-
-function SettingsPage() {
+export default function SettingsPage() {
   const [item, setItem] = useState<UserProfile | null>(null);
 
   // Password change states
@@ -189,3 +185,4 @@ function SettingsPage() {
     </AppShell>
   );
 }
+

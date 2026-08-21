@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import { Database, PencilLine, Plus, Trash2, Upload, FormInput, Eye } from "lucide-react";
 import { AppShell, PageHeader } from "@/components/app-shell";
@@ -42,11 +42,7 @@ const EMPTY_FORM: FormState = {
   is_active: true,
 };
 
-export const Route = createFileRoute("/admin/forms")({
-  component: AdminFormsPage,
-});
-
-function AdminFormsPage() {
+export default function AdminFormsPage() {
   const navigate = useNavigate();
   const [items, setItems] = useState<FormItem[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -188,7 +184,7 @@ function AdminFormsPage() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => void navigate({ to: `/admin/forms/${item.id}` })}
+                      onClick={() => void navigate(`/admin/forms/${item.id}`)}
                       title="View"
                     >
                       <Eye className="h-4 w-4" />
@@ -297,3 +293,4 @@ function AdminFormsPage() {
     </AppShell>
   );
 }
+

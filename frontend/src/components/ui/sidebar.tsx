@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state";
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
@@ -33,6 +34,14 @@ type SidebarContextProps = {
   setOpenMobile: (open: boolean) => void;
   isMobile: boolean;
   toggleSidebar: () => void;
+};
+
+type SidebarUserFooterProps = {
+  name: string;
+  role?: string | null;
+  email?: string | null;
+  avatarUrl?: string | null;
+  onClick?: () => void;
 };
 
 const SidebarContext = React.createContext<SidebarContextProps | null>(null);
@@ -373,6 +382,45 @@ const SidebarFooter = React.forwardRef<HTMLDivElement, React.ComponentProps<"div
   },
 );
 SidebarFooter.displayName = "SidebarFooter";
+
+const SidebarUserFooter = React.forwardRef<HTMLButtonElement, SidebarUserFooterProps>(
+  ({ name, role, email, avatarUrl, onClick }, ref) => {
+    const { state } = useSidebar();
+    const initials = name
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase())
+      .join("");
+
+    return (
+      <button
+        ref={ref}
+        type="button"
+        onClick={onClick}
+        className={cn(
+          "mt-auto flex w-full items-center gap-3 border-t border-sidebar-border px-3 py-3 text-left transition-colors hover:bg-sidebar-accent/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+          state === "collapsed" ? "justify-center px-2" : "justify-start",
+        )}
+        data-sidebar="user-footer"
+      >
+        <Avatar className="h-9 w-9 shrink-0">
+          <AvatarImage src={avatarUrl || undefined} alt={name} />
+          <AvatarFallback className="text-xs font-semibold">{initials || "U"}</AvatarFallback>
+        </Avatar>
+        {state !== "collapsed" && (
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-sm font-medium text-sidebar-foreground">{name}</div>
+            <div className="truncate text-xs text-sidebar-foreground/70">
+              {role ? role : email || "Account"}
+            </div>
+          </div>
+        )}
+      </button>
+    );
+  },
+);
+SidebarUserFooter.displayName = "SidebarUserFooter";
 
 const SidebarSeparator = React.forwardRef<
   React.ElementRef<typeof Separator>,
@@ -739,6 +787,7 @@ export {
   SidebarProvider,
   SidebarRail,
   SidebarSeparator,
+  SidebarUserFooter,
   SidebarTrigger,
   useSidebar,
 };

@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useNavigate, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { ArrowLeft, Database, Edit, GripVertical, Plus, Trash2 } from "lucide-react";
 import { AppShell, PageHeader } from "@/components/app-shell";
@@ -7,10 +7,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { apiDelete, apiGet, apiPost, apiPut } from "@/lib/api";
 import { logActivity } from "@/lib/activity";
 import { toast } from "sonner";
-
-export const Route = createFileRoute("/admin/flows_/$id")({
-  component: EditFlowPage,
-});
 
 type FormItem = { id: string; name: string; slug: string };
 
@@ -33,8 +29,8 @@ type FlowDetail = {
   steps: FlowStepItem[];
 };
 
-function EditFlowPage() {
-  const { id } = Route.useParams();
+export default function EditFlowPage() {
+  const { id } = useParams();
   const navigate = useNavigate();
 
   const [detail, setDetail] = useState<FlowDetail | null>(null);
@@ -147,11 +143,11 @@ function EditFlowPage() {
 
   return (
     <AppShell>
-      <div className="mx-auto w-full max-w-7xl">
+      <div className="w-full">
         <div className="mb-6">
           <Button
             variant="ghost"
-            onClick={() => void navigate({ to: "/admin/flows" })}
+            onClick={() => void navigate("/admin/flows")}
             className="gap-2 -ml-3 text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft className="h-4 w-4" /> Back to flows
@@ -269,7 +265,7 @@ function EditFlowPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => void navigate({ to: "/admin/forms/$id", params: { id: step.form_id } })}
+                              onClick={() => void navigate(`/admin/forms/${step.form_id}`)}
                             >
                               <Edit className="h-3.5 w-3.5" />
                             </Button>
@@ -301,3 +297,4 @@ function EditFlowPage() {
     </AppShell>
   );
 }
+

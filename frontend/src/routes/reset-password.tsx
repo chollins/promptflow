@@ -1,26 +1,14 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useState } from "react";
 import { AuthLayout } from "./login";
 import { Button, Input, Field } from "@/components/ui-kit";
 import { apiPost } from "@/lib/api";
 import { toast } from "sonner";
 
-type SearchParams = {
-  token?: string;
-};
-
-export const Route = createFileRoute("/reset-password")({
-  validateSearch: (search: Record<string, unknown>): SearchParams => {
-    return {
-      token: search.token ? String(search.token) : undefined,
-    };
-  },
-  component: ResetPasswordPage,
-});
-
-function ResetPasswordPage() {
+export default function ResetPasswordPage() {
   const navigate = useNavigate();
-  const { token: resetToken } = Route.useSearch();
+  const [searchParams] = useSearchParams();
+  const resetToken = searchParams.get("token") || "";
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -43,7 +31,7 @@ function ResetPasswordPage() {
         new_password: newPassword,
       });
       toast.success("Password reset successfully. Please sign in with your new password.");
-      navigate({ to: "/login" });
+      navigate("/login");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to reset password.");
     } finally {
@@ -81,3 +69,4 @@ function ResetPasswordPage() {
     </AuthLayout>
   );
 }
+

@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import { Mail, PencilLine, Plus, RefreshCw, Search, Send, Trash2 } from "lucide-react";
 import { AppShell, PageHeader } from "@/components/app-shell";
@@ -49,11 +49,7 @@ type InviteForm = {
 
 const PAGE_SIZE = 8;
 
-export const Route = createFileRoute("/users")({
-  component: UsersPage,
-});
-
-function UsersPage() {
+export default function UsersPage() {
   const [items, setItems] = useState<UserItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -537,3 +533,4 @@ function UsersPage() {
     </AppShell>
   );
 }
+

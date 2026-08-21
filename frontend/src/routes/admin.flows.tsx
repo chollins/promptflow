@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Database, Plus, Trash2, Workflow } from "lucide-react";
 import { AppShell, PageHeader } from "@/components/app-shell";
@@ -33,11 +33,7 @@ const EMPTY_FORM: FlowFormState = {
   is_active: true,
 };
 
-export const Route = createFileRoute("/admin/flows")({
-  component: FlowsCatalog,
-});
-
-function FlowsCatalog() {
+export default function FlowsCatalog() {
   const navigate = useNavigate();
   const [items, setItems] = useState<FlowItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -73,7 +69,7 @@ function FlowsCatalog() {
       setForm(EMPTY_FORM);
       toast.success("Flow created");
       logActivity("created flow", form.name);
-      void navigate({ to: "/admin/flows/$id", params: { id: created.item.id } });
+      void navigate(`/admin/flows/${created.item.id}`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to create flow");
     } finally {
@@ -95,7 +91,7 @@ function FlowsCatalog() {
 
   return (
     <AppShell>
-      <div className="mx-auto w-full max-w-7xl">
+      <div className="w-full">
         <PageHeader
           title="Flow Composer"
           description="Create flows and arrange reusable forms into ordered flow steps."
@@ -132,7 +128,7 @@ function FlowsCatalog() {
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
                     <Button asChild variant="secondary" size="sm">
-                      <Link to="/admin/flows/$id" params={{ id: item.id }}>
+                      <Link to={`/admin/flows/${item.id}`} >
                         Edit flow
                       </Link>
                     </Button>
@@ -192,3 +188,4 @@ function FlowsCatalog() {
     </AppShell>
   );
 }
+

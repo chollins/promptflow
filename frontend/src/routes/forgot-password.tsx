@@ -1,15 +1,11 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { AuthLayout } from "./login";
 import { Button, Input, Field } from "@/components/ui-kit";
 import { apiPost } from "@/lib/api";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/forgot-password")({
-  component: ForgotPasswordPage,
-});
-
-function ForgotPasswordPage() {
+export default function ForgotPasswordPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
@@ -23,7 +19,7 @@ function ForgotPasswordPage() {
       await apiPost("/auth/forgot-password", { email });
       toast.success("Verification code has been sent if an account exists.");
       // Redirect to OTP verification page passing the email
-      navigate({ to: "/verify-otp", search: { email } });
+      navigate(`/verify-otp?${new URLSearchParams({ email }).toString()}`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "An error occurred.");
     } finally {
@@ -51,3 +47,4 @@ function ForgotPasswordPage() {
     </AuthLayout>
   );
 }
+

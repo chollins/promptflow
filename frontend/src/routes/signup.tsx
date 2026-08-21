@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { CheckCircle2 } from "lucide-react";
 import { apiGet, apiPost } from "@/lib/api";
@@ -14,11 +14,7 @@ type InvitationInfo = {
   expires_at: string;
 };
 
-export const Route = createFileRoute("/signup")({
-  component: SignupPage,
-});
-
-function SignupPage() {
+export default function SignupPage() {
   const navigate = useNavigate();
   const token =
     typeof window === "undefined"
@@ -86,7 +82,7 @@ function SignupPage() {
           <p className="mb-6 text-sm text-muted-foreground">
             You can now sign in with your new account.
           </p>
-          <Button onClick={() => void navigate({ to: "/login" })}>Go to Login</Button>
+          <Button onClick={() => void navigate("/login")}>Go to Login</Button>
         </div>
       </AuthLayout>
     );
@@ -154,3 +150,4 @@ function SignupPage() {
     </AuthLayout>
   );
 }
+

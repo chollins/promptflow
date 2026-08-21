@@ -1,14 +1,10 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { Link } from "react-router-dom";
 import { Sparkles, ArrowRight } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui-kit";
 import { authService } from "@/lib/auth";
 
-export const Route = createFileRoute("/")({
-  component: Landing,
-});
-
-function Landing() {
+export default function Landing() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
@@ -71,3 +67,4 @@ function Landing() {
     </div>
   );
 }
+

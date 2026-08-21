@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import { Building2, PencilLine, Plus, RefreshCw, Trash2, EyeIcon, X } from "lucide-react";
 import { AppShell, PageHeader } from "@/components/app-shell";
@@ -68,11 +68,7 @@ function codeify(value: string) {
     .replace(/^-+|-+$/g, "");
 }
 
-export const Route = createFileRoute("/admin/organizations")({
-  component: OrganizationsAdmin,
-});
-
-function OrganizationsAdmin() {
+export default function OrganizationsAdmin() {
   const navigate = useNavigate();
   const [items, setItems] = useState<OrganizationItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -243,12 +239,7 @@ function OrganizationsAdmin() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() =>
-                        void navigate({
-                          to: "/admin/organizations/$id",
-                          params: { id: item.id },
-                        })
-                      }
+                      onClick={() => void navigate(`/admin/organizations/${item.id}`)}
                       title="View details"
                     >
                       <EyeIcon className="h-4 w-4" />
@@ -432,3 +423,4 @@ function OrganizationsAdmin() {
     </AppShell>
   );
 }
+

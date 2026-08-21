@@ -3,8 +3,14 @@ export type ApiListResponse<T> = {
   count: number;
 };
 
+const VITE_API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.toString().trim();
 const DEFAULT_API_BASE =
-  import.meta.env.VITE_API_BASE_URL?.toString().trim();
+  VITE_API_BASE_URL ||
+  (import.meta.env.DEV
+    ? "/api"
+    : typeof window !== "undefined" && window.location.origin
+      ? `${window.location.origin}/api`
+      : "/api");
 const SESSION_TOKEN_KEY = "promptflow_session_token";
 
 function getSessionToken() {

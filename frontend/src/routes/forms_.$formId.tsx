@@ -1,16 +1,12 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { AppShell, PageHeader } from "@/components/app-shell";
 import { FormRunner } from "@/components/form-runner";
 import { SuperadminFormRunner } from "@/components/SuperadminFormRunner";
 import { authService } from "@/lib/auth";
 
-export const Route = createFileRoute("/forms_/$formId")({
-  component: FormDetailPage,
-});
-
-function FormDetailPage() {
-  const { formId } = Route.useParams();
+export default function FormDetailPage() {
+  const { formId } = useParams();
   const [role, setRole] = useState<string | null>(null);
 
   useEffect(() => {
@@ -44,3 +40,4 @@ function FormDetailPage() {
     </AppShell>
   );
 }
+

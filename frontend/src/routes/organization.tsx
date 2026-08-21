@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import { Building2, Copy, Check, Link as LinkIcon } from "lucide-react";
 import { AppShell, PageHeader } from "@/components/app-shell";
@@ -31,11 +31,7 @@ type AuthUser = {
   organization_id: string;
 };
 
-export const Route = createFileRoute("/organization")({
-  component: OrganizationPage,
-});
-
-function OrganizationPage() {
+export default function OrganizationPage() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [loading, setLoading] = useState(true);
@@ -242,3 +238,4 @@ function LinkModal({
     </div>
   );
 }
+

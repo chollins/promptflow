@@ -1,5 +1,5 @@
-import { createFileRoute, Outlet } from "@tanstack/react-router";
+import { Navigate } from "react-router-dom";
 
-export const Route = createFileRoute("/admin")({
-  component: () => <Outlet />,
-});
+export default function AdminPage() {
+  return <Navigate to="/admin/organizations" replace />;
+}

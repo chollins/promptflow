@@ -1,26 +1,14 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useState } from "react";
 import { AuthLayout } from "./login";
 import { Button, Input, Field } from "@/components/ui-kit";
 import { apiPost } from "@/lib/api";
 import { toast } from "sonner";
 
-type SearchParams = {
-  email?: string;
-};
-
-export const Route = createFileRoute("/verify-otp")({
-  validateSearch: (search: Record<string, unknown>): SearchParams => {
-    return {
-      email: search.email ? String(search.email) : undefined,
-    };
-  },
-  component: VerifyOtpPage,
-});
-
-function VerifyOtpPage() {
+export default function VerifyOtpPage() {
   const navigate = useNavigate();
-  const { email: initialEmail } = Route.useSearch();
+  const [searchParams] = useSearchParams();
+  const initialEmail = searchParams.get("email") || "";
   const [email, setEmail] = useState(initialEmail || "");
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
@@ -37,7 +25,7 @@ function VerifyOtpPage() {
       });
       toast.success("OTP verified successfully.");
       // Navigate to reset password page with the short-lived reset token
-      navigate({ to: "/reset-password", search: { token: res.reset_token } });
+      navigate(`/reset-password?${new URLSearchParams({ token: res.reset_token }).toString()}`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Invalid OTP or email.");
     } finally {
@@ -77,3 +65,4 @@ function VerifyOtpPage() {
     </AuthLayout>
   );
 }
+

@@ -496,10 +496,10 @@ def seed():
 
     db.session.commit()
     print("Seeding complete.")
-    print("Login accounts:")
-    print("  admin      alice@acme.com / password123")
-    print("  member     member@acme.com / password123")
-    print("  superadmin superadmin@example.com / password123")
+    # print("Login accounts:")
+    # print("  admin      alice@acme.com / password123")
+    # print("  member     member@acme.com / password123")
+    # print("  superadmin superadmin@example.com / password123")
 
 
 if __name__ == "__main__":

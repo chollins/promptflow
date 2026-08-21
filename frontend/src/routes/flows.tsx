@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { AppShell, PageHeader } from "@/components/app-shell";
 import { Card } from "@/components/ui-kit";
@@ -13,11 +13,7 @@ type FlowItem = {
   steps: Array<{ id: string; name: string; sequence: number }>;
 };
 
-export const Route = createFileRoute("/flows")({
-  component: FlowsPage,
-});
-
-function FlowsPage() {
+export default function FlowsPage() {
   const [items, setItems] = useState<FlowItem[]>([]);
 
   useEffect(() => {
@@ -54,8 +50,8 @@ function FlowsPage() {
                   </p>
                 </div>
                 <Link
-                  to="/flows/$flowId"
-                  params={{ flowId: flow.id }}
+                  to={`/flows/${flow.id}`}
+                  
                   className="inline-flex h-10 items-center justify-center rounded-md border border-border bg-background px-4 text-sm font-medium text-foreground transition-colors hover:bg-muted"
                 >
                   Open
@@ -68,3 +64,4 @@ function FlowsPage() {
     </AppShell>
   );
 }
+
