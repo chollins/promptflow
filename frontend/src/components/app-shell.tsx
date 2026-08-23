@@ -164,10 +164,8 @@ export function AppShell({ children }: { children: ReactNode }) {
               PromptFlow
             </Link>
           </div>
-          <main className="min-w-0 flex-1">
-            <div className="w-full max-w-[1400px] px-6 py-8 md:px-10 md:py-10">
-              {children}
-            </div>
+          <main className=" px-6 py-8 md:px-10 md:py-10">
+            {children}
           </main>
         </SidebarInset>
       </div>

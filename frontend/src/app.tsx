@@ -1,5 +1,4 @@
 import { Navigate, Route, Routes } from "react-router-dom";
-import { AppShell } from "@/components/app-shell";
 import Landing from "@/routes/index";
 import LoginPage from "@/routes/login";
 import SignupPage from "@/routes/signup";
@@ -35,92 +34,22 @@ export default function App() {
       <Route path="/verify-otp" element={<VerifyOtpPage />} />
       <Route path="/create-organization" element={<CreateOrganizationPage />} />
 
-      <Route
-        path="/dashboard"
-        element={
-          <AppShell>
-            <DashboardPage />
-          </AppShell>
-        }
-      />
-      <Route
-        path="/flows"
-        element={
-          <AppShell>
-            <FlowsPage />
-          </AppShell>
-        }
-      />
-      <Route
-        path="/flows/:flowId"
-        element={
-          <AppShell>
-            <FlowDetailPage />
-          </AppShell>
-        }
-      />
-      <Route
-        path="/forms"
-        element={
-          <AppShell>
-            <FormsPage />
-          </AppShell>
-        }
-      />
-      <Route
-        path="/forms/:formId"
-        element={
-          <AppShell>
-            <FormDetailPage />
-          </AppShell>
-        }
-      />
-      <Route
-        path="/organization"
-        element={
-          <AppShell>
-            <OrganizationPage />
-          </AppShell>
-        }
-      />
-      <Route
-        path="/settings"
-        element={
-          <AppShell>
-            <SettingsPage />
-          </AppShell>
-        }
-      />
-      <Route
-        path="/users"
-        element={
-          <AppShell>
-            <UsersPage />
-          </AppShell>
-        }
-      />
-      <Route path="/admin" element={<AppShell><AdminPage /></AppShell>} />
-      <Route path="/admin/flows" element={<AppShell><AdminFlowsPage /></AppShell>} />
-      <Route path="/admin/flows/:id" element={<AppShell><AdminFlowDetailPage /></AppShell>} />
-      <Route path="/admin/forms" element={<AppShell><AdminFormsPage /></AppShell>} />
-      <Route path="/admin/forms/:id" element={<AppShell><AdminFormDetailPage /></AppShell>} />
-      <Route path="/admin/manage-flows" element={<AppShell><AdminManageFlowsPage /></AppShell>} />
-      <Route
-        path="/admin/organizations"
-        element={
-          <AppShell>
-            <AdminOrganizationsPage />
-          </AppShell>
-        }
-      />
-      <Route
-        path="/admin/organizations/:id"
-        element={
-          <AppShell>
-            <AdminOrganizationDetailPage />
-          </AppShell>
-        }
-      />
+      <Route path="/dashboard" element={<DashboardPage />} />
+      <Route path="/flows" element={<FlowsPage />} />
+      <Route path="/flows/:flowId" element={<FlowDetailPage />} />
+      <Route path="/forms" element={<FormsPage />} />
+      <Route path="/forms/:formId" element={<FormDetailPage />} />
+      <Route path="/organization" element={<OrganizationPage />} />
+      <Route path="/settings" element={<SettingsPage />} />
+      <Route path="/users" element={<UsersPage />} />
+      <Route path="/admin" element={<AdminPage />} />
+      <Route path="/admin/flows" element={<AdminFlowsPage />} />
+      <Route path="/admin/flows/:id" element={<AdminFlowDetailPage />} />
+      <Route path="/admin/forms" element={<AdminFormsPage />} />
+      <Route path="/admin/forms/:id" element={<AdminFormDetailPage />} />
+      <Route path="/admin/manage-flows" element={<AdminManageFlowsPage />} />
+      <Route path="/admin/organizations" element={<AdminOrganizationsPage />} />
+      <Route path="/admin/organizations/:id" element={<AdminOrganizationDetailPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
