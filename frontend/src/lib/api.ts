@@ -3,14 +3,13 @@ export type ApiListResponse<T> = {
   count: number;
 };
 
-const VITE_API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.toString().trim();
-const DEFAULT_API_BASE =
-  VITE_API_BASE_URL ||
-  (import.meta.env.DEV
-    ? "/api"
-    : typeof window !== "undefined" && window.location.origin
-      ? `${window.location.origin}/api`
-      : "/api");
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.toString().trim();
+
+if (!API_BASE_URL && !import.meta.env.DEV) {
+  throw new Error("VITE_API_BASE_URL is not configured.");
+}
+
+const DEFAULT_API_BASE = API_BASE_URL || "http://localhost:5000/api";
 const SESSION_TOKEN_KEY = "promptflow_session_token";
 
 function getSessionToken() {
