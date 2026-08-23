@@ -171,18 +171,18 @@ export function AppShell({ children }: { children: ReactNode }) {
       </div>
 
       <Dialog open={logoutOpen} onOpenChange={setLogoutOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Log out?</DialogTitle>
             <DialogDescription>You'll need to sign in again to keep using PromptFlow.</DialogDescription>
           </DialogHeader>
-          <DialogFooter>
+          <DialogFooter className="mt-4">
             <Button variant="secondary" onClick={() => setLogoutOpen(false)}>
               Cancel
             </Button>
             <Button
               onClick={() =>
-                authService.logout().then(() => {
+                void authService.logout().then(() => {
                   clearRecentActivity();
                   setLogoutOpen(false);
                   navigate("/login");

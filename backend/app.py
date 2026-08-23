@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import os
+import re
+from typing import Any
 
-from flask import Flask
+from flask import Flask, request
 
 from config import Config
 from extensions import cors, db, migrate
@@ -10,35 +12,55 @@ from models import Flow, Invitation, Organization, OrganizationFlowAccess, Role,
 from routes import api
 
 
-def _get_cors_origins() -> list[str]:
+def _get_cors_origins() -> list[Any]:
     raw = os.getenv("FRONTEND_ORIGINS", "")
     if raw.strip():
         return [origin.strip() for origin in raw.split(",") if origin.strip()]
 
     return [
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://192.168.1.13:8080",
-        "http://localhost:8080",
-        "http://127.0.0.1:8080",
+        r"^http://localhost:\d+$",
+        r"^http://127\.0\.0\.1:\d+$",
+        r"^http://192\.168\.1\.13:\d+$",
     ]
+
+
+def _origin_is_allowed(origin: str | None) -> bool:
+    if not origin:
+        return False
+    for pattern in _get_cors_origins():
+        if isinstance(pattern, str) and pattern.startswith("^"):
+            if re.match(pattern, origin):
+                return True
+        elif origin == pattern:
+            return True
+    return False
 
 def create_app(config_object: type[Config] | None = None) -> Flask:
     app = Flask(__name__)
     
-    app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
-    
     app.config.from_object(config_object or Config)
+    app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev-secret-key")
 
     db.init_app(app)
     migrate.init_app(app, db)
     cors.init_app(
         app,
         supports_credentials=True,
-        origins=_get_cors_origins(),
+        resources={r"/api/*": {"origins": _get_cors_origins()}},
+        allow_headers=["Content-Type", "X-Session-Token", "Authorization"],
+        methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     )
+
+    @app.after_request
+    def _set_cors_headers(response):
+        origin = request.headers.get("Origin")
+        if _origin_is_allowed(origin):
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            response.headers["Access-Control-Allow-Headers"] = "Content-Type, X-Session-Token, Authorization"
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+            response.headers.add("Vary", "Origin")
+        return response
 
     # Ensure Alembic sees all models through the app import path.
     _ = (Flow, Invitation, Organization, OrganizationFlowAccess, Role, User, PasswordResetOTP)

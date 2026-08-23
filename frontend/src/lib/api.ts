@@ -9,7 +9,7 @@ if (!API_BASE_URL && !import.meta.env.DEV) {
   throw new Error("VITE_API_BASE_URL is not configured.");
 }
 
-const DEFAULT_API_BASE = API_BASE_URL || "http://localhost:5000/api";
+const DEFAULT_API_BASE = API_BASE_URL || "/api";
 const SESSION_TOKEN_KEY = "promptflow_session_token";
 
 function getSessionToken() {
