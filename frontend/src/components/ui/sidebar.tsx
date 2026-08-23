@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
-import { PanelLeft } from "lucide-react";
+import { LogOut, PanelLeft } from "lucide-react";
 
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
@@ -415,6 +415,9 @@ const SidebarUserFooter = React.forwardRef<HTMLButtonElement, SidebarUserFooterP
               {role ? role : email || "Account"}
             </div>
           </div>
+        )}
+        {state !== "collapsed" && (
+          <LogOut className="ml-auto size-4 shrink-0 text-sidebar-foreground/50" />
         )}
       </button>
     );

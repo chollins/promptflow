@@ -7,6 +7,7 @@ import { apiDelete, apiGet, apiPost } from "@/lib/api";
 import { logActivity } from "@/lib/activity";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 type FlowItem = {
   id: string;
@@ -39,6 +40,7 @@ export default function FlowsCatalog() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
   const [form, setForm] = useState<FlowFormState>(EMPTY_FORM);
 
   async function refresh() {
@@ -77,15 +79,17 @@ export default function FlowsCatalog() {
     }
   }
 
-  async function handleDelete(id: string) {
-    if (!window.confirm("Delete this flow?")) return;
+  async function handleDelete() {
+    if (!deleteId) return;
     try {
-      await apiDelete(`/admin/flows/${id}`);
+      await apiDelete(`/admin/flows/${deleteId}`);
       await refresh();
       toast.success("Flow deleted");
-      logActivity("deleted flow", id);
+      logActivity("deleted flow", deleteId);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to delete flow");
+    } finally {
+      setDeleteId(null);
     }
   }
 
@@ -132,7 +136,7 @@ export default function FlowsCatalog() {
                         Edit flow
                       </Link>
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={() => void handleDelete(item.id)} className="text-red-500 hover:bg-red-50">
+                    <Button variant="ghost" size="sm" onClick={() => setDeleteId(item.id)} className="text-red-500 hover:bg-red-50">
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
@@ -185,6 +189,20 @@ export default function FlowsCatalog() {
           </div>
         </DialogContent>
       </Dialog>
+      <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this flow?</AlertDialogTitle>
+            <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void handleDelete()} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppShell>
   );
 }

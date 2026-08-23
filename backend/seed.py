@@ -403,7 +403,7 @@ def seed():
                     "options": [],
                     "data_source": {
                         "type": "step_output",
-                        "step_id": "select_muscle",
+                        "step_id": "stretch_muscle",
                         "path": "stretches",
                     },
                 },
@@ -416,7 +416,7 @@ def seed():
                     "Body area: "
                     "{{steps.stretch_information.input.area}}. "
                     "Target muscle: "
-                    "{{steps.select_muscle.input.muscle}}. "
+                    "{{steps.stretch_muscle.input.muscle}}. "
                     "Selected stretches: {{stretches}}. "
                     "For each stretch provide step-by-step "
                     "instructions, benefits, and precautions."

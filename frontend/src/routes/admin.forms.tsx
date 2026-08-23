@@ -14,6 +14,8 @@ import {
 import { apiDelete, apiGet, apiPost, apiPut } from "@/lib/api";
 import { logActivity } from "@/lib/activity";
 import { toast } from "sonner";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+
 
 type FormItem = {
   id: string;
@@ -50,6 +52,7 @@ export default function AdminFormsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const editingItem = useMemo(
     () => items.find((item) => item.id === editingId) ?? null,
@@ -131,15 +134,17 @@ export default function AdminFormsPage() {
     }
   }
 
-  async function handleDelete(id: string) {
-    if (!window.confirm("Delete this form?")) return;
+  async function handleDelete() {
+    if (!deleteId) return;
     try {
-      await apiDelete(`/admin/forms/${id}`);
+      await apiDelete(`/admin/forms/${deleteId}`);
       await refresh();
       toast.success("Form deleted");
-      logActivity("deleted form", id);
+      logActivity("deleted form", deleteId);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to delete form");
+    } finally {
+      setDeleteId(null);
     }
   }
 
@@ -199,8 +204,9 @@ export default function AdminFormsPage() {
                     </Button>
                     <Button
                       variant="ghost"
+                      className="text-red-500 hover:bg-red-50"
                       size="sm"
-                      onClick={() => void handleDelete(item.id)}
+                      onClick={() => setDeleteId(item.id)}
                       title="Delete"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -290,6 +296,20 @@ export default function AdminFormsPage() {
           </div>
         </DialogContent>
       </Dialog>
+      <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this form?</AlertDialogTitle>
+            <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void handleDelete()} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppShell>
   );
 }

@@ -699,10 +699,6 @@ def admin_flow_add_step(flow_id: str):
         return error
     payload = request.get_json(silent=True) or {}
     form_id = (payload.get("form_id") or "").strip()
-    try:
-        step_number = int(payload.get("step_number"))
-    except (TypeError, ValueError):
-        return jsonify({"error": "step_number is required."}), 400
     is_required = bool(payload.get("is_required", True))
     if not form_id:
         return jsonify({"error": "form_id is required."}), 400
@@ -712,19 +708,15 @@ def admin_flow_add_step(flow_id: str):
     form = Form.query.filter((Form.id == form_id) | (Form.slug == form_id)).first()
     if not form:
         return jsonify({"error": "Form not found"}), 404
-    existing = FlowFormStep.query.filter_by(flow_id=flow.id, step_number=step_number).first()
-    if existing:
-        existing.form_id = form.id
-        existing.is_required = is_required
-    else:
-        db.session.add(
-            FlowFormStep(
-                flow_id=flow.id,
-                form_id=form.id,
-                step_number=step_number,
-                is_required=is_required,
-            )
+    next_step_number = db.session.query(db.func.max(FlowFormStep.step_number)).filter_by(flow_id=flow.id).scalar() or 0
+    db.session.add(
+        FlowFormStep(
+            flow_id=flow.id,
+            form_id=form.id,
+            step_number=next_step_number + 1,
+            is_required=is_required,
         )
+    )
     db.session.commit()
     return jsonify({"ok": True})
 
