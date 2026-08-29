@@ -41,6 +41,7 @@ type SidebarUserFooterProps = {
   role?: string | null;
   email?: string | null;
   avatarUrl?: string | null;
+  buildSha?: string | null;
   onClick?: () => void;
 };
 
@@ -384,7 +385,7 @@ const SidebarFooter = React.forwardRef<HTMLDivElement, React.ComponentProps<"div
 SidebarFooter.displayName = "SidebarFooter";
 
 const SidebarUserFooter = React.forwardRef<HTMLButtonElement, SidebarUserFooterProps>(
-  ({ name, role, email, avatarUrl, onClick }, ref) => {
+  ({ name, role, email, avatarUrl, buildSha, onClick }, ref) => {
     const { state } = useSidebar();
     const initials = name
       .split(" ")
@@ -414,6 +415,11 @@ const SidebarUserFooter = React.forwardRef<HTMLButtonElement, SidebarUserFooterP
             <div className="truncate text-xs text-sidebar-foreground/70">
               {role ? role : email || "Account"}
             </div>
+            {buildSha && (
+              <div className="truncate text-[11px] text-sidebar-foreground/50">
+                Build {buildSha.slice(0, 7)}
+              </div>
+            )}
           </div>
         )}
         {state !== "collapsed" && (

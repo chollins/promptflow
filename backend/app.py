@@ -51,6 +51,7 @@ def create_app(config_object: type[Config] | None = None) -> Flask:
         methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     )
 
+
     @app.after_request
     def _set_cors_headers(response):
         origin = request.headers.get("Origin")
@@ -60,6 +61,7 @@ def create_app(config_object: type[Config] | None = None) -> Flask:
             response.headers["Access-Control-Allow-Headers"] = "Content-Type, X-Session-Token, Authorization"
             response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
             response.headers.add("Vary", "Origin")
+            
         return response
 
     # Ensure Alembic sees all models through the app import path.

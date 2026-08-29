@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { authService } from "@/lib/auth";
-import { hasSessionToken } from "@/lib/api";
+import { apiGet, hasSessionToken } from "@/lib/api";
 import { clearRecentActivity } from "@/lib/activity";
 import { Button } from "@/components/ui-kit";
 import {
@@ -63,6 +63,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const [role, setRole] = useState<"admin" | "user" | "superadmin" | null>(null);
   const [name, setName] = useState<string | null>(null);
+  const [buildSha, setBuildSha] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [logoutOpen, setLogoutOpen] = useState(false);
 
@@ -89,6 +90,15 @@ export function AppShell({ children }: { children: ReactNode }) {
       })
       .finally(() => {
         if (active) setLoading(false);
+      });
+
+    apiGet<{ git_sha?: string | null; version?: string | null }>("/version")
+      .then((version) => {
+        if (!active) return;
+        setBuildSha(version.git_sha || version.version || null);
+      })
+      .catch(() => {
+        if (active) setBuildSha(null);
       });
 
     return () => {
@@ -151,6 +161,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <SidebarUserFooter
               name={name || "User"}
               role={role}
+              buildSha={buildSha}
               onClick={() => setLogoutOpen(true)}
             />
           </SidebarFooter>
