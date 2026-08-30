@@ -69,16 +69,9 @@ def create_app(config_object: type[Config] | None = None) -> Flask:
 
     @app.route("/api/version", methods=["GET"])
     def version():
-        git_sha = (
-            os.getenv("GIT_SHA")
-            or os.getenv("GITHUB_SHA")
-            or os.getenv("VERCEL_GIT_COMMIT_SHA")
-            or os.getenv("COMMIT_SHA")
-        )
-
         return {
-            "git_sha": git_sha,
-            "version": git_sha or "dev",
+            "git_sha": os.getenv("RENDER_GIT_COMMIT"),
+            "version": os.getenv("RENDER_GIT_COMMIT") or "dev",
         }
     app.register_blueprint(api)
 
