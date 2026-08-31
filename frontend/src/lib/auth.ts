@@ -8,6 +8,7 @@ export interface AuthUser {
   role: string | null;
   organization_id: string;
   session_token: string | null;
+  diagnostic_capabilities?: string[];
 }
 
 export const authService = {

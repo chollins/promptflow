@@ -30,6 +30,7 @@ from services.form_service import (
     get_form as load_form,
     update_form,
 )
+from services.diagnostics import diagnostic_policy_for
 
 api = Blueprint("api", __name__)
 
@@ -154,6 +155,9 @@ def auth_login():
     session["session_token"] = token
     user.session_token = token
     db.session.commit()
+    
+    capabilities = sorted(list(diagnostic_policy_for(user)))
+    
     return jsonify({
         "id": user.id,
         "name": user.name,
@@ -161,6 +165,7 @@ def auth_login():
         "role": user.role.name if user.role else None,
         "organization_id": user.organization_id,
         "session_token": session["session_token"],
+        "diagnostic_capabilities": capabilities,
     })
 
 
@@ -184,6 +189,8 @@ def auth_me():
         session.clear()
         return jsonify({"error": "Not authenticated"}), 401
 
+    capabilities = sorted(list(diagnostic_policy_for(user)))
+
     return jsonify({
         "id": user.id,
         "name": user.name,
@@ -191,6 +198,7 @@ def auth_me():
         "role": user.role.name if user.role else None,
         "organization_id": user.organization_id,
         "session_token": user.session_token,
+        "diagnostic_capabilities": capabilities,
     })
 
 
@@ -522,18 +530,43 @@ def admin_form_delete(form_id: str):
         return jsonify({"error": str(exc)}), 404
 
 
+def _recursive_redact(data):
+    if isinstance(data, dict):
+        new_data = {}
+        for k, v in data.items():
+            if any(secret in k.lower() for secret in ["authorization", "api_key", "token", "password", "secret", "cookie"]):
+                new_data[k] = "[REDACTED]"
+            else:
+                new_data[k] = _recursive_redact(v)
+        return new_data
+    elif isinstance(data, list):
+        return [_recursive_redact(i) for i in data]
+    else:
+        return data
+
+def _format_execution_response(result_dump: dict, capabilities: frozenset[str]):
+    redacted = _recursive_redact(result_dump)
+    redacted["diagnostic_capabilities"] = sorted(list(capabilities))
+    if "debug" in redacted and not redacted["debug"]:
+        del redacted["debug"]
+        
+    resp = jsonify(redacted)
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
+
 @api.post("/api/forms/<form_id>/execute")
 def execute_form_route(form_id: str):
     current_user, error = _require_form_access(form_id)
     if error:
         return error
     payload = request.get_json(silent=True) or {}
+    capabilities = diagnostic_policy_for(current_user)
     result = execute_form(
         form_id=form_id,
         values=payload.get("values") or {},
-        include_debug=bool(current_user and current_user.role and current_user.role.name == "superadmin"),
+        diagnostic_capabilities=capabilities,
     )
-    return jsonify(result.model_dump())
+    return _format_execution_response(result.model_dump(exclude_none=True), capabilities)
 
 
 @api.get("/api/flows")
@@ -575,14 +608,15 @@ def run_flow(flow_id: str):
     if error:
         return error
     payload = request.get_json(silent=True) or {}
+    capabilities = diagnostic_policy_for(current_user)
     result = execute_flow(
         flow_id=flow_id,
         values=payload.get("values"),
         context=payload.get("context"),
         step_id=payload.get("step_id"),
-        include_debug=bool(current_user and current_user.role and current_user.role.name == "superadmin"),
+        diagnostic_capabilities=capabilities,
     )
-    return jsonify(result.model_dump())
+    return _format_execution_response(result.model_dump(exclude_none=True), capabilities)
 
 
 @api.get("/api/admin/flows")

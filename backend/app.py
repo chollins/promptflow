@@ -40,6 +40,12 @@ def create_app(config_object: type[Config] | None = None) -> Flask:
     
     app.config.from_object(config_object or Config)
     app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev-secret-key")
+    
+    from services.diagnostics import parse_diagnostic_config
+    app.config["DIAGNOSTICS_SUPERADMIN"] = parse_diagnostic_config(os.getenv("DIAGNOSTICS_SUPERADMIN"), "all")
+    app.config["DIAGNOSTICS_ADMIN"] = parse_diagnostic_config(os.getenv("DIAGNOSTICS_ADMIN"), "none")
+    app.config["DIAGNOSTICS_USER"] = parse_diagnostic_config(os.getenv("DIAGNOSTICS_USER"), "none")
+
 
     db.init_app(app)
     migrate.init_app(app, db)

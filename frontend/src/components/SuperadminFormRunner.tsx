@@ -8,108 +8,99 @@ import { PromptTabs } from "@/components/prompt-tabs";
 export function SuperadminFormRunner({ formId }: { formId: string }) {
   const [snapshot, setSnapshot] = useState<FormRunnerSnapshot | null>(null);
 
-  const inputSources = useMemo(() => {
-    if (!snapshot) return [];
-    return (
-      snapshot.debug?.input_sources ??
-      snapshot.form.fields.map((field) => ({
-        field_id: field.id,
-        label: field.label,
-        source_type: "Current Form Input",
-        source_name: "Current Form Input",
-        path: `values.${field.id}`,
-        value: snapshot.values[field.id],
-      }))
-    );
-  }, [snapshot]);
+  const capabilities = snapshot?.diagnostic_capabilities ?? [];
+  const debug = snapshot?.debug ?? {};
+  const sections: any[] = [];
 
-  const promptTemplate = snapshot?.debug?.prompt_template ?? snapshot?.form.prompt ?? null;
-  const resolvedPrompt = snapshot?.debug?.resolved_prompt ?? null;
-  const modelConfiguration = snapshot?.debug?.model_configuration ?? snapshot?.form.model ?? null;
-  const outputSchema = snapshot?.debug?.output_schema ?? {
-    type: "object",
-    properties: Object.fromEntries(
-      (snapshot?.form.fields || []).map((field) => [
-        field.id,
-        {
-          label: field.label,
-          type: field.type,
-          required: field.required,
-          description: field.description,
-          default: field.default,
-          options: field.options,
-        },
-      ]),
-    ),
-  };
-  const rawResponse = snapshot?.debug?.raw_response ?? snapshot?.result ?? null;
-  const executionDetails = snapshot
-    ? {
-        ...(snapshot.debug?.execution_details || {}),
-        form_name: snapshot.form.name,
-        form_id: snapshot.form.id,
-      }
-    : null;
-  const runtimeState = snapshot
-    ? {
-        ...(snapshot.debug?.runtime_state || {}),
-        status: snapshot.result ? "completed" : "running",
-        current_form_id: snapshot.form.id,
-        values: snapshot.values,
-      }
-    : null;
+  if (capabilities.includes("input_sources") && debug.input_sources) {
+    sections.push({
+      id: "input-sources",
+      title: "Input Sources",
+      defaultOpen: true,
+      content: <InputSourcesTable sources={debug.input_sources} />,
+    });
+  }
+
+  if (capabilities.includes("prompts") && (debug.prompt_template || debug.resolved_prompt)) {
+    sections.push({
+      id: "prompt",
+      title: "Prompt",
+      content: (
+        <PromptTabs
+          template={debug.prompt_template}
+          rendered={debug.resolved_prompt}
+        />
+      ),
+    });
+  }
+
+  if (capabilities.includes("model") && debug.model_configuration) {
+    sections.push({
+      id: "model-configuration",
+      title: "Model Configuration",
+      content: <DebugJsonViewer value={debug.model_configuration} />,
+    });
+  }
+
+  if (capabilities.includes("output_schema") && debug.output_schema) {
+    sections.push({
+      id: "output-schema",
+      title: "Output Schema",
+      content: <DebugJsonViewer value={debug.output_schema} />,
+    });
+  }
+
+  if (capabilities.includes("raw_response") && debug.raw_response) {
+    sections.push({
+      id: "raw-response",
+      title: "Raw Response",
+      content: <DebugJsonViewer value={debug.raw_response} />,
+    });
+  }
+  
+  if (capabilities.includes("structured_output") && snapshot?.result) {
+    // Only show structured_output if result is valid JSON
+    let parsed: any = null;
+    try {
+      parsed = JSON.parse(snapshot.result);
+    } catch {
+      // Not JSON
+    }
+    if (parsed) {
+      sections.push({
+        id: "structured-output",
+        title: "JSON / Structured Output",
+        content: <DebugJsonViewer value={parsed} />,
+      });
+    }
+  }
+
+  if (capabilities.includes("execution") && (debug.execution_details || debug.runtime_state)) {
+    if (debug.execution_details) {
+      sections.push({
+        id: "execution-details",
+        title: "Execution Details",
+        defaultOpen: true,
+        content: <DebugJsonViewer value={debug.execution_details} />,
+      });
+    }
+    if (debug.runtime_state) {
+      sections.push({
+        id: "runtime-state",
+        title: "Runtime State",
+        defaultOpen: true,
+        content: <DebugJsonViewer value={debug.runtime_state} />,
+      });
+    }
+  }
 
   return (
     <div className="space-y-6">
       <FormRunner formId={formId} onDebugSnapshot={setSnapshot} />
 
-      <ExecutionDebugPanel
-        sections={[
-          {
-            id: "input-sources",
-            title: "Input Sources",
-            defaultOpen: true,
-            content: <InputSourcesTable sources={inputSources} />,
-          },
-          {
-            id: "prompt",
-            title: "Prompt",
-            content: (
-              <PromptTabs
-                template={promptTemplate}
-                rendered={resolvedPrompt}
-              />
-            ),
-          },
-          {
-            id: "model-configuration",
-            title: "Model Configuration",
-            content: <DebugJsonViewer value={modelConfiguration} />,
-          },
-          {
-            id: "output-schema",
-            title: "Output Schema",
-            content: <DebugJsonViewer value={outputSchema} />,
-          },
-          {
-            id: "raw-response",
-            title: "Raw Response",
-            content: <DebugJsonViewer value={rawResponse} />,
-          },
-          {
-            id: "execution-details",
-            title: "Execution Details",
-            defaultOpen: true,
-            content: <DebugJsonViewer value={executionDetails} />,
-          },
-          {
-            id: "runtime-state",
-            title: "Runtime State",
-            defaultOpen: true,
-            content: <DebugJsonViewer value={runtimeState} />,
-          },
-        ]}
-      />
+      {sections.length > 0 && (
+        <ExecutionDebugPanel sections={sections} />
+      )}
     </div>
   );
 }

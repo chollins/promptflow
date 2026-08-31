@@ -11,6 +11,7 @@ type FormExecuteResult = {
   result: string;
   values: Record<string, string>;
   debug?: FormExecutionDebug | null;
+  diagnostic_capabilities?: string[];
 };
 
 export type FormExecutionDebug = {
@@ -37,6 +38,7 @@ export type FormRunnerSnapshot = {
   prompt: string;
   result: string;
   debug: FormExecutionDebug | null;
+  diagnostic_capabilities: string[];
 };
 
 type FormRunnerProps = {
@@ -63,6 +65,7 @@ export function FormRunner({ formId, onDebugSnapshot }: FormRunnerProps) {
   const [prompt, setPrompt] = useState("");
   const [result, setResult] = useState("");
   const [debug, setDebug] = useState<FormExecutionDebug | null>(null);
+  const [diagnosticCapabilities, setDiagnosticCapabilities] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
   const [isExecuted, setIsExecuted] = useState(false);
@@ -79,6 +82,7 @@ export function FormRunner({ formId, onDebugSnapshot }: FormRunnerProps) {
         logActivity("viewed form", data.name);
         setIsExecuted(false);
         setDebug(null);
+        setDiagnosticCapabilities([]);
         const next: Record<string, string> = {};
         for (const field of data.fields) {
           next[field.id] = field.type === "checkbox" ? "false" : (field.default ?? "");
@@ -109,6 +113,7 @@ export function FormRunner({ formId, onDebugSnapshot }: FormRunnerProps) {
       setPrompt(response.prompt);
       setResult(response.result);
       setDebug(response.debug ?? null);
+      setDiagnosticCapabilities(response.diagnostic_capabilities ?? []);
       setIsExecuted(true);
       logActivity("executed form", form.name);
 
@@ -131,8 +136,9 @@ export function FormRunner({ formId, onDebugSnapshot }: FormRunnerProps) {
       prompt,
       result,
       debug,
+      diagnostic_capabilities: diagnosticCapabilities,
     });
-  }, [onDebugSnapshot, form, values, prompt, result, debug]);
+  }, [onDebugSnapshot, form, values, prompt, result, debug, diagnosticCapabilities]);
 
   if (loading) {
     return <Card className="p-5">Loading form...</Card>;

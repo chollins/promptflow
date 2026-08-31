@@ -68,6 +68,7 @@ type FlowExecuteResponse = {
   context: Record<string, unknown>;
   steps: FlowExecuteStep[];
   debug?: FlowExecutionDebug | null;
+  diagnostic_capabilities?: string[];
 };
 
 export type FlowExecutionDebug = {
@@ -99,6 +100,7 @@ export type FlowRunnerSnapshot = {
   stepResult: string;
   stepResults: FlowExecuteStep[];
   debug: FlowExecutionDebug | null;
+  diagnostic_capabilities: string[];
 };
 
 type FlowRunnerProps = {
@@ -273,6 +275,7 @@ export function FlowRunner({ flowId, onDebugSnapshot }: FlowRunnerProps) {
   const [stepPrompt, setStepPrompt] = useState<string>("");
   const [stepResult, setStepResult] = useState<string>("");
   const [stepDebug, setStepDebug] = useState<FlowExecutionDebug | null>(null);
+  const [diagnosticCapabilities, setDiagnosticCapabilities] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -291,6 +294,7 @@ export function FlowRunner({ flowId, onDebugSnapshot }: FlowRunnerProps) {
         setStepPrompt("");
         setStepResult("");
         setStepDebug(null);
+        setDiagnosticCapabilities([]);
         setActiveAccordion("step-0");
       })
       .catch((err: Error) => setError(err.message))
@@ -338,6 +342,7 @@ export function FlowRunner({ flowId, onDebugSnapshot }: FlowRunnerProps) {
       stepResult,
       stepResults,
       debug: stepDebug,
+      diagnostic_capabilities: diagnosticCapabilities,
     });
   }, [
     onDebugSnapshot,
@@ -351,6 +356,7 @@ export function FlowRunner({ flowId, onDebugSnapshot }: FlowRunnerProps) {
     stepResult,
     stepResults,
     stepDebug,
+    diagnosticCapabilities,
   ]);
 
   const renderedFields = useMemo(() => {
@@ -447,6 +453,7 @@ export function FlowRunner({ flowId, onDebugSnapshot }: FlowRunnerProps) {
       setStepPrompt(executed.prompt);
       setStepResult(executed.result);
       setStepDebug(response.debug ?? null);
+      setDiagnosticCapabilities(response.diagnostic_capabilities ?? []);
       setStepResults((prev) => [...prev.slice(0, currentStepIndex), executed]);
       setActiveAccordion(`step-${currentStepIndex}`);
       logActivity("executed flow step", `${flow.name} - ${currentStep.name}`);

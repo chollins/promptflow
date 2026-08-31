@@ -29,7 +29,7 @@ class FlowStepResult(BaseModel):
     id: str
     name: str
     sequence: int
-    prompt: str
+    prompt: str | None = None
     result: str
     completed: bool = True
     next: str | None = None
@@ -133,8 +133,11 @@ def _execute_step(
     user_values: dict,
     context: ExecutionContext,
     *,
-    include_debug: bool = False,
+    diagnostic_capabilities: frozenset[str] | None = None,
 ) -> tuple[FlowStepResult, dict | None]:
+    if diagnostic_capabilities is None:
+        diagnostic_capabilities = frozenset()
+
     started = time.perf_counter()
     started_at = datetime.utcnow()
     form = get_form(step.prompt_form_id)
@@ -194,62 +197,67 @@ def _execute_step(
         id=step.id,
         name=step.name,
         sequence=step.sequence,
-        prompt=rendered_prompt,
+        prompt=rendered_prompt if "prompts" in diagnostic_capabilities else None,
         result=result,
         completed=True,
         next=step.next,
         output=step.output.model_dump() if step.output else None,
     )
-    debug = None
-    if include_debug:
-        debug = {
-            "input_sources": input_sources,
-            "prompt_template": {
-                "system": form.prompt.system,
-                "user": form.prompt.user,
-            },
-            "resolved_prompt": {
-                "system": rendered_system_prompt,
-                "user": rendered_prompt,
-            },
-            "model_configuration": {
-                "provider": form.model.provider,
-                "name": form.model.name,
-                "temperature": form.model.temperature,
-            },
-            "output_schema": {
-                "type": "object",
-                "properties": {
-                    field.id: {
-                        "label": field.label,
-                        "type": field.type,
-                        "required": field.required,
-                        "description": field.description,
-                        "default": field.default,
-                        "options": field.options,
-                    }
-                    for field in form.fields
-                },
-                "required": [field.id for field in form.fields if field.required],
-            },
-            "raw_response": result,
-            "execution_details": {
-                "flow_id": flow.id,
-                "step_id": step.id,
-                "started_at": started_at.isoformat() + "Z",
-                "completed_at": completed_at.isoformat() + "Z",
-                "duration_ms": round((completed_at - started_at).total_seconds() * 1000, 2),
-                "status": "completed",
-                "retry_count": 0,
-                "validation_status": "passed",
-            },
-            "runtime_state": {
-                "status": "completed",
-                "current_step": step.id,
-                "context": context.all(),
-            },
+    debug = {}
+    
+    if "input_sources" in diagnostic_capabilities:
+        debug["input_sources"] = input_sources
+    if "prompts" in diagnostic_capabilities:
+        debug["prompt_template"] = {
+            "system": form.prompt.system,
+            "user": form.prompt.user,
         }
-    return step_result, debug
+        debug["resolved_prompt"] = {
+            "system": rendered_system_prompt,
+            "user": rendered_prompt,
+        }
+    if "model" in diagnostic_capabilities:
+        debug["model_configuration"] = {
+            "provider": form.model.provider,
+            "name": form.model.name,
+            "temperature": form.model.temperature,
+        }
+    if "output_schema" in diagnostic_capabilities:
+        debug["output_schema"] = {
+            "type": "object",
+            "properties": {
+                field.id: {
+                    "label": field.label,
+                    "type": field.type,
+                    "required": field.required,
+                    "description": field.description,
+                    "default": field.default,
+                    "options": field.options,
+                }
+                for field in form.fields
+            },
+            "required": [field.id for field in form.fields if field.required],
+        }
+    if "raw_response" in diagnostic_capabilities:
+        debug["raw_response"] = result
+    if "execution" in diagnostic_capabilities:
+        debug["execution_details"] = {
+            "flow_id": flow.id,
+            "step_id": step.id,
+            "started_at": started_at.isoformat() + "Z",
+            "completed_at": completed_at.isoformat() + "Z",
+            "duration_ms": round((completed_at - started_at).total_seconds() * 1000, 2),
+            "status": "completed",
+            "retry_count": 0,
+            "validation_status": "passed",
+        }
+        debug["runtime_state"] = {
+            "status": "completed",
+            "current_step": step.id,
+            "context": context.all(),
+        }
+        
+    return step_result, (debug if debug else None)
 
 
 def execute_flow(
@@ -258,10 +266,12 @@ def execute_flow(
     context: dict | None = None,
     step_id: str | None = None,
     *,
-    include_debug: bool = False,
+    diagnostic_capabilities: frozenset[str] | None = None,
 ) -> FlowExecuteResponse:
     flow = get_flow(flow_id)
     step = _find_step(flow, step_id) if step_id else sorted(flow.steps, key=lambda item: item.sequence)[0]
     execution_context = ExecutionContext(context)
-    step_result, debug = _execute_step(flow, step, values or {}, execution_context, include_debug=include_debug)
+    step_result, debug = _execute_step(
+        flow, step, values or {}, execution_context, diagnostic_capabilities=diagnostic_capabilities
+    )
     return FlowExecuteResponse(context=execution_context.all(), steps=[step_result], debug=debug)

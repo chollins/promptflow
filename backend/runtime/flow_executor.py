@@ -28,7 +28,7 @@ class FlowStepResult(BaseModel):
     id: str
     name: str
     sequence: int
-    prompt: str
+    prompt: str | None = None
     result: str
     completed: bool = True
     next: str | None = None
@@ -102,7 +102,9 @@ def _save_output(flow_id: str, output: OutputSettings, result: str) -> None:
             (output_dir / f"{output.save_as}.md").write_text(result, encoding="utf-8")
 
 
-def _execute_step(flow: PromptFlow, step: FlowStep, user_values: dict, context: ExecutionContext, include_debug: bool = False) -> tuple[FlowStepResult, dict | None]:
+def _execute_step(flow: PromptFlow, step: FlowStep, user_values: dict, context: ExecutionContext, diagnostic_capabilities: frozenset[str] | None = None) -> tuple[FlowStepResult, dict | None]:
+    if diagnostic_capabilities is None:
+        diagnostic_capabilities = frozenset()
     started = time.perf_counter()
     form = get_form(step.prompt_form_id)
     values = _build_step_values(step, user_values, context)
@@ -146,15 +148,16 @@ def _execute_step(flow: PromptFlow, step: FlowStep, user_values: dict, context: 
         id=step.id,
         name=step.name,
         sequence=step.sequence,
-        prompt=rendered_prompt,
+        prompt=rendered_prompt if "prompts" in diagnostic_capabilities else None,
         result=result,
         completed=True,
         next=step.next,
         output=step.output.model_dump() if step.output else None,
     )
 
-    debug_info = None
-    if include_debug:
+    debug_info = {}
+    
+    if "input_sources" in diagnostic_capabilities:
         input_sources = []
         for field in form.fields:
             if field.id in user_values:
@@ -200,7 +203,26 @@ def _execute_step(flow: PromptFlow, step: FlowStep, user_values: dict, context: 
                     "path": f"context.{context_key}",
                     "value": bound,
                 })
-
+        debug_info["input_sources"] = input_sources
+        
+    if "prompts" in diagnostic_capabilities:
+        debug_info["prompt_template"] = {
+            "system": form.prompt.system,
+            "user": form.prompt.user,
+        }
+        debug_info["resolved_prompt"] = {
+            "system": rendered_system_prompt,
+            "user": rendered_prompt,
+        }
+        
+    if "model" in diagnostic_capabilities:
+        debug_info["model_configuration"] = {
+            "provider": form.model.provider,
+            "name": form.model.name,
+            "temperature": form.model.temperature,
+        }
+        
+    if "output_schema" in diagnostic_capabilities:
         output_schema = None
         if step.output:
             output_schema = {
@@ -208,37 +230,24 @@ def _execute_step(flow: PromptFlow, step: FlowStep, user_values: dict, context: 
                 "save_as": step.output.save_as,
                 "formats": step.output.formats
             }
-            
-        debug_info = {
-            "input_sources": input_sources,
-            "prompt_template": {
-                "system": form.prompt.system,
-                "user": form.prompt.user,
-            },
-            "resolved_prompt": {
-                "system": rendered_system_prompt,
-                "user": rendered_prompt,
-            },
-            "model_configuration": {
-                "provider": form.model.provider,
-                "name": form.model.name,
-                "temperature": form.model.temperature,
-            },
-            "output_schema": output_schema,
-            "raw_response": result,
-            "execution_details": {
-                "duration_ms": int(duration_ms),
-            }
+        debug_info["output_schema"] = output_schema
+        
+    if "raw_response" in diagnostic_capabilities:
+        debug_info["raw_response"] = result
+        
+    if "execution" in diagnostic_capabilities:
+        debug_info["execution_details"] = {
+            "duration_ms": int(duration_ms),
         }
 
-    return step_result, debug_info
+    return step_result, (debug_info if debug_info else None)
 
 
-def execute_flow(flow_id: str, values: dict | None = None, context: dict | None = None, step_id: str | None = None, include_debug: bool = False) -> FlowExecuteResponse:
+def execute_flow(flow_id: str, values: dict | None = None, context: dict | None = None, step_id: str | None = None, diagnostic_capabilities: frozenset[str] | None = None) -> FlowExecuteResponse:
     flow = get_flow(flow_id)
     step = _find_step(flow, step_id) if step_id else sorted(flow.steps, key=lambda item: item.sequence)[0]
     execution_context = ExecutionContext(context)
-    step_result, debug_info = _execute_step(flow, step, values or {}, execution_context, include_debug)
+    step_result, debug_info = _execute_step(flow, step, values or {}, execution_context, diagnostic_capabilities)
     
     if debug_info:
         completed = []
