@@ -416,7 +416,7 @@ const SidebarUserFooter = React.forwardRef<HTMLButtonElement, SidebarUserFooterP
               {role ? role : email || "Account"}
             </div>
             {buildSha && (
-              <div className="truncate text-[11px] text-sidebar-foreground/50">
+              <div className="truncate text-[11px] text-sidebar-foreground/50 text-gray-700">
                 Build {buildSha.slice(0, 7)}
               </div>
             )}

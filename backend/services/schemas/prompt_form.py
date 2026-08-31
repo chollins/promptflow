@@ -26,7 +26,7 @@ class FieldSchema(BaseModel):
     id: str
     label: str
     description: str | None = None
-    type: Literal["text", "textarea", "checkbox", "radio", "dropdown", "hidden"]
+    type: Literal["text", "textarea", "date", "checkbox", "radio", "dropdown", "hidden"]
     required: bool = False
     default: str | None = None
     options: list[str] = Field(default_factory=list)

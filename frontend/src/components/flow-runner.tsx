@@ -13,10 +13,10 @@ export type RuntimeField = {
   id: string;
   label: string;
   description?: string | null;
-  type: "text" | "textarea" | "checkbox" | "radio" | "dropdown" | "hidden";
+  type: "text" | "textarea" | "date" | "checkbox" | "radio" | "dropdown" | "hidden";
   required?: boolean;
   default?: string | null;
-  options?: string[];
+  options?: Array<string | { label?: string; value?: string; theme?: string; description?: string }>;
   data_source?: { type: "step_output"; step_id: string; path: string } | null;
 };
 
@@ -116,6 +116,15 @@ function fieldLabel(field: RuntimeField) {
   return field.description ? `${field.label} (${field.description})` : field.label;
 }
 
+function normalizeOption(option: NonNullable<RuntimeField["options"]>[number]) {
+  if (typeof option === "string") {
+    return { label: option, value: option, description: undefined as string | undefined };
+  }
+  const label = option.label ?? option.theme ?? option.value ?? "";
+  const value = option.value ?? option.theme ?? label;
+  return { label, value, description: option.description };
+}
+
 function resolvePath(obj: any, path: string): any {
   if (!obj || !path) return undefined;
   const parts = path.split(".");
@@ -144,7 +153,14 @@ function FieldEditor({
       </Field>
     );
   }
-  if (field.type === "dropdown" || field.type === "radio") {
+  if (field.type === "date") {
+    return (
+      <Field label={fieldLabel(field)} hint={field.description || undefined}>
+        <Input type="date" value={value} onChange={(e) => onChange(e.target.value)} />
+      </Field>
+    );
+  }
+  if (field.type === "dropdown") {
     return (
       <Field label={fieldLabel(field)} hint={field.description || undefined}>
         <Select value={value} onValueChange={onChange}>
@@ -152,13 +168,45 @@ function FieldEditor({
             <SelectValue placeholder={`Select ${field.label.toLowerCase()}`} />
           </SelectTrigger>
           <SelectContent>
-            {(field.options || []).map((option) => (
-              <SelectItem key={option} value={option}>
-                {option}
-              </SelectItem>
-            ))}
+            {(field.options || []).map((option) => {
+              const normalized = normalizeOption(option);
+              return (
+                <SelectItem key={normalized.value} value={normalized.value}>
+                  {normalized.label}
+                </SelectItem>
+              );
+            })}
           </SelectContent>
         </Select>
+      </Field>
+    );
+  }
+  if (field.type === "radio") {
+    return (
+      <Field label={fieldLabel(field)} hint={field.description || undefined}>
+        <div className="space-y-2">
+          {(field.options || []).map((option) => {
+            const normalized = normalizeOption(option);
+            return (
+              <label key={normalized.value} className="flex items-start gap-2 text-sm text-foreground">
+                <input
+                  type="radio"
+                  name={field.id}
+                  value={normalized.value}
+                  checked={value === normalized.value}
+                  required={field.required}
+                  onChange={(e) => onChange(e.target.value)}
+                />
+                <span>
+                  <span className="block">{normalized.label}</span>
+                  {normalized.description ? (
+                    <span className="block text-xs text-muted-foreground">{normalized.description}</span>
+                  ) : null}
+                </span>
+              </label>
+            );
+          })}
+        </div>
       </Field>
     );
   }
@@ -169,20 +217,26 @@ function FieldEditor({
         <Field label={fieldLabel(field)} hint={field.description || undefined}>
           <div className="space-y-2 mt-2">
             {field.options.map((option) => {
-              const isChecked = selected.includes(option);
+              const normalized = normalizeOption(option);
+              const isChecked = selected.includes(normalized.value);
               return (
-                <label key={option} className="flex items-center gap-2 text-sm text-foreground">
+                <label key={normalized.value} className="flex items-start gap-2 text-sm text-foreground">
                   <input
                     type="checkbox"
                     checked={isChecked}
                     onChange={(e) => {
                       const newSelected = e.target.checked
-                        ? [...selected, option]
-                        : selected.filter((v) => v !== option);
+                        ? [...selected, normalized.value]
+                        : selected.filter((v) => v !== normalized.value);
                       onChange(newSelected.join(","));
                     }}
                   />
-                  {option}
+                  <span>
+                    <span className="block">{normalized.label}</span>
+                    {normalized.description ? (
+                      <span className="block text-xs text-muted-foreground">{normalized.description}</span>
+                    ) : null}
+                  </span>
                 </label>
               );
             })}
