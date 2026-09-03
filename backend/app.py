@@ -1,14 +1,17 @@
 from __future__ import annotations
 
+import logging
 import os
 import re
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 from flask import Flask, request
 
 from config import Config
 from extensions import cors, db, migrate
-from models import Flow, Invitation, Organization, OrganizationFlowAccess, Role, User, PasswordResetOTP
+from models import Flow, Invitation, Organization, OrganizationFlowAccess, Role, User, PasswordResetOTP, SavedResult
 from routes import api
 
 
@@ -46,6 +49,16 @@ def create_app(config_object: type[Config] | None = None) -> Flask:
     app.config["DIAGNOSTICS_ADMIN"] = parse_diagnostic_config(os.getenv("DIAGNOSTICS_ADMIN"), "none")
     app.config["DIAGNOSTICS_USER"] = parse_diagnostic_config(os.getenv("DIAGNOSTICS_USER"), "none")
 
+    # Log enabled categories per role at startup (values are never logged, only names)
+    for role_key in ("DIAGNOSTICS_SUPERADMIN", "DIAGNOSTICS_ADMIN", "DIAGNOSTICS_USER"):
+        cats = app.config[role_key]
+        role_label = role_key.replace("DIAGNOSTICS_", "").lower()
+        logger.info(
+            "Diagnostic policy startup role=%s categories=%s",
+            role_label,
+            sorted(cats) if cats else "none",
+        )
+
 
     db.init_app(app)
     migrate.init_app(app, db)
@@ -79,6 +92,16 @@ def create_app(config_object: type[Config] | None = None) -> Flask:
             "git_sha": os.getenv("RENDER_GIT_COMMIT"),
             "version": os.getenv("RENDER_GIT_COMMIT") or "dev",
         }
+    from werkzeug.exceptions import HTTPException
+    from flask import jsonify
+
+    @app.errorhandler(Exception)
+    def _handle_exception(e):
+        if isinstance(e, HTTPException):
+            return jsonify({"error": e.description}), e.code
+        logger.exception("Unhandled error during request processing")
+        return jsonify({"error": "An internal server error occurred."}), 500
+
     app.register_blueprint(api)
 
     return app

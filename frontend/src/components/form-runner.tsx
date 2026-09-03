@@ -3,7 +3,8 @@ import DynamicForm, { type PromptForm } from "@/components/DynamicForm";
 import { Button, Card } from "@/components/ui-kit";
 import { apiGet, apiPost } from "@/lib/api";
 import { logActivity } from "@/lib/activity";
-import { RotateCcw, Zap } from "lucide-react";
+import { RotateCcw, Zap, BookmarkCheck } from "lucide-react";
+import { toast } from "sonner";
 
 type FormExecuteResult = {
   form_id: string;
@@ -205,9 +206,33 @@ export function FormRunner({ formId, onDebugSnapshot }: FormRunnerProps) {
       )}
 
       {result && (
-        <Card className="p-5">
-          <div className="text-sm font-medium">LLM result</div>
-          <div className="mt-3 rounded-lg border border-border bg-background p-4 text-sm leading-7 whitespace-pre-wrap">
+        <Card className="p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="text-sm font-medium">LLM result</div>
+            <Button
+              size="sm"
+              variant="secondary"
+              className="gap-1.5 text-xs"
+              onClick={async () => {
+                try {
+                  await apiPost("/saved-results", {
+                    source_type: "form",
+                    source_id: form?.id || formId,
+                    source_name: form?.name || "Form Output",
+                    input_summary: values,
+                    output_text: result,
+                  });
+                  toast.success("Output saved to Saved Results!");
+                } catch (e: any) {
+                  toast.error(e.message || "Failed to save output");
+                }
+              }}
+            >
+              <BookmarkCheck className="h-3.5 w-3.5" />
+              Save Result
+            </Button>
+          </div>
+          <div className="rounded-lg border border-border bg-background p-4 text-sm leading-7 whitespace-pre-wrap">
             {formatLlmResult(result)}
           </div>
         </Card>

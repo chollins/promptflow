@@ -23,6 +23,9 @@ class Config:
     SESSION_COOKIE_SECURE = False
     SESSION_COOKIE_PATH = "/"
 
+    SAVED_RESULTS_AUTO_SAVE = os.getenv("SAVED_RESULTS_AUTO_SAVE", "true").lower() in ("true", "1", "yes")
+    SAVED_RESULTS_ORG_ADMIN_ACCESS = os.getenv("SAVED_RESULTS_ORG_ADMIN_ACCESS", "true").lower() in ("true", "1", "yes")
+
 
 class DevelopmentConfig(Config):
     DEBUG = True

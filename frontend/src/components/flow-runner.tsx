@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
-import { ChevronLeft, ChevronRight, RotateCcw, Zap } from "lucide-react";
+import { ChevronLeft, ChevronRight, RotateCcw, Zap, BookmarkCheck } from "lucide-react";
+import { toast } from "sonner";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge, Button, Card, Field, Input } from "@/components/ui-kit";
 import { Progress } from "@/components/ui/progress";
@@ -192,6 +193,7 @@ function FieldEditor({
             return (
               <label key={normalized.value} className="flex items-start gap-2 text-sm text-foreground">
                 <input
+                  className="mt-0.5 h-4 w-4 rounded-full border-border"
                   type="radio"
                   name={field.id}
                   value={normalized.value}
@@ -224,6 +226,7 @@ function FieldEditor({
               return (
                 <label key={normalized.value} className="flex items-start gap-2 text-sm text-foreground">
                   <input
+                    className="mt-0.5 h-4 w-4 rounded border-border"
                     type="checkbox"
                     checked={isChecked}
                     onChange={(e) => {
@@ -248,8 +251,9 @@ function FieldEditor({
     }
 
     return (
-      <label className="flex items-center gap-2 text-sm text-foreground">
+      <label className="flex items-start gap-2 text-sm text-foreground">
         <input
+          className="mt-0.5 h-4 w-4 rounded border-border"
           type="checkbox"
           checked={value === "true"}
           onChange={(e) => onChange(e.target.checked ? "true" : "false")}
@@ -373,12 +377,12 @@ export function FlowRunner({ flowId, onDebugSnapshot }: FlowRunnerProps) {
         const { step_id, path } = field.data_source;
 
         // DEBUG: log full context to trace the bug
-        console.group(`[FlowRunner] Dynamic field "${field.id}" — step_id="${step_id}" path="${path}"`);
-        console.log("context.steps:", (context.steps as any));
+        // console.group(`[FlowRunner] Dynamic field "${field.id}" — step_id="${step_id}" path="${path}"`);
+        // console.log("context.steps:", (context.steps as any));
         const contextSteps = context.steps as Record<string, any> | undefined;
         const stepState = contextSteps?.[step_id];
-        console.log(`context.steps["${step_id}"]`, stepState);
-        console.log("stepState.output:", stepState?.output);
+        // console.log(`context.steps["${step_id}"]`, stepState);
+        // console.log("stepState.output:", stepState?.output);
         console.groupEnd();
 
         if (!stepState) {
@@ -386,7 +390,7 @@ export function FlowRunner({ flowId, onDebugSnapshot }: FlowRunnerProps) {
         }
 
         const resolved = resolvePath(stepState.output, path);
-        console.log(`[FlowRunner] resolved path "${path}":`, resolved);
+        // console.log(`[FlowRunner] resolved path "${path}":`, resolved);
         if (Array.isArray(resolved)) {
           if (resolved.length === 0) {
             return { ...field, options: ["No options available."] };
@@ -446,8 +450,8 @@ export function FlowRunner({ flowId, onDebugSnapshot }: FlowRunnerProps) {
       const executed = response.steps[0];
 
       // DEBUG: log the raw response context
-      console.log("[FlowRunner] runCurrentStep — response.context:", JSON.stringify(response.context));
-      console.log("[FlowRunner] runCurrentStep — response.context.steps:", response.context.steps);
+      // console.log("[FlowRunner] runCurrentStep — response.context:", JSON.stringify(response.context));
+      // console.log("[FlowRunner] runCurrentStep — response.context.steps:", response.context.steps);
 
       setContext(response.context);
       setStepPrompt(executed.prompt);
@@ -468,12 +472,12 @@ export function FlowRunner({ flowId, onDebugSnapshot }: FlowRunnerProps) {
     if (!currentStep) return;
 
     // DEBUG: log context before transition
-    console.log("[FlowRunner] continueToNext — context BEFORE:", JSON.stringify(context));
-    console.log("[FlowRunner] continueToNext — context.steps BEFORE:", context.steps);
+    // console.log("[FlowRunner] continueToNext — context BEFORE:", JSON.stringify(context));
+    // console.log("[FlowRunner] continueToNext — context.steps BEFORE:", context.steps);
 
     setContext((latestContext) => {
-      console.log("[FlowRunner] continueToNext — latestContext inside updater:", JSON.stringify(latestContext));
-      console.log("[FlowRunner] continueToNext — latestContext.steps:", latestContext.steps);
+      // console.log("[FlowRunner] continueToNext — latestContext inside updater:", JSON.stringify(latestContext));
+      // console.log("[FlowRunner] continueToNext — latestContext.steps:", latestContext.steps);
       if (currentStep.output?.save_as) {
         return { ...latestContext, [currentStep.output.save_as]: stepResult };
       }
@@ -752,7 +756,31 @@ export function FlowRunner({ flowId, onDebugSnapshot }: FlowRunnerProps) {
                       <pre className="mt-2 whitespace-pre-wrap text-sm bg-muted/30 rounded p-3">{step.prompt}</pre>
                     </details>
                     <div>
-                      <div className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Result</div>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="text-xs uppercase tracking-wide text-muted-foreground">Result</div>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          className="gap-1.5 text-xs"
+                          onClick={async () => {
+                            try {
+                              await apiPost("/saved-results", {
+                                source_type: "flow",
+                                source_id: flow?.id || flowId,
+                                source_name: `${flow?.name || "Flow"} - ${step.name}`,
+                                input_summary: { step_id: step.id, values },
+                                output_text: step.result,
+                              });
+                              toast.success("Flow step result saved to Saved Results!");
+                            } catch (e: any) {
+                              toast.error(e.message || "Failed to save result");
+                            }
+                          }}
+                        >
+                          <BookmarkCheck className="h-3.5 w-3.5" />
+                          Save Result
+                        </Button>
+                      </div>
                       <Textarea
                         value={step.result}
                         onChange={(e) => {

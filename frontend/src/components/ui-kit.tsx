@@ -67,9 +67,9 @@ export function Field({
   );
 }
 
-export function Card({ className = "", children }: { className?: string; children: ReactNode }) {
+export function Card({ className = "", children, ...props }: { className?: string; children: ReactNode } & React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={"rounded-xl border border-border bg-card p-6 " + className}>{children}</div>
+    <div className={"rounded-xl border border-border bg-card p-6 " + className} {...props}>{children}</div>
   );
 }
 

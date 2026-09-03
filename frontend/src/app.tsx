@@ -11,6 +11,7 @@ import FlowsPage from "@/routes/flows";
 import FlowDetailPage from "@/routes/flows_.$flowId";
 import FormsPage from "@/routes/forms";
 import FormDetailPage from "@/routes/forms_.$formId";
+import SavedResultsPage from "@/routes/saved-results";
 import OrganizationPage from "@/routes/organization";
 import SettingsPage from "@/routes/settings";
 import UsersPage from "@/routes/users";
@@ -39,6 +40,7 @@ export default function App() {
       <Route path="/flows/:flowId" element={<FlowDetailPage />} />
       <Route path="/forms" element={<FormsPage />} />
       <Route path="/forms/:formId" element={<FormDetailPage />} />
+      <Route path="/saved-results" element={<SavedResultsPage />} />
       <Route path="/organization" element={<OrganizationPage />} />
       <Route path="/settings" element={<SettingsPage />} />
       <Route path="/users" element={<UsersPage />} />

@@ -31,6 +31,26 @@ from services.form_service import (
     update_form,
 )
 from services.diagnostics import diagnostic_policy_for
+from services.saved_result_service import (
+    save_execution_result,
+    list_saved_results,
+    get_saved_result_by_id,
+    delete_saved_result,
+)
+from flask import current_app
+
+# Spec-mandated mapping from capability name → debug keys it controls.
+# This is the second-pass allowlist: any debug key NOT in this map will
+# never reach the client, regardless of what an executor accidentally populates.
+_CAPABILITY_DEBUG_KEYS: dict[str, set[str]] = {
+    "input_sources": {"input_sources"},
+    "prompts": {"prompt_template", "resolved_prompt"},
+    "model": {"model_configuration"},
+    "output_schema": {"output_schema"},
+    "raw_response": {"raw_response"},
+    "execution": {"execution_details", "runtime_state"},
+    # structured_output has no debug sub-key; it controls a frontend view
+}
 
 api = Blueprint("api", __name__)
 
@@ -530,6 +550,16 @@ def admin_form_delete(form_id: str):
         return jsonify({"error": str(exc)}), 404
 
 
+def _apply_debug_allowlist(debug: dict, capabilities: frozenset[str]) -> dict:
+    """Second-pass filter: keep only debug keys that belong to an enabled capability.
+    Prevents a newly-collected field from leaking if an executor is updated before
+    the allowlist is updated.
+    """
+    allowed_keys: set[str] = set()
+    for cap in capabilities:
+        allowed_keys |= _CAPABILITY_DEBUG_KEYS.get(cap, set())
+    return {k: v for k, v in debug.items() if k in allowed_keys}
+
 def _recursive_redact(data):
     if isinstance(data, dict):
         new_data = {}
@@ -545,11 +575,19 @@ def _recursive_redact(data):
         return data
 
 def _format_execution_response(result_dump: dict, capabilities: frozenset[str]):
+    # 1. Apply second-pass debug allowlist before anything else
+    if "debug" in result_dump and isinstance(result_dump["debug"], dict):
+        filtered_debug = _apply_debug_allowlist(result_dump["debug"], capabilities)
+        if filtered_debug:
+            result_dump["debug"] = filtered_debug
+        else:
+            del result_dump["debug"]
+    elif "debug" in result_dump and not result_dump["debug"]:
+        del result_dump["debug"]
+    # 2. Recursively redact secret-like keys
     redacted = _recursive_redact(result_dump)
+    # 3. Attach effective capabilities (always present, sorted)
     redacted["diagnostic_capabilities"] = sorted(list(capabilities))
-    if "debug" in redacted and not redacted["debug"]:
-        del redacted["debug"]
-        
     resp = jsonify(redacted)
     resp.headers["Cache-Control"] = "no-store"
     return resp
@@ -565,7 +603,25 @@ def execute_form_route(form_id: str):
         form_id=form_id,
         values=payload.get("values") or {},
         diagnostic_capabilities=capabilities,
+        user_id=str(current_user.id),
+        role_name=current_user.role.name if current_user.role else None,
     )
+    if current_app.config.get("SAVED_RESULTS_AUTO_SAVE", True):
+        try:
+            form_obj = load_form(form_id)
+            form_name = form_obj.name if form_obj else form_id
+            save_execution_result(
+                user_id=str(current_user.id),
+                organization_id=str(current_user.organization_id) if current_user.organization_id else None,
+                source_type="form",
+                source_id=form_id,
+                source_name=form_name,
+                input_summary=payload.get("values") or {},
+                output_text=result.result,
+            )
+        except Exception as exc:
+            logger.warning("Failed to auto-save form execution result: %s", exc)
+
     return _format_execution_response(result.model_dump(exclude_none=True), capabilities)
 
 
@@ -615,7 +671,32 @@ def run_flow(flow_id: str):
         context=payload.get("context"),
         step_id=payload.get("step_id"),
         diagnostic_capabilities=capabilities,
+        user_id=str(current_user.id),
+        role_name=current_user.role.name if current_user.role else None,
     )
+    if current_app.config.get("SAVED_RESULTS_AUTO_SAVE", True):
+        try:
+            flow_obj = load_flow(flow_id)
+            if flow_obj and flow_obj.steps:
+                sorted_steps = sorted(flow_obj.steps, key=lambda s: s.sequence)
+                executed_step_id = payload.get("step_id") or sorted_steps[0].id
+                is_last_step = (executed_step_id == sorted_steps[-1].id)
+                
+                if is_last_step:
+                    flow_name = flow_obj.name if flow_obj else flow_id
+                    last_step_result = result.steps[-1].result if result.steps else ""
+                    save_execution_result(
+                        user_id=str(current_user.id),
+                        organization_id=str(current_user.organization_id) if current_user.organization_id else None,
+                        source_type="flow",
+                        source_id=flow_id,
+                        source_name=flow_name,
+                        input_summary={"values": payload.get("values"), "context": payload.get("context")},
+                        output_text=last_step_result,
+                    )
+        except Exception as exc:
+            logger.warning("Failed to auto-save flow execution result: %s", exc)
+
     return _format_execution_response(result.model_dump(exclude_none=True), capabilities)
 
 
@@ -1413,6 +1494,78 @@ def settings():
             }
         }
     )
+
+
+# --- Saved Results Endpoints ---
+
+@api.get("/api/saved-results")
+def api_list_saved_results():
+    current_user, error = _require_auth()
+    if error:
+        return error
+    source_type = request.args.get("source_type")
+    search = request.args.get("search")
+
+    items = list_saved_results(current_user, source_type=source_type, search=search)
+    return jsonify({
+        "items": items,
+        "count": len(items),
+        "config": {
+            "auto_save": current_app.config.get("SAVED_RESULTS_AUTO_SAVE", True),
+            "org_admin_access": current_app.config.get("SAVED_RESULTS_ORG_ADMIN_ACCESS", True),
+        }
+    })
+
+
+@api.post("/api/saved-results")
+def api_create_saved_result():
+    current_user, error = _require_auth()
+    if error:
+        return error
+    payload = request.get_json(silent=True) or {}
+    source_type = payload.get("source_type", "form")
+    source_id = payload.get("source_id", "manual")
+    source_name = payload.get("source_name", "Saved Output")
+    input_summary = payload.get("input_summary")
+    output_text = payload.get("output_text")
+    output_json = payload.get("output_json")
+
+    if not output_text and not output_json:
+        return jsonify({"error": "output_text or output_json is required."}), 400
+
+    saved = save_execution_result(
+        user_id=str(current_user.id),
+        organization_id=str(current_user.organization_id) if current_user.organization_id else None,
+        source_type=source_type,
+        source_id=source_id,
+        source_name=source_name,
+        input_summary=input_summary,
+        output_text=output_text or "",
+        output_json=output_json,
+    )
+    return jsonify(saved.to_dict()), 201
+
+
+@api.get("/api/saved-results/<result_id>")
+def api_get_saved_result(result_id: str):
+    current_user, error = _require_auth()
+    if error:
+        return error
+    result = get_saved_result_by_id(result_id, current_user)
+    if not result:
+        return jsonify({"error": "Saved result not found or access denied."}), 404
+    return jsonify(result.to_dict())
+
+
+@api.delete("/api/saved-results/<result_id>")
+def api_delete_saved_result(result_id: str):
+    current_user, error = _require_auth()
+    if error:
+        return error
+    success = delete_saved_result(result_id, current_user)
+    if not success:
+        return jsonify({"error": "Saved result not found or access denied."}), 404
+    return jsonify({"ok": True})
 
 
 # Backward-compatible alias

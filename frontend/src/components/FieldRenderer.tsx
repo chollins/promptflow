@@ -113,11 +113,11 @@ export default function FieldRenderer({ field, value, onChange }: Props) {
       }
 
       return (
-        <label className="flex items-center gap-2 text-sm text-foreground">
+        <label className="flex items-start gap-2 text-sm text-foreground">
           <input
             id={field.id}
             type="checkbox"
-            className="h-4 w-4 rounded border-border"
+            className="mt-0.5 h-4 w-4 rounded border-border"
             checked={value === "true"}
             required={field.required}
             onChange={(e) => onChange(e.target.checked ? "true" : "")}
@@ -133,12 +133,12 @@ export default function FieldRenderer({ field, value, onChange }: Props) {
           {field.options?.map((option) => {
             const normalized = normalizeOption(option);
             return (
-            <label key={normalized.value} className="flex items-center gap-2 text-sm text-foreground">
+            <label key={normalized.value} className="flex items-start gap-2 text-sm text-foreground">
               <input
                 type="radio"
                 name={field.id}
                 value={normalized.value}
-                className="h-4 w-4 border-border"
+                className="mt-0.5 h-4 w-4 rounded-full border-border"
                 checked={value === normalized.value}
                 required={field.required}
                 onChange={(e) => onChange(e.target.value)}

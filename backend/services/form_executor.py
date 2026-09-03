@@ -39,6 +39,8 @@ def execute_form(
     values: dict | None = None,
     *,
     diagnostic_capabilities: frozenset[str] | None = None,
+    user_id: str | None = None,
+    role_name: str | None = None,
 ) -> FormExecuteResponse:
     if diagnostic_capabilities is None:
         diagnostic_capabilities = frozenset()
@@ -116,7 +118,13 @@ def execute_form(
             "values": merged_values,
         }
         
-    logger.info("Form executed form=%s", form_id)
+    logger.info(
+        "Form executed form_id=%s user_id=%s role=%s categories=%s",
+        form_id,
+        user_id or "unknown",
+        role_name or "unknown",
+        sorted(diagnostic_capabilities) if diagnostic_capabilities else "none",
+    )
     return FormExecuteResponse(
         form_id=form_id,
         prompt=rendered_prompt if "prompts" in diagnostic_capabilities else None,

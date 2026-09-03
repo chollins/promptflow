@@ -16,6 +16,9 @@ def parse_diagnostic_config(value: str | None, default: str) -> frozenset[str]:
     if value is None:
         value = default
 
+    if not value.strip():
+        raise ValueError("Diagnostic configuration cannot be empty.")
+
     tokens = [t.strip().lower() for t in value.split(",")]
     
     if len(tokens) == 1 and tokens[0] == "none":

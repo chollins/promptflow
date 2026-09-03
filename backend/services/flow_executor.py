@@ -134,6 +134,8 @@ def _execute_step(
     context: ExecutionContext,
     *,
     diagnostic_capabilities: frozenset[str] | None = None,
+    user_id: str | None = None,
+    role_name: str | None = None,
 ) -> tuple[FlowStepResult, dict | None]:
     if diagnostic_capabilities is None:
         diagnostic_capabilities = frozenset()
@@ -188,9 +190,12 @@ def _execute_step(
         context.set(step.output.save_as, result)
         _save_output(flow.id, step.output, result)
     logger.info(
-        "Step completed flow=%s step=%s in %.1f ms",
+        "Step completed flow=%s step=%s user_id=%s role=%s categories=%s in %.1f ms",
         flow.id,
         step.id,
+        user_id or "unknown",
+        role_name or "unknown",
+        sorted(diagnostic_capabilities) if diagnostic_capabilities else "none",
         (time.perf_counter() - started) * 1000,
     )
     step_result = FlowStepResult(
@@ -267,11 +272,16 @@ def execute_flow(
     step_id: str | None = None,
     *,
     diagnostic_capabilities: frozenset[str] | None = None,
+    user_id: str | None = None,
+    role_name: str | None = None,
 ) -> FlowExecuteResponse:
     flow = get_flow(flow_id)
     step = _find_step(flow, step_id) if step_id else sorted(flow.steps, key=lambda item: item.sequence)[0]
     execution_context = ExecutionContext(context)
     step_result, debug = _execute_step(
-        flow, step, values or {}, execution_context, diagnostic_capabilities=diagnostic_capabilities
+        flow, step, values or {}, execution_context,
+        diagnostic_capabilities=diagnostic_capabilities,
+        user_id=user_id,
+        role_name=role_name,
     )
     return FlowExecuteResponse(context=execution_context.all(), steps=[step_result], debug=debug)
