@@ -482,6 +482,16 @@ def admin_forms():
     _, error = _require_superadmin()
     if error:
         return error
+    forms = Form.query.all()
+
+    def sort_key(form):
+        if form.flow_steps:
+            primary_step = min(form.flow_steps, key=lambda s: s.flow.name)
+            return (0, primary_step.flow.name, primary_step.step_number, form.name)
+        return (1, "", 0, form.name)
+
+    forms.sort(key=sort_key)
+
     items = [
         {
             "id": form.id,
@@ -493,8 +503,9 @@ def admin_forms():
             "is_active": form.is_active,
             "created_at": form.created_at.isoformat() if form.created_at else None,
             "updated_at": form.updated_at.isoformat() if form.updated_at else None,
+            "flows": [s.flow.name for s in sorted(form.flow_steps, key=lambda s: s.flow.name)],
         }
-        for form in Form.query.order_by(Form.name.asc()).all()
+        for form in forms
     ]
     return jsonify({"items": items, "count": len(items)})
 

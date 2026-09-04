@@ -1,9 +1,16 @@
 import { useNavigate, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { ArrowLeft, Database, Edit, GripVertical, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Database, Edit, GripVertical, Plus, Trash2, Upload } from "lucide-react";
 import { AppShell, PageHeader } from "@/components/app-shell";
 import { Button, Card, Input } from "@/components/ui-kit";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { apiDelete, apiGet, apiPost, apiPut } from "@/lib/api";
 import { logActivity } from "@/lib/activity";
 import { toast } from "sonner";
@@ -43,6 +50,13 @@ export default function EditFlowPage() {
   const [stepFormId, setStepFormId] = useState("");
   const [stepRequired, setStepRequired] = useState(true);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+
+  const [modalOpen, setModalOpen] = useState(false);
+  const [newFormName, setNewFormName] = useState("");
+  const [newFormDesc, setNewFormDesc] = useState("");
+  const [newFormJson, setNewFormJson] = useState("{\n  \"id\": \"\",\n  \"name\": \"\",\n  \"description\": \"\",\n  \"version\": \"1.0\",\n  \"fields\": [],\n  \"prompt\": {\n    \"system\": \"\",\n    \"user\": \"\"\n  },\n  \"model\": {\n    \"provider\": \"openai\",\n    \"name\": \"gpt-4o-mini\",\n    \"temperature\": 0.7\n  }\n}");
+  const [newFormActive, setNewFormActive] = useState(true);
+  const [creatingForm, setCreatingForm] = useState(false);
 
   async function loadDetail() {
     const [data, formData] = await Promise.all([
@@ -105,6 +119,36 @@ export default function EditFlowPage() {
       await loadDetail();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to remove step");
+    }
+  }
+
+  async function handleUpload(file: File | null) {
+    if (!file) return;
+    const text = await file.text();
+    setNewFormJson(text);
+  }
+
+  async function handleCreateForm() {
+    setCreatingForm(true);
+    try {
+      const payload = {
+        name: newFormName,
+        description: newFormDesc,
+        content_json: newFormJson,
+        is_active: newFormActive,
+      };
+      const data = await apiPost<{ item: FormItem }>("/admin/forms", payload);
+      logActivity("created form", payload.name);
+      await loadDetail();
+      setStepFormId(data.item.id);
+      setModalOpen(false);
+      setNewFormName("");
+      setNewFormDesc("");
+      toast.success("Form created and selected");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to create form");
+    } finally {
+      setCreatingForm(false);
     }
   }
 
@@ -205,16 +249,21 @@ export default function EditFlowPage() {
               <div className="grid gap-3 md:grid-cols-[1fr_140px]">
                 <div className="space-y-2">
                   <label className="text-xs font-medium text-foreground/80">Form</label>
-                  <select
-                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                    value={stepFormId}
-                    onChange={(e) => setStepFormId(e.target.value)}
-                  >
-                    <option value="">Select a form</option>
-                    {forms.map((f) => (
-                      <option key={f.id} value={f.id}>{f.name}</option>
-                    ))}
-                  </select>
+                  <div className="flex gap-2">
+                    <select
+                      className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                      value={stepFormId}
+                      onChange={(e) => setStepFormId(e.target.value)}
+                    >
+                      <option value="">Select a form</option>
+                      {forms.map((f) => (
+                        <option key={f.id} value={f.id}>{f.name}</option>
+                      ))}
+                    </select>
+                    <Button variant="outline" className="px-3 shrink-0" onClick={() => setModalOpen(true)}>
+                      <Plus className="h-4 w-4 mr-1" /> New
+                    </Button>
+                  </div>
                 </div>
                 <div className="flex items-end">
                   <label className="flex h-10 items-center gap-2 text-sm">
@@ -294,6 +343,81 @@ export default function EditFlowPage() {
           </Card>
         </div>
       </div>
+      {/* Create Form Modal */}
+      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+        <DialogContent className="w-full max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>New form</DialogTitle>
+            <DialogDescription>
+              Fill in the details to create a new form definition.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 mt-2 max-h-[70vh] overflow-y-auto pr-1">
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-foreground/80">Name</label>
+              <Input
+                value={newFormName}
+                onChange={(e) => setNewFormName(e.target.value)}
+                placeholder="My Form"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-foreground/80">Description</label>
+              <Input
+                value={newFormDesc}
+                onChange={(e) => setNewFormDesc(e.target.value)}
+                placeholder="Optional description"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-medium text-foreground/80">Content JSON</label>
+                <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-muted-foreground hover:text-foreground">
+                  <Upload className="h-4 w-4" />
+                  Upload JSON
+                  <input
+                    type="file"
+                    accept=".json,application/json"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] ?? null;
+                      void handleUpload(file);
+                    }}
+                  />
+                </label>
+              </div>
+              <Textarea
+                value={newFormJson}
+                onChange={(e) => setNewFormJson(e.target.value)}
+                rows={12}
+                className="font-mono text-sm"
+                placeholder="Paste form JSON here"
+              />
+            </div>
+
+            <label className="flex items-center gap-2 text-sm text-foreground">
+              <input
+                type="checkbox"
+                checked={newFormActive}
+                onChange={(e) => setNewFormActive(e.target.checked)}
+              />
+              Active
+            </label>
+          </div>
+
+          <div className="flex gap-2 pt-4 border-t border-border mt-2">
+            <Button onClick={() => void handleCreateForm()} disabled={creatingForm || !newFormName.trim()}>
+              {creatingForm ? "Creating..." : "Create form"}
+            </Button>
+            <Button variant="secondary" onClick={() => setModalOpen(false)} disabled={creatingForm}>
+              Cancel
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </AppShell>
   );
 }

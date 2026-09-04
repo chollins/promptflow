@@ -27,6 +27,7 @@ type FormItem = {
   is_active: boolean;
   created_at?: string | null;
   updated_at?: string | null;
+  flows?: string[];
 };
 
 type FormState = {
@@ -184,6 +185,18 @@ export default function AdminFormsPage() {
                     <div className="mt-2 text-sm text-muted-foreground">
                       {item.description || "No description."}
                     </div>
+                    {item.flows && item.flows.length > 0 && (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {item.flows.map((flowName) => (
+                          <span
+                            key={flowName}
+                            className="inline-flex items-center rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary ring-1 ring-inset ring-primary/20"
+                          >
+                            Flow: {flowName}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <Button

@@ -47,18 +47,18 @@ const ALL_ITEMS: {
   icon: typeof LayoutDashboard;
   roles: Array<"admin" | "user" | "member" | "superadmin">;
 }[] = [
-  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, roles: ["admin", "user", "superadmin", "member"] },
-  { title: "Flows", url: "/flows", icon: Workflow, roles: ["admin", "member", "superadmin"] },
-  { title: "Forms", url: "/forms", icon: Form, roles: ["admin", "member", "superadmin"] },
-  { title: "Saved Results", url: "/saved-results", icon: BookmarkCheck, roles: ["admin", "user", "superadmin", "member"] },
-  { title: "Users", url: "/users", icon: Users, roles: ["admin", "superadmin"] },
-  { title: "Organization", url: "/organization", icon: Building2, roles: ["admin"] },
-  { title: "Organizations", url: "/admin/organizations", icon: Building2, roles: ["superadmin"] },
-  { title: "Forms Catalog", url: "/admin/forms", icon: Form, roles: ["superadmin"] },
-  { title: "Flow Composer", url: "/admin/flows", icon: ListTree, roles: ["superadmin"] },
-  { title: "Flow Access", url: "/admin/manage-flows", icon: ShieldCheck, roles: ["superadmin"] },
-  { title: "Settings", url: "/settings", icon: Settings, roles: ["admin", "user", "member", "superadmin"] },
-];
+    { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, roles: ["admin", "user", "superadmin", "member"] },
+    { title: "Flows", url: "/flows", icon: Workflow, roles: ["admin", "member", "superadmin"] },
+    // { title: "Forms", url: "/forms", icon: Form, roles: ["admin", "member", "superadmin"] },
+    { title: "Saved Results", url: "/saved-results", icon: BookmarkCheck, roles: ["admin", "user", "superadmin", "member"] },
+    { title: "Users", url: "/users", icon: Users, roles: ["admin", "superadmin"] },
+    { title: "Organization", url: "/organization", icon: Building2, roles: ["admin"] },
+    { title: "Organizations", url: "/admin/organizations", icon: Building2, roles: ["superadmin"] },
+    { title: "Forms Catalog", url: "/admin/forms", icon: Form, roles: ["superadmin"] },
+    { title: "Flow Composer", url: "/admin/flows", icon: ListTree, roles: ["superadmin"] },
+    { title: "Flow Access", url: "/admin/manage-flows", icon: ShieldCheck, roles: ["superadmin"] },
+    { title: "Settings", url: "/settings", icon: Settings, roles: ["admin", "user", "member", "superadmin"] },
+  ];
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = useLocation().pathname;
