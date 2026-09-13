@@ -53,19 +53,39 @@ def send_email(*, to_email: str, to_name: str | None, subject: str, text_body: s
         ]
     }
 
-    response = requests.post(
-        "https://api.mailjet.com/v3.1/send",
-        json=payload,
-        auth=HTTPBasicAuth(settings["api_key"], settings["secret_key"]),
-        timeout=10,
-    )
-    response.raise_for_status()
-    return EmailResult(
-        sent=True,
-        provider="mailjet",
-        status_code=response.status_code,
-        response_text=response.text,
-    )
+    try:
+        response = requests.post(
+            "https://api.mailjet.com/v3.1/send",
+            json=payload,
+            auth=HTTPBasicAuth(settings["api_key"], settings["secret_key"]),
+            timeout=10,
+        )
+        response.raise_for_status()
+        data = response.json()
+        messages = data.get("Messages", [])
+        if messages and messages[0].get("Status") == "success":
+            return EmailResult(
+                sent=True,
+                provider="mailjet",
+                status_code=response.status_code,
+                response_text=response.text,
+            )
+        else:
+            errors = messages[0].get("Errors") if messages else response.text
+            print("========== MAILJET ERROR ==========")
+            print("Mailjet API Error Details:", errors)
+            print("===================================")
+            return EmailResult(
+                sent=False,
+                provider="mailjet",
+                status_code=response.status_code,
+                response_text=str(errors),
+            )
+    except Exception as e:
+        print("========== EMAIL EXCEPTION ==========")
+        print("Exception:", str(e))
+        print("=====================================")
+        return EmailResult(sent=False, provider="mailjet", response_text=str(e))
 
 
 def send_password_reset_email(*, to_email: str, to_name: str, otp_code: str) -> EmailResult:

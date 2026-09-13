@@ -1346,6 +1346,16 @@ def create_invitation():
         pending.token_hash = sha256(token.encode("utf-8")).hexdigest()
         pending.expires_at = _utcnow() + timedelta(days=7)
         db.session.commit()
+        try:
+            send_invitation_email(
+                to_email=pending.email,
+                to_name=pending.email,
+                registration_link=_build_invitation_link(token),
+            )
+        except Exception as e:
+            print("========== EMAIL ERROR ==========")
+            print("Error:", str(e))
+            print("=================================")
         return jsonify({
             "ok": True,
             "message": "Pending invitation already existed. A fresh invitation was issued.",
