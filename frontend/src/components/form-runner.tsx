@@ -5,6 +5,7 @@ import { apiGet, apiPost } from "@/lib/api";
 import { logActivity } from "@/lib/activity";
 import { RotateCcw, Zap, BookmarkCheck } from "lucide-react";
 import { toast } from "sonner";
+import { ExportDropdown } from "@/components/export-dropdown";
 
 type FormExecuteResult = {
   form_id: string;
@@ -171,7 +172,7 @@ export function FormRunner({ formId, onDebugSnapshot }: FormRunnerProps) {
   
       <div className="flex items-center gap-2 pt-2">
         <Button
-          variant="default"
+          variant="primary"
           onClick={() => void runForm(values)}
           disabled={running || !hasRequiredValues}
           className="gap-2 bg-black text-white hover:bg-black/90"
@@ -209,28 +210,31 @@ export function FormRunner({ formId, onDebugSnapshot }: FormRunnerProps) {
         <Card className="p-5 space-y-3">
           <div className="flex items-center justify-between">
             <div className="text-sm font-medium">LLM result</div>
-            <Button
-              size="sm"
-              variant="secondary"
-              className="gap-1.5 text-xs"
-              onClick={async () => {
-                try {
-                  await apiPost("/saved-results", {
-                    source_type: "form",
-                    source_id: form?.id || formId,
-                    source_name: form?.name || "Form Output",
-                    input_summary: values,
-                    output_text: result,
-                  });
-                  toast.success("Output saved to Saved Results!");
-                } catch (e: any) {
-                  toast.error(e.message || "Failed to save output");
-                }
-              }}
-            >
-              <BookmarkCheck className="h-3.5 w-3.5" />
-              Save Result
-            </Button>
+            <div className="flex items-center gap-2">
+              <ExportDropdown title={form?.name || "Form Output"} text={result} />
+              <Button
+                size="sm"
+                variant="secondary"
+                className="gap-1.5 text-xs"
+                onClick={async () => {
+                  try {
+                    await apiPost("/saved-results", {
+                      source_type: "form",
+                      source_id: form?.id || formId,
+                      source_name: form?.name || "Form Output",
+                      input_summary: values,
+                      output_text: result,
+                    });
+                    toast.success("Output saved to Saved Results!");
+                  } catch (e: any) {
+                    toast.error(e.message || "Failed to save output");
+                  }
+                }}
+              >
+                <BookmarkCheck className="h-3.5 w-3.5" />
+                Save Result
+              </Button>
+            </div>
           </div>
           <div className="rounded-lg border border-border bg-background p-4 text-sm leading-7 whitespace-pre-wrap">
             {formatLlmResult(result)}

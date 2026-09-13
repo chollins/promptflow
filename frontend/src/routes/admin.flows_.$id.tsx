@@ -115,7 +115,7 @@ export default function EditFlowPage() {
     try {
       await apiDelete(`/admin/flows/${id}/steps/${formId}`);
       toast.success("Step removed");
-      logActivity("removed form from flow", `${detail.name} - ${formId}`);
+      logActivity("removed form from flow", `${detail?.name || "Flow"} - ${formId}`);
       await loadDetail();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to remove step");
@@ -249,7 +249,7 @@ export default function EditFlowPage() {
               <div className="grid gap-3 md:grid-cols-[1fr_140px]">
                 <div className="space-y-2">
                   <label className="text-xs font-medium text-foreground/80">Form</label>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 ">
                     <select
                       className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                       value={stepFormId}
@@ -260,8 +260,8 @@ export default function EditFlowPage() {
                         <option key={f.id} value={f.id}>{f.name}</option>
                       ))}
                     </select>
-                    <Button variant="outline" className="px-3 shrink-0" onClick={() => setModalOpen(true)}>
-                      <Plus className="h-4 w-4 mr-1" /> New
+                    <Button variant="secondary" className="px-3 shrink-0" onClick={() => setModalOpen(true)}>
+                      <Plus className="h-4 w-4 mr-1" /> New Form
                     </Button>
                   </div>
                 </div>
@@ -277,7 +277,7 @@ export default function EditFlowPage() {
                   </label>
                 </div>
               </div>
-              <Button onClick={() => void handleAddStep()} disabled={!stepFormId} variant="secondary">
+              <Button onClick={() => void handleAddStep()} disabled={!stepFormId} variant="primary">
                 <Plus className="h-4 w-4 mr-2" /> Add to Flow
               </Button>
             </div>

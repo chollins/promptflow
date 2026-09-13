@@ -164,7 +164,7 @@ export default function FormDetailView() {
           </div>
 
           <div className="flex gap-2 pt-4 border-t border-border">
-            <Button className="px-3 py-2" onClick={() => void handleSave()} disabled={saving} size="lg">
+            <Button className="px-3 py-2" onClick={() => void handleSave()} disabled={saving} size="md">
               {saving ? "Saving..." : "Save Changes"}
             </Button>
           </div>

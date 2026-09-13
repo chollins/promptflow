@@ -9,12 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { apiGet, apiPost } from "@/lib/api";
 import { logActivity } from "@/lib/activity";
+import { ExportDropdown } from "@/components/export-dropdown";
 
 export type RuntimeField = {
   id: string;
   label: string;
   description?: string | null;
-  type: "text" | "textarea" | "date" | "checkbox" | "radio" | "dropdown" | "hidden";
+  type: "text" | "textarea" | "date" | "checkbox" | "radio" | "dropdown" | "multiselect" | "hidden";
   required?: boolean;
   default?: string | null;
   options?: Array<string | { label?: string; value?: string; theme?: string; description?: string }>;
@@ -589,7 +590,7 @@ export function FlowRunner({ flowId, onDebugSnapshot }: FlowRunnerProps) {
             <div className="text-xl font-semibold">{currentStep.name}</div>
           </div>
           {isExecuted && (
-            <Badge tone={isLastStep ? "positive" : "neutral"}>
+            <Badge tone="neutral">
               {isLastStep ? "Completed" : "Executed"}
             </Badge>
           )}
@@ -696,7 +697,7 @@ export function FlowRunner({ flowId, onDebugSnapshot }: FlowRunnerProps) {
           {/* Execute + Next */}
           <div className="flex items-center gap-2">
             <Button
-              variant="default"
+              variant="primary"
               onClick={() => void runCurrentStep()}
               disabled={running || !hasRequiredValues}
               className="gap-2 bg-black text-white hover:bg-black/90"
@@ -758,28 +759,31 @@ export function FlowRunner({ flowId, onDebugSnapshot }: FlowRunnerProps) {
                     <div>
                       <div className="flex items-center justify-between mb-2">
                         <div className="text-xs uppercase tracking-wide text-muted-foreground">Result</div>
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          className="gap-1.5 text-xs"
-                          onClick={async () => {
-                            try {
-                              await apiPost("/saved-results", {
-                                source_type: "flow",
-                                source_id: flow?.id || flowId,
-                                source_name: `${flow?.name || "Flow"} - ${step.name}`,
-                                input_summary: { step_id: step.id, values },
-                                output_text: step.result,
-                              });
-                              toast.success("Flow step result saved to Saved Results!");
-                            } catch (e: any) {
-                              toast.error(e.message || "Failed to save result");
-                            }
-                          }}
-                        >
-                          <BookmarkCheck className="h-3.5 w-3.5" />
-                          Save Result
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <ExportDropdown title={`${flow?.name || "Flow"} - ${step.name}`} text={step.result} />
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            className="gap-1.5 text-xs"
+                            onClick={async () => {
+                              try {
+                                await apiPost("/saved-results", {
+                                  source_type: "flow",
+                                  source_id: flow?.id || flowId,
+                                  source_name: `${flow?.name || "Flow"} - ${step.name}`,
+                                  input_summary: { step_id: step.id, values },
+                                  output_text: step.result,
+                                });
+                                toast.success("Flow step result saved to Saved Results!");
+                              } catch (e: any) {
+                                toast.error(e.message || "Failed to save result");
+                              }
+                            }}
+                          >
+                            <BookmarkCheck className="h-3.5 w-3.5" />
+                            Save Result
+                          </Button>
+                        </div>
                       </div>
                       <Textarea
                         value={step.result}

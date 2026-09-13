@@ -1,7 +1,7 @@
 import type { ButtonHTMLAttributes, InputHTMLAttributes, LabelHTMLAttributes, ReactNode } from "react";
 import { Slot } from "@radix-ui/react-slot";
 
-type ButtonVariant = "primary" | "secondary" | "ghost";
+type ButtonVariant = "primary" | "secondary" | "ghost" | "outline";
 type ButtonSize = "md" | "sm";
 
 export function Button({
@@ -25,6 +25,7 @@ export function Button({
     primary: "bg-foreground text-background hover:bg-foreground/90",
     secondary: "bg-background text-foreground border border-border hover:bg-muted",
     ghost: "bg-transparent text-foreground hover:bg-muted",
+    outline: "bg-transparent text-foreground border border-border hover:bg-muted hover:text-foreground",
   } as const;
   const Comp = asChild ? Slot : "button";
   return <Comp className={`${base} ${sizes[size]} ${variants[variant]} ${className}`} {...props} />;

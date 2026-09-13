@@ -27,8 +27,8 @@ export function SuperadminFlowRunner({ flowId }: { flowId: string }) {
       title: "Prompt",
       content: (
         <PromptTabs
-          template={debug.prompt_template}
-          rendered={debug.resolved_prompt}
+          template={debug.prompt_template ?? null}
+          rendered={debug.resolved_prompt ?? null}
         />
       ),
     });
