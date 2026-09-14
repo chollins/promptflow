@@ -414,7 +414,7 @@ export default function UsersPage() {
                     onChange={(e) =>
                       setInviteForm((prev) => ({
                         ...prev,
-                    role: e.target.value as "member" | "admin",
+                        role: e.target.value as "member" | "admin",
                       }))
                     }
                     className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
