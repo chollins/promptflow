@@ -11,3 +11,4 @@ langchain-openai>=0.3.0
 gunicorn
 psycopg2-binary
 pydantic 
+psycopg[binary]
