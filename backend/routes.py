@@ -40,6 +40,14 @@ from services.saved_result_service import (
     get_saved_result_by_id,
     delete_saved_result,
 )
+from services.model_registry import (
+    get_available_models,
+    get_model_categories,
+    get_default_model,
+    create_db_model,
+    update_db_model,
+    delete_db_model,
+)
 from flask import current_app
 
 # Spec-mandated mapping from capability name → debug keys it controls.
@@ -56,6 +64,77 @@ _CAPABILITY_DEBUG_KEYS: dict[str, set[str]] = {
 }
 
 api = Blueprint("api", __name__)
+
+
+@api.get("/api/models")
+def list_available_models():
+    category = request.args.get("category")
+    models = get_available_models(category=category)
+    categories = get_model_categories()
+    default_model = get_default_model()
+    return jsonify({
+        "models": models,
+        "categories": categories,
+        "default": default_model,
+        "count": len(models)
+    })
+
+
+@api.get("/api/admin/models")
+def admin_list_models():
+    _, error = _require_superadmin()
+    if error:
+        return error
+    category = request.args.get("category")
+    models = get_available_models(category=category, include_inactive=True)
+    categories = get_model_categories()
+    return jsonify({"models": models, "categories": categories, "count": len(models)})
+
+
+@api.post("/api/admin/models")
+def admin_create_model():
+    _, error = _require_superadmin()
+    if error:
+        return error
+    payload = request.get_json(silent=True) or {}
+    try:
+        m = create_db_model(payload)
+        return jsonify({"ok": True, "id": m.model_id}), 201
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception as exc:
+        return jsonify({"error": f"Failed to create model: {exc}"}), 400
+
+
+@api.put("/api/admin/models/<model_id>")
+def admin_update_model(model_id: str):
+    _, error = _require_superadmin()
+    if error:
+        return error
+    payload = request.get_json(silent=True) or {}
+    try:
+        m = update_db_model(model_id, payload)
+        return jsonify({"ok": True, "id": m.model_id})
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 404
+    except Exception as exc:
+        return jsonify({"error": f"Failed to update model: {exc}"}), 400
+
+
+@api.delete("/api/admin/models/<model_id>")
+def admin_delete_model(model_id: str):
+    _, error = _require_superadmin()
+    if error:
+        return error
+    try:
+        delete_db_model(model_id)
+        return jsonify({"ok": True})
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 404
+    except Exception as exc:
+        return jsonify({"error": f"Failed to delete model: {exc}"}), 400
+
+
 
 
 def _get_current_user() -> User | None:

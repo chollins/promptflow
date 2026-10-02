@@ -9,6 +9,7 @@ from .organization_flow_access import OrganizationFlowAccess
 from .invitation import Invitation
 from .password_reset_otp import PasswordResetOTP
 from .saved_result import SavedResult
+from .ai_model import AIModel
 
 __all__ = [
     "TimestampMixin",
@@ -23,4 +24,5 @@ __all__ = [
     "OrganizationFlowAccess",
     "PasswordResetOTP",
     "SavedResult",
+    "AIModel",
 ]

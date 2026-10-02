@@ -270,6 +270,14 @@ function FieldEditor({
   );
 }
 
+interface ModelRegistryItem {
+  id: string;
+  name: string;
+  provider: string;
+  category: string;
+  recommended?: boolean;
+}
+
 export function FlowRunner({ flowId, onDebugSnapshot }: FlowRunnerProps) {
   const [flow, setFlow] = useState<RuntimeFlow | null>(null);
   const [forms, setForms] = useState<Record<string, RuntimeForm>>({});
@@ -282,10 +290,24 @@ export function FlowRunner({ flowId, onDebugSnapshot }: FlowRunnerProps) {
   const [stepDebug, setStepDebug] = useState<FlowExecutionDebug | null>(null);
   const [diagnosticCapabilities, setDiagnosticCapabilities] = useState<string[]>([]);
   const [selectedModel, setSelectedModel] = useState<string>("gpt-4o-mini");
+  const [modelsList, setModelsList] = useState<ModelRegistryItem[]>([
+    { id: "gpt-4o-mini", name: "GPT-4o Mini", provider: "openai", category: "text" },
+    { id: "gpt-4o", name: "GPT-4o", provider: "openai", category: "text" },
+  ]);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeAccordion, setActiveAccordion] = useState<string>("step-0");
+
+  useEffect(() => {
+    apiGet<{ models: ModelRegistryItem[] }>("/models")
+      .then((res) => {
+        if (res && res.models && res.models.length > 0) {
+          setModelsList(res.models);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -712,14 +734,12 @@ export function FlowRunner({ flowId, onDebugSnapshot }: FlowRunnerProps) {
               <SelectTrigger className="w-[160px] h-10 text-xs">
                 <SelectValue placeholder="Model" />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="gpt-4o-mini">gpt-4o-mini (Default)</SelectItem>
-                <SelectItem value="gpt-4o">gpt-4o</SelectItem>
-                <SelectItem value="gpt-4o-2024-08-06">gpt-4o-2024-08-06</SelectItem>
-                <SelectItem value="gpt-4-turbo">gpt-4-turbo</SelectItem>
-                <SelectItem value="gpt-3.5-turbo">gpt-3.5-turbo</SelectItem>
-                <SelectItem value="o3-mini">o3-mini</SelectItem>
-                <SelectItem value="o1-mini">o1-mini</SelectItem>
+              <SelectContent className="max-h-60 overflow-y-auto">
+                {modelsList.map((m) => (
+                  <SelectItem key={m.id} value={m.id}>
+                    {m.name} ({m.provider})
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
 

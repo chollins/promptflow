@@ -10,6 +10,7 @@ import {
   Form,
   Sparkles,
   BookmarkCheck,
+  Cpu,
 } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { authService } from "@/lib/auth";
@@ -57,6 +58,7 @@ const ALL_ITEMS: {
     { title: "Forms Catalog", url: "/admin/forms", icon: Form, roles: ["superadmin"] },
     { title: "Flow Composer", url: "/admin/flows", icon: ListTree, roles: ["superadmin"] },
     { title: "Flow Access", url: "/admin/manage-flows", icon: ShieldCheck, roles: ["superadmin"] },
+    { title: "AI Models Catalog", url: "/admin/models", icon: Cpu, roles: ["superadmin"] },
     { title: "Settings", url: "/settings", icon: Settings, roles: ["admin", "user", "member", "superadmin"] },
   ];
 

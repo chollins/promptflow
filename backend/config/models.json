@@ -1,0 +1,179 @@
+{
+  "default_provider": "openai",
+  "default_model": "gpt-4o-mini",
+  "categories": [
+    { "id": "text", "label": "Text & Generative LLMs" },
+    { "id": "image", "label": "Picture & Image Generation" },
+    { "id": "audio", "label": "Audio & Speech Synthesis" }
+  ],
+  "models": [
+    {
+      "id": "gpt-4o-mini",
+      "name": "GPT-4o Mini",
+      "provider": "openai",
+      "category": "text",
+      "recommended": true,
+      "description": "Fast, cost-efficient small model for text and multi-step reasoning."
+    },
+    {
+      "id": "gpt-4o",
+      "name": "GPT-4o",
+      "provider": "openai",
+      "category": "text",
+      "recommended": false,
+      "description": "Flagship high-intelligence model for complex tasks."
+    },
+    {
+      "id": "gpt-4o-2024-08-06",
+      "name": "GPT-4o (2024-08-06)",
+      "provider": "openai",
+      "category": "text",
+      "recommended": false,
+      "description": "Structured output optimized GPT-4o snapshot."
+    },
+    {
+      "id": "gpt-4-turbo",
+      "name": "GPT-4 Turbo",
+      "provider": "openai",
+      "category": "text",
+      "recommended": false,
+      "description": "High-capacity GPT-4 model."
+    },
+    {
+      "id": "o3-mini",
+      "name": "o3-Mini",
+      "provider": "openai",
+      "category": "text",
+      "recommended": false,
+      "description": "High-reasoning STEM and code specialized model."
+    },
+    {
+      "id": "o1-mini",
+      "name": "o1-Mini",
+      "provider": "openai",
+      "category": "text",
+      "recommended": false,
+      "description": "Fast reasoning model for math and code."
+    },
+    {
+      "id": "claude-3-5-sonnet",
+      "name": "Claude 3.5 Sonnet",
+      "provider": "anthropic",
+      "category": "text",
+      "recommended": false,
+      "description": "State-of-the-art coding and reasoning LLM."
+    },
+    {
+      "id": "claude-3-5-haiku",
+      "name": "Claude 3.5 Haiku",
+      "provider": "anthropic",
+      "category": "text",
+      "recommended": false,
+      "description": "Ultra-fast lightweight model."
+    },
+    {
+      "id": "gemini-1.5-pro",
+      "name": "Gemini 1.5 Pro",
+      "provider": "google",
+      "category": "text",
+      "recommended": false,
+      "description": "Multimodal model with 2M token context window."
+    },
+    {
+      "id": "gemini-1.5-flash",
+      "name": "Gemini 1.5 Flash",
+      "provider": "google",
+      "category": "text",
+      "recommended": false,
+      "description": "Lightweight fast multimodal model."
+    },
+    {
+      "id": "dall-e-3",
+      "name": "DALL-E 3",
+      "provider": "openai",
+      "category": "image",
+      "recommended": true,
+      "description": "Photorealistic and prompt-faithful image generation."
+    },
+    {
+      "id": "dall-e-2",
+      "name": "DALL-E 2",
+      "provider": "openai",
+      "category": "image",
+      "recommended": false,
+      "description": "Legacy 1024x1024 image model."
+    },
+    {
+      "id": "leonardo-phoenix",
+      "name": "Leonardo Phoenix",
+      "provider": "leonardo",
+      "category": "image",
+      "recommended": true,
+      "description": "Leonardo flagship model for prompt adherence and aesthetic control."
+    },
+    {
+      "id": "leonardo-kino-xl",
+      "name": "Leonardo Kino XL",
+      "provider": "leonardo",
+      "category": "image",
+      "recommended": false,
+      "description": "Cinematic and photographic specialist image generator."
+    },
+    {
+      "id": "leonardo-diffusion-xl",
+      "name": "Leonardo Diffusion XL",
+      "provider": "leonardo",
+      "category": "image",
+      "recommended": false,
+      "description": "Versatile photo and art creation model."
+    },
+    {
+      "id": "stable-diffusion-xl-1.0",
+      "name": "Stable Diffusion XL 1.0",
+      "provider": "stability",
+      "category": "image",
+      "recommended": false,
+      "description": "Open-weights high-resolution image model."
+    },
+    {
+      "id": "tts-1",
+      "name": "OpenAI TTS 1",
+      "provider": "openai",
+      "category": "audio",
+      "recommended": true,
+      "description": "Standard text-to-speech voice generation."
+    },
+    {
+      "id": "tts-1-hd",
+      "name": "OpenAI TTS 1 HD",
+      "provider": "openai",
+      "category": "audio",
+      "recommended": false,
+      "description": "High-definition text-to-speech audio synthesis."
+    },
+    {
+      "id": "whisper-1",
+      "name": "Whisper 1",
+      "provider": "openai",
+      "category": "audio",
+      "recommended": true,
+      "description": "Automatic speech recognition and transcription."
+    },
+    {
+      "id": "eleven_multilingual_v2",
+      "name": "ElevenLabs Multilingual v2",
+      "provider": "elevenlabs",
+      "category": "audio",
+      "recommended": true,
+      "description": "Emotional multilingual text-to-speech voice generator."
+    },
+    {
+      "id": "eleven_turbo_v2_5",
+      "name": "ElevenLabs Turbo v2.5",
+      "provider": "elevenlabs",
+      "category": "audio",
+      "recommended": false,
+      "description": "Low-latency streaming speech synthesis."
+    }
+  ]
+}

@@ -495,14 +495,13 @@ def seed():
 
 
     db.session.commit()
-    print("Seeding complete.")
-    # print("Login accounts:")
-    # print("  admin      alice@acme.com / password123")
-    # print("  member     member@acme.com / password123")
-    # print("  superadmin superadmin@example.com / password123")
+    from services.model_registry import seed_model_registry
+    seed_model_registry()
+    print("Seeding complete (database & AI model registry).")
 
 
 if __name__ == "__main__":
     app = create_app()
     with app.app_context():
         seed()
+

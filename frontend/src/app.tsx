@@ -23,6 +23,7 @@ import AdminFormDetailPage from "@/routes/admin.forms_.$id";
 import AdminManageFlowsPage from "@/routes/admin.manage-flows";
 import AdminOrganizationsPage from "@/routes/admin.organizations";
 import AdminOrganizationDetailPage from "@/routes/admin.organizations_.$id";
+import AdminModelsPage from "@/routes/admin.models";
 
 export default function App() {
   return (
@@ -52,6 +53,7 @@ export default function App() {
       <Route path="/admin/manage-flows" element={<AdminManageFlowsPage />} />
       <Route path="/admin/organizations" element={<AdminOrganizationsPage />} />
       <Route path="/admin/organizations/:id" element={<AdminOrganizationDetailPage />} />
+      <Route path="/admin/models" element={<AdminModelsPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
