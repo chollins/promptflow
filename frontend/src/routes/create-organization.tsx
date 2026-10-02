@@ -176,7 +176,7 @@ export default function CreateOrgPage() {
         <div className="text-center text-xs text-muted-foreground">
           Already have an account?{" "}
           <Link to="/login" className="text-foreground font-medium hover:underline">
-            Sign in
+            Login
           </Link>
         </div>
       </form>

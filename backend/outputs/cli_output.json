@@ -1,0 +1,34 @@
+{
+  "flow_id": "test_prompt",
+  "flow_name": "Test Prompt",
+  "status": "completed",
+  "output": "**Business Summary: Solaris Energy Systems**\n\nSolaris Energy Systems specializes in the development of advanced solar micro-grids equipped with automated battery storage balancing solutions tailored for commercial buildings. By integrating smart technology with renewable energy sources, the company aims to enhance energy efficiency, reduce operational costs, and promote sustainability for businesses. Solaris focuses on delivering reliable, scalable, and intelligent energy solutions that empower commercial properties to harness solar power effectively while ensuring optimal energy management through automated systems. This innovative approach positions Solaris as a key player in the growing market for clean energy infrastructure and smart building technologies.",
+  "context": {
+    "business_name": "Solaris Energy Systems",
+    "business_content": "Solaris builds smart solar micro-grids with automated battery storage balancing for commercial buildings.",
+    "steps": {
+      "step_1_test_summary": {
+        "input": {
+          "business_name": "Solaris Energy Systems",
+          "business_content": "Solaris builds smart solar micro-grids with automated battery storage balancing for commercial buildings.",
+          "steps": "{}"
+        },
+        "output": "**Business Summary: Solaris Energy Systems**\n\nSolaris Energy Systems specializes in the development of advanced solar micro-grids equipped with automated battery storage balancing solutions tailored for commercial buildings. By integrating smart technology with renewable energy sources, the company aims to enhance energy efficiency, reduce operational costs, and promote sustainability for businesses. Solaris focuses on delivering reliable, scalable, and intelligent energy solutions that empower commercial properties to harness solar power effectively while ensuring optimal energy management through automated systems. This innovative approach positions Solaris as a key player in the growing market for clean energy infrastructure and smart building technologies.",
+        "status": "completed",
+        "error": null
+      }
+    }
+  },
+  "steps": [
+    {
+      "id": "step_1_test_summary",
+      "name": "Test Summary",
+      "sequence": 1,
+      "prompt": null,
+      "result": "**Business Summary: Solaris Energy Systems**\n\nSolaris Energy Systems specializes in the development of advanced solar micro-grids equipped with automated battery storage balancing solutions tailored for commercial buildings. By integrating smart technology with renewable energy sources, the company aims to enhance energy efficiency, reduce operational costs, and promote sustainability for businesses. Solaris focuses on delivering reliable, scalable, and intelligent energy solutions that empower commercial properties to harness solar power effectively while ensuring optimal energy management through automated systems. This innovative approach positions Solaris as a key player in the growing market for clean energy infrastructure and smart building technologies.",
+      "completed": true,
+      "next": null,
+      "output": null
+    }
+  ]
+}

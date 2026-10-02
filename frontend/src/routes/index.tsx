@@ -21,7 +21,7 @@ export default function Landing() {
           <div className="flex items-center gap-2">
             <Link to={isLoggedIn ? "/dashboard" : "/login"}>
               <Button variant="ghost" className="bg-black" size="sm">
-                {isLoggedIn ? "Dashboard" : "Sign In"}
+                {isLoggedIn ? "Dashboard" : "Login"}
               </Button>
             </Link>
             {/* <Link to="/create-organization">
@@ -47,7 +47,7 @@ export default function Landing() {
           <div className="mt-10 flex justify-center">
             <Link to={isLoggedIn ? "/dashboard" : "/login"}>
               <Button>
-                {isLoggedIn ? "Dashboard" : "Sign In"}
+                {isLoggedIn ? "Dashboard" : "Login"}
                 <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>

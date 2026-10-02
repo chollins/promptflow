@@ -54,15 +54,29 @@ def _resolve_form_file_path(file_path: str | None) -> Path | None:
 
 
 def _candidate_form_paths(form_id: str) -> list[Path]:
-    return [
+    slugified = _slugify(form_id)
+    paths = [
         FORMS_DIR / f"{form_id}.form.json",
         SAMPLE_FORMS_DIR / f"{form_id}.form.json",
         SAMPLE_FORMS_DIR / f"{form_id}.json",
     ]
+    if slugified != form_id:
+        paths.extend([
+            FORMS_DIR / f"{slugified}.form.json",
+            SAMPLE_FORMS_DIR / f"{slugified}.form.json",
+            SAMPLE_FORMS_DIR / f"{slugified}.json",
+        ])
+    return paths
+
+
+def find_form_by_id_or_slug(form_id: str) -> Form | None:
+    return Form.query.filter(
+        (Form.id == form_id) | (Form.slug == form_id) | (Form.slug == _slugify(form_id))
+    ).first()
 
 
 def get_form(form_id: str) -> PromptForm:
-    record = Form.query.filter((Form.id == form_id) | (Form.slug == form_id)).first()
+    record = find_form_by_id_or_slug(form_id)
     if record:
         if record.content_json:
             try:
@@ -113,9 +127,12 @@ def get_all_forms() -> list[PromptForm]:
     return forms
 
 
-def create_form(*, name: str, description: str | None, content_json: str, is_active: bool = True) -> Form:
+def create_form(*, name: str, description: str | None, content_json: str, is_active: bool = True, slug: str | None = None) -> Form:
     form_def = PromptForm.model_validate_json(content_json)
-    slug = _unique_slug(_slugify(name))
+    if not slug:
+        slug = _unique_slug(_slugify(name))
+    else:
+        slug = _unique_slug(_slugify(slug))
     file_path = f"forms/{slug}.form.json"
     form = Form(
         name=name,
@@ -138,7 +155,7 @@ def update_form(
     content_json: str,
     is_active: bool,
 ) -> Form:
-    form = Form.query.filter((Form.id == form_id) | (Form.slug == form_id)).first()
+    form = find_form_by_id_or_slug(form_id)
     if not form:
         raise FormNotFoundError(f"Form '{form_id}' not found")
 
@@ -153,8 +170,37 @@ def update_form(
 
 
 def delete_form(form_id: str) -> None:
-    form = Form.query.filter((Form.id == form_id) | (Form.slug == form_id)).first()
+    form = find_form_by_id_or_slug(form_id)
     if not form:
         raise FormNotFoundError(f"Form '{form_id}' not found")
     db.session.delete(form)
     db.session.commit()
+
+
+def import_forms_from_markdown(content_or_path: str | Path) -> list[Form]:
+    from .markdown_prompt_parser import parse_markdown_prompts
+    prompt_forms = parse_markdown_prompts(content_or_path)
+    imported_db_forms: list[Form] = []
+    for p_form in prompt_forms:
+        json_str = json.dumps(p_form.model_dump(exclude_none=True, by_alias=True), indent=2)
+        existing = find_form_by_id_or_slug(p_form.id)
+        if existing:
+            updated = update_form(
+                existing.id,
+                name=p_form.name,
+                description=p_form.description,
+                content_json=json_str,
+                is_active=True,
+            )
+            imported_db_forms.append(updated)
+        else:
+            created = create_form(
+                name=p_form.name,
+                description=p_form.description,
+                content_json=json_str,
+                is_active=True,
+                slug=p_form.id,
+            )
+            imported_db_forms.append(created)
+    return imported_db_forms
+

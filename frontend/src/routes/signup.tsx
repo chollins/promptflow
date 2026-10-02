@@ -80,7 +80,7 @@ export default function SignupPage() {
             <CheckCircle2 className="h-6 w-6" />
           </div>
           <p className="mb-6 text-sm text-muted-foreground">
-            You can now sign in with your new account.
+            You can now login with your new account.
           </p>
           <Button onClick={() => void navigate("/login")}>Go to Login</Button>
         </div>

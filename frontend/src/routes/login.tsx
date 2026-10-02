@@ -62,15 +62,15 @@ function getErrorMessage(error: unknown): string {
   }
 
   if (error.message.includes("403")) {
-    return "You don't have permission to sign in.";
+    return "You don't have permission to Login.";
   }
 
   if (error.message.includes("Network")) {
     return "Unable to connect to the server. Please try again.";
   }
 
-  return error.message || "Unable to sign in. Please try again.";
-} 
+  return error.message || "Unable to Login. Please try again.";
+}
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -99,7 +99,7 @@ export default function LoginPage() {
   };
 
   return (
-    <AuthLayout title="Welcome back" subtitle="Sign in to your PromptFlow workspace.">
+    <AuthLayout title="Welcome back" subtitle="Login to your PromptFlow workspace.">
       <form onSubmit={onSubmit} className="space-y-5">
         <Field label="Email">
           <Input name="email" type="email" placeholder="you@company.com" required />
@@ -109,7 +109,7 @@ export default function LoginPage() {
         </Field>
         {error && <div className="text-sm text-red-600">{error}</div>}
         <Button type="submit" className="w-full" disabled={loading}>
-          {loading ? "Signing in..." : "Sign In"}
+          {loading ? "Loging in..." : "Login"}
         </Button>
         <div className="text-center">
           <Link to="/forgot-password" className="text-xs text-muted-foreground hover:text-foreground">

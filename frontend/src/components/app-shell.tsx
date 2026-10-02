@@ -187,7 +187,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Log out?</DialogTitle>
-            <DialogDescription>You'll need to sign in again to keep using PromptFlow.</DialogDescription>
+            <DialogDescription>You'll need to Login again to keep using PromptFlow.</DialogDescription>
           </DialogHeader>
           <DialogFooter className="mt-4">
             <Button variant="secondary" onClick={() => setLogoutOpen(false)}>

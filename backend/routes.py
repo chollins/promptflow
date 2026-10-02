@@ -26,10 +26,13 @@ from services.form_service import (
     InvalidFormError,
     create_form,
     delete_form,
+    find_form_by_id_or_slug,
     get_all_forms as list_all_forms,
     get_form as load_form,
+    import_forms_from_markdown,
     update_form,
 )
+from services.markdown_prompt_parser import MarkdownPromptParseError
 from services.diagnostics import diagnostic_policy_for
 from services.saved_result_service import (
     save_execution_result,
@@ -137,7 +140,7 @@ def _require_form_access(form_id: str):
     if current_user.role.name == "superadmin":
         return current_user, None
         
-    form = Form.query.filter((Form.id == form_id) | (Form.slug == form_id)).first()
+    form = find_form_by_id_or_slug(form_id)
     if not form:
         return None, (jsonify({"error": "Form not found"}), 404)
         
@@ -459,7 +462,7 @@ def admin_form_detail(form_id: str):
     _, error = _require_superadmin()
     if error:
         return error
-    form = Form.query.filter((Form.id == form_id) | (Form.slug == form_id)).first()
+    form = find_form_by_id_or_slug(form_id)
     if not form:
         return jsonify({"error": "Form not found"}), 404
     return jsonify(
@@ -559,6 +562,25 @@ def admin_form_delete(form_id: str):
         return jsonify({"ok": True})
     except FormNotFoundError as exc:
         return jsonify({"error": str(exc)}), 404
+
+
+@api.post("/api/admin/forms/import-markdown")
+def admin_forms_import_markdown():
+    _, error = _require_superadmin()
+    if error:
+        return error
+    payload = request.get_json(silent=True) or {}
+    content = payload.get("content") or payload.get("file_path") or ""
+    if not content:
+        return jsonify({"error": "Missing 'content' or 'file_path' in request payload"}), 400
+    try:
+        imported_forms = import_forms_from_markdown(content)
+        items = [{"id": f.id, "slug": f.slug, "name": f.name} for f in imported_forms]
+        return jsonify({"items": items, "count": len(items)}), 201
+    except MarkdownPromptParseError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception as exc:
+        return jsonify({"error": f"Failed to import markdown prompts: {exc}"}), 400
 
 
 def _apply_debug_allowlist(debug: dict, capabilities: frozenset[str]) -> dict:
@@ -676,11 +698,13 @@ def run_flow(flow_id: str):
         return error
     payload = request.get_json(silent=True) or {}
     capabilities = diagnostic_policy_for(current_user)
+    model_override = payload.get("model_override") or payload.get("model")
     result = execute_flow(
         flow_id=flow_id,
         values=payload.get("values"),
         context=payload.get("context"),
         step_id=payload.get("step_id"),
+        model_override=model_override,
         diagnostic_capabilities=capabilities,
         user_id=str(current_user.id),
         role_name=current_user.role.name if current_user.role else None,
@@ -724,6 +748,7 @@ def admin_flows():
             "description": flow.description,
             "file_path": flow.file_path,
             "is_active": flow.is_active,
+            "model_configuration": flow.model_configuration,
             "created_at": flow.created_at.isoformat() if flow.created_at else None,
             "updated_at": flow.updated_at.isoformat() if flow.updated_at else None,
         }
@@ -760,6 +785,7 @@ def admin_flow_detail(flow_id: str):
             "content_json": flow.content_json,
             "file_path": flow.file_path,
             "is_active": flow.is_active,
+            "model_configuration": flow.model_configuration,
             "steps": steps,
             "created_at": flow.created_at.isoformat() if flow.created_at else None,
             "updated_at": flow.updated_at.isoformat() if flow.updated_at else None,
@@ -778,6 +804,7 @@ def admin_flow_create():
             name=(payload.get("name") or "").strip(),
             description=(payload.get("description") or "").strip() or None,
             content_json=payload.get("content_json") or "{}",
+            model_configuration=payload.get("model_configuration"),
             is_active=bool(payload.get("is_active", True)),
         )
         return jsonify({"item": {"id": flow.id, "slug": flow.slug}}), 201
@@ -797,6 +824,7 @@ def admin_flow_update(flow_id: str):
             name=(payload.get("name") or "").strip(),
             description=(payload.get("description") or "").strip() or None,
             content_json=payload.get("content_json") or "{}",
+            model_configuration=payload.get("model_configuration"),
             is_active=bool(payload.get("is_active", True)),
         )
         return jsonify({"item": {"id": flow.id, "slug": flow.slug}})
@@ -831,7 +859,7 @@ def admin_flow_add_step(flow_id: str):
     flow = Flow.query.filter((Flow.id == flow_id) | (Flow.slug == flow_id)).first()
     if not flow:
         return jsonify({"error": "Flow not found"}), 404
-    form = Form.query.filter((Form.id == form_id) | (Form.slug == form_id)).first()
+    form = find_form_by_id_or_slug(form_id)
     if not form:
         return jsonify({"error": "Form not found"}), 404
     next_step_number = db.session.query(db.func.max(FlowFormStep.step_number)).filter_by(flow_id=flow.id).scalar() or 0
@@ -885,7 +913,7 @@ def admin_flow_reorder_steps(flow_id: str):
         if not form_id:
             continue
         
-        form = Form.query.filter((Form.id == form_id) | (Form.slug == form_id)).first()
+        form = find_form_by_id_or_slug(form_id)
         if not form:
             db.session.rollback()
             return jsonify({"error": f"Form not found: {form_id}"}), 404

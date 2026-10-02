@@ -30,7 +30,7 @@ export default function ResetPasswordPage() {
         reset_token: resetToken,
         new_password: newPassword,
       });
-      toast.success("Password reset successfully. Please sign in with your new password.");
+      toast.success("Password reset successfully. Please login with your new password.");
       navigate("/login");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to reset password.");

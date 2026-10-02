@@ -9,6 +9,7 @@ from pydantic import ValidationError
 from extensions import db
 from models import Flow
 from .schemas.prompt_flow import PromptFlow
+from .schemas.prompt_form import ModelSettings
 
 logger = logging.getLogger(__name__)
 FLOWS_DIR = Path(__file__).resolve().parent.parent / "flows"
@@ -43,16 +44,30 @@ def _load_flow_from_file(flow_id: str, file_path: str) -> PromptFlow:
 
 def load_flow_definition(flow: Flow) -> PromptFlow:
     steps = sorted(flow.form_steps, key=lambda step: step.step_number)
+    flow_model = None
+    if flow.model_configuration:
+        if isinstance(flow.model_configuration, dict):
+            flow_model = ModelSettings.model_validate(flow.model_configuration)
+        elif isinstance(flow.model_configuration, str):
+            flow_model = ModelSettings.model_validate_json(flow.model_configuration)
+
     if not steps:
         if flow.content_json:
-            return _load_flow_from_text(flow.slug, flow.content_json)
-        return _load_flow_from_file(flow.slug, flow.file_path)
+            flow_def = _load_flow_from_text(flow.slug, flow.content_json)
+            if flow_model and not flow_def.model:
+                flow_def.model = flow_model
+            return flow_def
+        flow_def = _load_flow_from_file(flow.slug, flow.file_path)
+        if flow_model and not flow_def.model:
+            flow_def.model = flow_model
+        return flow_def
 
     return PromptFlow(
         id=flow.slug,
         version="1.0",
         name=flow.name,
         description=flow.description or "",
+        model=flow_model,
         steps=[
             {
                 "id": step.form.slug.replace("-", "_") if step.form else step.form_id,
@@ -130,9 +145,15 @@ def create_flow(
     name: str,
     description: str | None,
     content_json: str,
+    model_configuration: dict | None = None,
     is_active: bool = True,
 ) -> Flow:
     flow_def = _load_flow_from_text("new-flow", content_json)
+    if model_configuration:
+        flow_def.model = ModelSettings.model_validate(model_configuration)
+    elif flow_def.model:
+        model_configuration = flow_def.model.model_dump()
+
     slug = _unique_slug(_slugify(name))
     file_path = f"flows/{slug}.flow.json"
     flow = Flow(
@@ -142,6 +163,7 @@ def create_flow(
         content_json=json.dumps(flow_def.model_dump(), indent=2),
         file_path=file_path,
         is_active=is_active,
+        model_configuration=model_configuration,
     )
     db.session.add(flow)
     db.session.commit()
@@ -154,6 +176,7 @@ def update_flow(
     name: str,
     description: str | None,
     content_json: str,
+    model_configuration: dict | None = None,
     is_active: bool,
 ) -> Flow:
     flow = Flow.query.filter((Flow.id == flow_id) | (Flow.slug == flow_id)).first()
@@ -161,10 +184,16 @@ def update_flow(
         raise FlowNotFoundError(f"Flow '{flow_id}' not found")
 
     flow_def = _load_flow_from_text(flow_id, content_json)
+    if model_configuration:
+        flow_def.model = ModelSettings.model_validate(model_configuration)
+    elif flow_def.model:
+        model_configuration = flow_def.model.model_dump()
+
     flow.name = name
     flow.description = description
     flow.content_json = json.dumps(flow_def.model_dump(), indent=2)
     flow.is_active = is_active
+    flow.model_configuration = model_configuration
     flow.slug = _unique_slug(_slugify(name), flow.id)
     db.session.commit()
     return flow

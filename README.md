@@ -724,3 +724,108 @@ If new development seed data is required:
 ```bash
 python seed.py
 ```
+
+---
+
+# 21. New Features Overview
+
+PromptFlow includes several major platform capabilities:
+
+### 1. Flow-Level Model Configuration
+- Flows can define a default model configuration (e.g. `gpt-4o-mini`, `gpt-4o`).
+- 3-tier model resolution hierarchy:
+  1. `model_override` passed in request / CLI / Python API.
+  2. Form / Step-level explicit model configuration.
+  3. Flow-level model configuration.
+  4. System default model.
+- Model selection dropdown in the Web UI Flow Runner.
+
+### 2. External Markdown Prompt Support & UI Import
+- Define reusable prompts in standard `.md` files using `<!-- PROMPT: prompt_id -->` comment dividers, system instructions, and `{{variable}}` placeholders.
+- Import Markdown prompts directly into the Database Forms catalog via:
+  - Web UI: **Import Markdown** button on Forms & Flows Admin pages (`admin/forms`, `admin/flows`).
+  - REST API: `POST /api/admin/forms/import-markdown`.
+
+### 3. Standalone CLI & Interactive Execution
+- Run flows completely file-based without requiring database persistence.
+- Interactive mode: Automatically discovers required input fields and prompts the user for values in the terminal via `input()`.
+- Programmatic Python API for Jupyter Notebooks.
+
+### 4. Modular Output Handler Architecture & Leonardo.AI Image Integration
+- Extensible `OutputHandlerRegistry` supporting JSON, Markdown, and AI image output handlers.
+- `Leonardo.AI` adapter supporting aspect ratio mapping (`ar`: `16:9`, `1:1`, `9:16`, `4:3`, `3:4`).
+
+---
+
+# 22. CLI & Python API Tutorial
+
+### 22.1 Interactive Terminal Execution (Recommended)
+
+Run any flow or Markdown prompt file interactively. The CLI will automatically scan required variables and prompt you for values via `input()`:
+
+```bash
+cd backend
+
+python cli.py run prompts/test_prompt.md
+```
+
+**Interactive Example Output:**
+```text
+=======================================================
+ PromptFlow Interactive Input Mode
+ Flow: Test Prompt
+=======================================================
+Enter value for 'Business Name':
+> Jollibee
+
+Enter value for 'Business Content':
+> Jollibee has chicken joy
+=======================================================
+
+Flow 'test_prompt' executed successfully!
+```
+
+---
+
+### 22.2 Running with a Local JSON Input File
+
+You can also pass inputs via a JSON file and write output to a JSON file:
+
+```bash
+python cli.py run prompts/business_marketing.md --input inputs.json --output outputs/result.json
+```
+
+---
+
+### 22.3 Specifying Model Overrides & Providers
+
+Override the AI model during execution:
+
+```bash
+python cli.py run client_assessment --input inputs.json --model gpt-4o --provider openai
+```
+
+---
+
+### 22.4 Programmatic Python / Jupyter Notebook Execution
+
+You can run flows programmatically in Python scripts or Jupyter Notebooks using the `promptflow` module:
+
+```python
+import promptflow
+
+# Pass inputs as a dictionary or filepath
+result = promptflow.run(
+    flow="prompts/test_prompt.md",
+    input={
+        "business_name": "Jollibee",
+        "business_content": "Jollibee has chicken joy"
+    },
+    model="gpt-4o-mini",
+    output="./outputs/result.json"
+)
+
+print("Status:", result["status"])
+print("Output:", result["output"])
+```
+

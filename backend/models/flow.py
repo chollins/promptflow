@@ -39,6 +39,11 @@ class Flow(db.Model, UUIDMixin, TimestampMixin):
         default=True,
     )
 
+    model_configuration = db.Column(
+        db.JSON,
+        nullable=True,
+    )
+
     form_steps = db.relationship(
         "FlowFormStep",
         back_populates="flow",

@@ -31,38 +31,51 @@ def _resolve_form_file_path(file_path: str | None) -> Path | None:
     return path
 
 
+_RUNTIME_FORMS_CACHE: dict[str, PromptForm] = {}
+
+
+def register_runtime_form(form: PromptForm) -> None:
+    _RUNTIME_FORMS_CACHE[form.id] = form
+
+
 def get_form(form_id: str) -> PromptForm:
-    record = Form.query.filter((Form.id == form_id) | (Form.slug == form_id)).first()
-    if record:
-        if record.content_json:
-            try:
-                return PromptForm.model_validate_json(record.content_json)
-            except ValidationError as exc:
-                raise InvalidFormError(f"Invalid PromptForm JSON for '{form_id}': {exc}") from exc
+    # 0. Check runtime cache (for markdown forms or dynamically registered forms)
+    if form_id in _RUNTIME_FORMS_CACHE:
+        return _RUNTIME_FORMS_CACHE[form_id]
 
-        resolved_path = _resolve_form_file_path(record.file_path)
-        if resolved_path and resolved_path.is_file():
-            try:
-                return PromptForm.model_validate_json(resolved_path.read_text(encoding="utf-8"))
-            except ValidationError as exc:
-                raise InvalidFormError(f"Invalid PromptForm JSON for '{form_id}': {exc}") from exc
-
+    # 1. Search filesystem form assets first
     for file_path in (
         FORMS_DIR / f"{form_id}.form.json",
         SAMPLE_FORMS_DIR / f"{form_id}.form.json",
         SAMPLE_FORMS_DIR / f"{form_id}.json",
     ):
-        if not file_path.is_file():
-            continue
-        try:
-            return PromptForm.model_validate_json(file_path.read_text(encoding="utf-8"))
-        except ValidationError as exc:
-            raise InvalidFormError(f"Invalid PromptForm JSON for '{form_id}': {exc}") from exc
+        if file_path.is_file():
+            try:
+                return PromptForm.model_validate_json(file_path.read_text(encoding="utf-8"))
+            except ValidationError as exc:
+                raise InvalidFormError(f"Invalid PromptForm JSON for '{form_id}': {exc}") from exc
 
-    raise FormNotFoundError(
-        f"Form '{form_id}' not found"
-        + (f" (stored file_path: {record.file_path})" if record and record.file_path else "")
-    )
+    # 2. Search DB if inside Flask application context
+    from flask import has_app_context
+    if has_app_context():
+        from models import Form
+        from services.form_service import _slugify
+        record = Form.query.filter((Form.id == form_id) | (Form.slug == form_id) | (Form.slug == _slugify(form_id))).first()
+        if record:
+            if record.content_json:
+                try:
+                    return PromptForm.model_validate_json(record.content_json)
+                except ValidationError as exc:
+                    raise InvalidFormError(f"Invalid PromptForm JSON for '{form_id}': {exc}") from exc
+
+            resolved_path = _resolve_form_file_path(record.file_path)
+            if resolved_path and resolved_path.is_file():
+                try:
+                    return PromptForm.model_validate_json(resolved_path.read_text(encoding="utf-8"))
+                except ValidationError as exc:
+                    raise InvalidFormError(f"Invalid PromptForm JSON for '{form_id}': {exc}") from exc
+
+    raise FormNotFoundError(f"Form '{form_id}' not found")
 
 
 def get_all_forms() -> list[PromptForm]:

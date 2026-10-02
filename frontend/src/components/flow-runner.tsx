@@ -281,6 +281,7 @@ export function FlowRunner({ flowId, onDebugSnapshot }: FlowRunnerProps) {
   const [stepResult, setStepResult] = useState<string>("");
   const [stepDebug, setStepDebug] = useState<FlowExecutionDebug | null>(null);
   const [diagnosticCapabilities, setDiagnosticCapabilities] = useState<string[]>([]);
+  const [selectedModel, setSelectedModel] = useState<string>("gpt-4o-mini");
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -291,6 +292,9 @@ export function FlowRunner({ flowId, onDebugSnapshot }: FlowRunnerProps) {
     apiGet<RuntimeFlow>(`/flows/${flowId}`)
       .then((data) => {
         setFlow(data);
+        if ((data as any).model?.name) {
+          setSelectedModel((data as any).model.name);
+        }
         logActivity("viewed flow", data.name);
         setCurrentStepIndex(0);
         setValues({});
@@ -319,6 +323,9 @@ export function FlowRunner({ flowId, onDebugSnapshot }: FlowRunnerProps) {
     apiGet<RuntimeForm>(`/forms/${formKey}`)
       .then((form) => {
         setForms((prev) => ({ ...prev, [form.id]: form, [formKey]: form }));
+        if (form.model?.name) {
+          setSelectedModel(form.model.name);
+        }
         setValues((prev) => {
           const next = { ...prev };
           for (const field of form.fields) {
@@ -447,6 +454,11 @@ export function FlowRunner({ flowId, onDebugSnapshot }: FlowRunnerProps) {
         step_id: currentStep.id,
         values,
         context,
+        model_override: {
+          provider: "openai",
+          name: selectedModel,
+          temperature: 0.7,
+        },
       });
       const executed = response.steps[0];
 
@@ -696,6 +708,21 @@ export function FlowRunner({ flowId, onDebugSnapshot }: FlowRunnerProps) {
 
           {/* Execute + Next */}
           <div className="flex items-center gap-2">
+            <Select value={selectedModel} onValueChange={setSelectedModel}>
+              <SelectTrigger className="w-[160px] h-10 text-xs">
+                <SelectValue placeholder="Model" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="gpt-4o-mini">gpt-4o-mini (Default)</SelectItem>
+                <SelectItem value="gpt-4o">gpt-4o</SelectItem>
+                <SelectItem value="gpt-4o-2024-08-06">gpt-4o-2024-08-06</SelectItem>
+                <SelectItem value="gpt-4-turbo">gpt-4-turbo</SelectItem>
+                <SelectItem value="gpt-3.5-turbo">gpt-3.5-turbo</SelectItem>
+                <SelectItem value="o3-mini">o3-mini</SelectItem>
+                <SelectItem value="o1-mini">o1-mini</SelectItem>
+              </SelectContent>
+            </Select>
+
             <Button
               variant="primary"
               onClick={() => void runCurrentStep()}

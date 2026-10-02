@@ -5,6 +5,9 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
+from .prompt_form import ModelSettings
+
+
 class RuntimeSettings(BaseModel):
     mode: Literal["guided", "automatic"] = "guided"
     default_review_required: bool = True
@@ -38,5 +41,6 @@ class PromptFlow(BaseModel):
     name: str
     description: str = ""
     runtime: RuntimeSettings = Field(default_factory=RuntimeSettings)
+    model: ModelSettings | None = None
     steps: list[FlowStep]
 

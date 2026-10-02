@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
-import { Database, PencilLine, Plus, Trash2, Upload, FormInput, Eye } from "lucide-react";
+import { Database, PencilLine, Plus, Trash2, Upload, FormInput, Eye, FileText } from "lucide-react";
 import { AppShell, PageHeader } from "@/components/app-shell";
 import { Button, Card, Input } from "@/components/ui-kit";
 import { Textarea } from "@/components/ui/textarea";
@@ -109,6 +109,21 @@ export default function AdminFormsPage() {
     setForm((prev) => ({ ...prev, content_json: text }));
   }
 
+  async function handleMarkdownImport(file: File | null) {
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const res = await apiPost<{ items: Array<{ id: string; name: string }>; count: number }>(
+        "/admin/forms/import-markdown",
+        { content: text }
+      );
+      toast.success(`Imported ${res.count} form(s) from Markdown`);
+      await refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to import Markdown");
+    }
+  }
+
   async function handleSave() {
     setSaving(true);
     try {
@@ -155,10 +170,26 @@ export default function AdminFormsPage() {
         title="Forms Catalog"
         description="Create, edit, or delete reusable form definitions stored in the database."
         actions={
-          <Button onClick={openCreateModal}>
-            <Plus className="h-4 w-4" />
-            New form
-          </Button>
+          <div className="flex items-center gap-2">
+            <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted/50">
+              <FileText className="h-4 w-4" />
+              Import Markdown
+              <input
+                type="file"
+                accept=".md,.markdown,text/markdown"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0] ?? null;
+                  void handleMarkdownImport(file);
+                  e.target.value = "";
+                }}
+              />
+            </label>
+            <Button onClick={openCreateModal}>
+              <Plus className="h-4 w-4" />
+              New form
+            </Button>
+          </div>
         }
       />
 
@@ -266,19 +297,36 @@ export default function AdminFormsPage() {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-medium text-foreground/80">Content JSON</label>
-                <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-muted-foreground hover:text-foreground">
-                  <Upload className="h-4 w-4" />
-                  Upload JSON
-                  <input
-                    type="file"
-                    accept=".json,application/json"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0] ?? null;
-                      void handleUpload(file);
-                    }}
-                  />
-                </label>
+                <div className="flex items-center gap-3">
+                  <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
+                    <Upload className="h-3.5 w-3.5" />
+                    Upload JSON
+                    <input
+                      type="file"
+                      accept=".json,application/json"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] ?? null;
+                        void handleUpload(file);
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+                  <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
+                    <FileText className="h-3.5 w-3.5" />
+                    Upload Markdown
+                    <input
+                      type="file"
+                      accept=".md,.markdown,text/markdown"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] ?? null;
+                        void handleMarkdownImport(file);
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+                </div>
               </div>
               <Textarea
                 value={form.content_json}

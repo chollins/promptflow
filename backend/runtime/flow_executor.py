@@ -14,6 +14,33 @@ from .form_service import get_form
 from .prompt_executor import LLMConfigurationError, LLMExecutionError, execute_prompt
 from .prompt_service import render_prompt
 from .schemas.prompt_flow import FlowStep, OutputSettings, PromptFlow
+from .schemas.prompt_form import ModelSettings, PromptForm
+
+
+def resolve_effective_model(
+    flow: PromptFlow | None,
+    form: PromptForm,
+    model_override: dict | ModelSettings | None = None,
+) -> ModelSettings:
+    """
+    Resolution priority:
+    1. Explicit model override passed in request
+    2. Explicit step/Form model configuration
+    3. Flow-level model configuration
+    4. Existing system/default model
+    """
+    if model_override:
+        if isinstance(model_override, dict):
+            return ModelSettings.model_validate(model_override)
+        return model_override
+    fields_set = getattr(form, "model_fields_set", getattr(form, "__fields_set__", set()))
+    if form and form.model and ("model" in fields_set):
+        return form.model
+    if flow and flow.model:
+        return flow.model
+    if form and form.model:
+        return form.model
+    return ModelSettings(provider="openai", name="gpt-4o-mini", temperature=0.7)
 
 logger = logging.getLogger(__name__)
 OUTPUTS_DIR = Path(__file__).resolve().parent.parent / "outputs"
@@ -89,32 +116,35 @@ def _render_prompt_with_validation(template: str, values: dict[str, str]) -> str
     return rendered
 
 
+from services.output_handlers import default_registry
+
+
 def _save_output(flow_id: str, output: OutputSettings, result: str) -> None:
     output_dir = OUTPUTS_DIR / flow_id
     output_dir.mkdir(parents=True, exist_ok=True)
     for fmt in output.formats:
-        if fmt == "json":
-            (output_dir / f"{output.save_as}.json").write_text(
-                json.dumps({"save_as": output.save_as, "result": result}, indent=2),
-                encoding="utf-8",
-            )
-        elif fmt == "markdown":
-            (output_dir / f"{output.save_as}.md").write_text(result, encoding="utf-8")
+        default_registry.process_output(
+            handler_name=fmt,
+            raw_output=result,
+            save_as=output.save_as,
+            output_dir=output_dir,
+        )
 
 
-def _execute_step(flow: PromptFlow, step: FlowStep, user_values: dict, context: ExecutionContext, diagnostic_capabilities: frozenset[str] | None = None) -> tuple[FlowStepResult, dict | None]:
+def _execute_step(flow: PromptFlow, step: FlowStep, user_values: dict, context: ExecutionContext, diagnostic_capabilities: frozenset[str] | None = None, model_override: dict | ModelSettings | None = None) -> tuple[FlowStepResult, dict | None]:
     if diagnostic_capabilities is None:
         diagnostic_capabilities = frozenset()
     started = time.perf_counter()
     form = get_form(step.prompt_form_id)
+    effective_model = resolve_effective_model(flow, form, model_override)
     values = _build_step_values(step, user_values, context)
     rendered_system_prompt = _render_prompt_with_validation(form.prompt.system, values)
     rendered_prompt = _render_prompt_with_validation(form.prompt.user, values)
     result = execute_prompt(
         system_prompt=rendered_system_prompt,
         user_prompt=rendered_prompt,
-        model=form.model.name,
-        temperature=form.model.temperature,
+        model=effective_model.name,
+        temperature=effective_model.temperature,
     )
     duration_ms = (time.perf_counter() - started) * 1000
     parsed_result = result
@@ -217,9 +247,9 @@ def _execute_step(flow: PromptFlow, step: FlowStep, user_values: dict, context: 
         
     if "model" in diagnostic_capabilities:
         debug_info["model_configuration"] = {
-            "provider": form.model.provider,
-            "name": form.model.name,
-            "temperature": form.model.temperature,
+            "provider": effective_model.provider,
+            "name": effective_model.name,
+            "temperature": effective_model.temperature,
         }
         
     if "output_schema" in diagnostic_capabilities:
@@ -243,11 +273,11 @@ def _execute_step(flow: PromptFlow, step: FlowStep, user_values: dict, context: 
     return step_result, (debug_info if debug_info else None)
 
 
-def execute_flow(flow_id: str, values: dict | None = None, context: dict | None = None, step_id: str | None = None, diagnostic_capabilities: frozenset[str] | None = None) -> FlowExecuteResponse:
+def execute_flow(flow_id: str, values: dict | None = None, context: dict | None = None, step_id: str | None = None, diagnostic_capabilities: frozenset[str] | None = None, model_override: dict | None = None) -> FlowExecuteResponse:
     flow = get_flow(flow_id)
     step = _find_step(flow, step_id) if step_id else sorted(flow.steps, key=lambda item: item.sequence)[0]
     execution_context = ExecutionContext(context)
-    step_result, debug_info = _execute_step(flow, step, values or {}, execution_context, diagnostic_capabilities)
+    step_result, debug_info = _execute_step(flow, step, values or {}, execution_context, diagnostic_capabilities, model_override=model_override)
     
     if debug_info:
         completed = []

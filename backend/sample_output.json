@@ -1,0 +1,85 @@
+{
+  "flow_id": "client_assessment",
+  "flow_name": "Client Assessment",
+  "status": "completed",
+  "output": "Subject: Unlock the Power of Automation for TechCorp's AI Initiatives\n\nHi Alex,\n\nI hope this message finds you well. As the Head of AI at TechCorp, you understand the transformative impact of automation in enhancing efficiency and driving innovation.\n\nI wanted to share how our automation solutions can seamlessly integrate with your existing AI frameworks, optimizing workflows and accelerating project timelines. Our platform has helped organizations like yours reduce operational costs and increase productivity by up to 30%.\n\nI\u2019d love to schedule a brief call to discuss how we can support TechCorp's AI initiatives and unlock new capabilities through automation.\n\nLooking forward to your thoughts!\n\nBest regards,\n\n[Your Name]  \n[Your Position]  \n[Your Company]  \n[Your Phone Number]  \n[Your Email Address]  ",
+  "context": {
+    "company": "TechCorp",
+    "industry": "Artificial Intelligence",
+    "tone": "Professional",
+    "prospect_name": "Alex",
+    "job_title": "Head of AI",
+    "goal": "Automation",
+    "length": "Short",
+    "steps": {
+      "step_1": {
+        "input": {
+          "company": "TechCorp",
+          "industry": "Artificial Intelligence",
+          "tone": "Professional",
+          "prospect_name": "Alex",
+          "job_title": "Head of AI",
+          "goal": "Automation",
+          "length": "Short",
+          "steps": "{}"
+        },
+        "output": "TechCorp is a prominent player in the Artificial Intelligence (AI) industry, renowned for its innovative solutions and cutting-edge technologies. Established in [Year], the company has carved a niche for itself by leveraging advanced machine learning, natural language processing, and data analytics to enhance operational efficiencies across various sectors, including healthcare, finance, and manufacturing.\n\nTechCorp's product portfolio encompasses a range of AI-driven applications, such as predictive analytics platforms, intelligent automation tools, and personalized customer engagement systems. These offerings are designed to empower organizations to harness the full potential of their data, drive decision-making processes, and improve overall business performance.\n\nThe company's commitment to research and development is underscored by its partnerships with leading academic institutions and participation in collaborative AI initiatives. This focus on innovation has positioned TechCorp at the forefront of emerging AI trends, enabling it to adapt swiftly to market changes and meet evolving client needs.\n\nWith a diverse clientele that spans global markets, TechCorp continues to expand its footprint, striving to deliver value through AI technologies that not only enhance productivity but also foster sustainable growth. As the industry evolves, TechCorp remains dedicated to ethical AI practices, ensuring that its solutions are aligned with responsible use and societal benefits.",
+        "status": "completed",
+        "error": null
+      },
+      "step_2": {
+        "input": {
+          "company": "TechCorp",
+          "industry": "Artificial Intelligence",
+          "tone": "Professional",
+          "prospect_name": "Alex",
+          "job_title": "Head of AI",
+          "goal": "Automation",
+          "length": "Short",
+          "steps": "{'step_1': {'input': {'company': 'TechCorp', 'industry': 'Artificial Intelligence', 'tone': 'Professional', 'prospect_name': 'Alex', 'job_title': 'Head of AI', 'goal': 'Automation', 'length': 'Short', 'steps': '{}'}, 'output': \"TechCorp is a prominent player in the Artificial Intelligence (AI) industry, renowned for its innovative solutions and cutting-edge technologies. Established in [Year], the company has carved a niche for itself by leveraging advanced machine learning, natural language processing, and data analytics to enhance operational efficiencies across various sectors, including healthcare, finance, and manufacturing.\\n\\nTechCorp's product portfolio encompasses a range of AI-driven applications, such as predictive analytics platforms, intelligent automation tools, and personalized customer engagement systems. These offerings are designed to empower organizations to harness the full potential of their data, drive decision-making processes, and improve overall business performance.\\n\\nThe company's commitment to research and development is underscored by its partnerships with leading academic institutions and participation in collaborative AI initiatives. This focus on innovation has positioned TechCorp at the forefront of emerging AI trends, enabling it to adapt swiftly to market changes and meet evolving client needs.\\n\\nWith a diverse clientele that spans global markets, TechCorp continues to expand its footprint, striving to deliver value through AI technologies that not only enhance productivity but also foster sustainable growth. As the industry evolves, TechCorp remains dedicated to ethical AI practices, ensuring that its solutions are aligned with responsible use and societal benefits.\", 'status': 'completed', 'error': None}}",
+          "client_recap": "TechCorp is a prominent player in the Artificial Intelligence (AI) industry, renowned for its innovative solutions and cutting-edge technologies. Established in [Year], the company has carved a niche for itself by leveraging advanced machine learning, natural language processing, and data analytics to enhance operational efficiencies across various sectors, including healthcare, finance, and manufacturing.\n\nTechCorp's product portfolio encompasses a range of AI-driven applications, such as predictive analytics platforms, intelligent automation tools, and personalized customer engagement systems. These offerings are designed to empower organizations to harness the full potential of their data, drive decision-making processes, and improve overall business performance.\n\nThe company's commitment to research and development is underscored by its partnerships with leading academic institutions and participation in collaborative AI initiatives. This focus on innovation has positioned TechCorp at the forefront of emerging AI trends, enabling it to adapt swiftly to market changes and meet evolving client needs.\n\nWith a diverse clientele that spans global markets, TechCorp continues to expand its footprint, striving to deliver value through AI technologies that not only enhance productivity but also foster sustainable growth. As the industry evolves, TechCorp remains dedicated to ethical AI practices, ensuring that its solutions are aligned with responsible use and societal benefits.",
+          "summary": "TechCorp is a prominent player in the Artificial Intelligence (AI) industry, renowned for its innovative solutions and cutting-edge technologies. Established in [Year], the company has carved a niche for itself by leveraging advanced machine learning, natural language processing, and data analytics to enhance operational efficiencies across various sectors, including healthcare, finance, and manufacturing.\n\nTechCorp's product portfolio encompasses a range of AI-driven applications, such as predictive analytics platforms, intelligent automation tools, and personalized customer engagement systems. These offerings are designed to empower organizations to harness the full potential of their data, drive decision-making processes, and improve overall business performance.\n\nThe company's commitment to research and development is underscored by its partnerships with leading academic institutions and participation in collaborative AI initiatives. This focus on innovation has positioned TechCorp at the forefront of emerging AI trends, enabling it to adapt swiftly to market changes and meet evolving client needs.\n\nWith a diverse clientele that spans global markets, TechCorp continues to expand its footprint, striving to deliver value through AI technologies that not only enhance productivity but also foster sustainable growth. As the industry evolves, TechCorp remains dedicated to ethical AI practices, ensuring that its solutions are aligned with responsible use and societal benefits."
+        },
+        "output": "Subject: Unlock the Power of Automation for TechCorp's AI Initiatives\n\nHi Alex,\n\nI hope this message finds you well. As the Head of AI at TechCorp, you understand the transformative impact of automation in enhancing efficiency and driving innovation.\n\nI wanted to share how our automation solutions can seamlessly integrate with your existing AI frameworks, optimizing workflows and accelerating project timelines. Our platform has helped organizations like yours reduce operational costs and increase productivity by up to 30%.\n\nI\u2019d love to schedule a brief call to discuss how we can support TechCorp's AI initiatives and unlock new capabilities through automation.\n\nLooking forward to your thoughts!\n\nBest regards,\n\n[Your Name]  \n[Your Position]  \n[Your Company]  \n[Your Phone Number]  \n[Your Email Address]  ",
+        "status": "completed",
+        "error": null
+      }
+    },
+    "client_recap": "TechCorp is a prominent player in the Artificial Intelligence (AI) industry, renowned for its innovative solutions and cutting-edge technologies. Established in [Year], the company has carved a niche for itself by leveraging advanced machine learning, natural language processing, and data analytics to enhance operational efficiencies across various sectors, including healthcare, finance, and manufacturing.\n\nTechCorp's product portfolio encompasses a range of AI-driven applications, such as predictive analytics platforms, intelligent automation tools, and personalized customer engagement systems. These offerings are designed to empower organizations to harness the full potential of their data, drive decision-making processes, and improve overall business performance.\n\nThe company's commitment to research and development is underscored by its partnerships with leading academic institutions and participation in collaborative AI initiatives. This focus on innovation has positioned TechCorp at the forefront of emerging AI trends, enabling it to adapt swiftly to market changes and meet evolving client needs.\n\nWith a diverse clientele that spans global markets, TechCorp continues to expand its footprint, striving to deliver value through AI technologies that not only enhance productivity but also foster sustainable growth. As the industry evolves, TechCorp remains dedicated to ethical AI practices, ensuring that its solutions are aligned with responsible use and societal benefits.",
+    "sales_email": "Subject: Unlock the Power of Automation for TechCorp's AI Initiatives\n\nHi Alex,\n\nI hope this message finds you well. As the Head of AI at TechCorp, you understand the transformative impact of automation in enhancing efficiency and driving innovation.\n\nI wanted to share how our automation solutions can seamlessly integrate with your existing AI frameworks, optimizing workflows and accelerating project timelines. Our platform has helped organizations like yours reduce operational costs and increase productivity by up to 30%.\n\nI\u2019d love to schedule a brief call to discuss how we can support TechCorp's AI initiatives and unlock new capabilities through automation.\n\nLooking forward to your thoughts!\n\nBest regards,\n\n[Your Name]  \n[Your Position]  \n[Your Company]  \n[Your Phone Number]  \n[Your Email Address]  "
+  },
+  "steps": [
+    {
+      "id": "step_1",
+      "name": "Create Summary",
+      "sequence": 1,
+      "prompt": null,
+      "result": "TechCorp is a prominent player in the Artificial Intelligence (AI) industry, renowned for its innovative solutions and cutting-edge technologies. Established in [Year], the company has carved a niche for itself by leveraging advanced machine learning, natural language processing, and data analytics to enhance operational efficiencies across various sectors, including healthcare, finance, and manufacturing.\n\nTechCorp's product portfolio encompasses a range of AI-driven applications, such as predictive analytics platforms, intelligent automation tools, and personalized customer engagement systems. These offerings are designed to empower organizations to harness the full potential of their data, drive decision-making processes, and improve overall business performance.\n\nThe company's commitment to research and development is underscored by its partnerships with leading academic institutions and participation in collaborative AI initiatives. This focus on innovation has positioned TechCorp at the forefront of emerging AI trends, enabling it to adapt swiftly to market changes and meet evolving client needs.\n\nWith a diverse clientele that spans global markets, TechCorp continues to expand its footprint, striving to deliver value through AI technologies that not only enhance productivity but also foster sustainable growth. As the industry evolves, TechCorp remains dedicated to ethical AI practices, ensuring that its solutions are aligned with responsible use and societal benefits.",
+      "completed": true,
+      "next": "step_2",
+      "output": {
+        "save_as": "client_recap",
+        "formats": [
+          "json",
+          "markdown"
+        ]
+      }
+    },
+    {
+      "id": "step_2",
+      "name": "Create Sales Email",
+      "sequence": 2,
+      "prompt": null,
+      "result": "Subject: Unlock the Power of Automation for TechCorp's AI Initiatives\n\nHi Alex,\n\nI hope this message finds you well. As the Head of AI at TechCorp, you understand the transformative impact of automation in enhancing efficiency and driving innovation.\n\nI wanted to share how our automation solutions can seamlessly integrate with your existing AI frameworks, optimizing workflows and accelerating project timelines. Our platform has helped organizations like yours reduce operational costs and increase productivity by up to 30%.\n\nI\u2019d love to schedule a brief call to discuss how we can support TechCorp's AI initiatives and unlock new capabilities through automation.\n\nLooking forward to your thoughts!\n\nBest regards,\n\n[Your Name]  \n[Your Position]  \n[Your Company]  \n[Your Phone Number]  \n[Your Email Address]  ",
+      "completed": true,
+      "next": null,
+      "output": {
+        "save_as": "sales_email",
+        "formats": [
+          "json",
+          "markdown"
+        ]
+      }
+    }
+  ]
+}

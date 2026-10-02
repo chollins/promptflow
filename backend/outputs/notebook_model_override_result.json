@@ -1,0 +1,34 @@
+{
+  "flow_id": "test_prompt",
+  "flow_name": "Test Prompt",
+  "status": "completed",
+  "output": "**Business Summary: Acme Cloud Analytics**\n\nAcme Cloud Analytics specializes in delivering real-time infrastructure metrics and AI-driven cost optimization solutions specifically tailored for Kubernetes clusters. By leveraging advanced analytics and artificial intelligence, the company empowers businesses to monitor their cloud infrastructure efficiently, optimize resource utilization, and reduce operational costs. Acme Cloud Analytics positions itself as a vital partner for organizations seeking to enhance their cloud performance and achieve greater cost efficiencies in their Kubernetes environments.",
+  "context": {
+    "business_name": "Acme Cloud Analytics",
+    "business_content": "Acme Cloud Analytics provides real-time infrastructure metrics and AI-driven cost optimization for Kubernetes clusters.",
+    "steps": {
+      "step_1_test_summary": {
+        "input": {
+          "business_name": "Acme Cloud Analytics",
+          "business_content": "Acme Cloud Analytics provides real-time infrastructure metrics and AI-driven cost optimization for Kubernetes clusters.",
+          "steps": "{}"
+        },
+        "output": "**Business Summary: Acme Cloud Analytics**\n\nAcme Cloud Analytics specializes in delivering real-time infrastructure metrics and AI-driven cost optimization solutions specifically tailored for Kubernetes clusters. By leveraging advanced analytics and artificial intelligence, the company empowers businesses to monitor their cloud infrastructure efficiently, optimize resource utilization, and reduce operational costs. Acme Cloud Analytics positions itself as a vital partner for organizations seeking to enhance their cloud performance and achieve greater cost efficiencies in their Kubernetes environments.",
+        "status": "completed",
+        "error": null
+      }
+    }
+  },
+  "steps": [
+    {
+      "id": "step_1_test_summary",
+      "name": "Test Summary",
+      "sequence": 1,
+      "prompt": null,
+      "result": "**Business Summary: Acme Cloud Analytics**\n\nAcme Cloud Analytics specializes in delivering real-time infrastructure metrics and AI-driven cost optimization solutions specifically tailored for Kubernetes clusters. By leveraging advanced analytics and artificial intelligence, the company empowers businesses to monitor their cloud infrastructure efficiently, optimize resource utilization, and reduce operational costs. Acme Cloud Analytics positions itself as a vital partner for organizations seeking to enhance their cloud performance and achieve greater cost efficiencies in their Kubernetes environments.",
+      "completed": true,
+      "next": null,
+      "output": null
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { Database, Plus, Trash2, Workflow } from "lucide-react";
+import { Database, Plus, Trash2, Workflow, FileText } from "lucide-react";
 import { AppShell, PageHeader } from "@/components/app-shell";
 import { Button, Card, Input } from "@/components/ui-kit";
 import { apiDelete, apiGet, apiPost } from "@/lib/api";
@@ -93,6 +93,21 @@ export default function FlowsCatalog() {
     }
   }
 
+  async function handleMarkdownImport(file: File | null) {
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const res = await apiPost<{ items: Array<{ id: string; name: string }>; count: number }>(
+        "/admin/forms/import-markdown",
+        { content: text }
+      );
+      toast.success(`Imported ${res.count} form(s) from Markdown into forms catalog`);
+      await refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to import Markdown");
+    }
+  }
+
   return (
     <AppShell>
       <div className="w-full">
@@ -100,10 +115,26 @@ export default function FlowsCatalog() {
           title="Flow Composer"
           description="Create flows and arrange reusable forms into ordered flow steps."
           actions={
-            <Button onClick={() => { setForm(EMPTY_FORM); setCreateDialogOpen(true); }}>
-              <Plus className="h-4 w-4" />
-              Create new flow
-            </Button>
+            <div className="flex items-center gap-2">
+              <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted/50">
+                <FileText className="h-4 w-4" />
+                Import Markdown
+                <input
+                  type="file"
+                  accept=".md,.markdown,text/markdown"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] ?? null;
+                    void handleMarkdownImport(file);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+              <Button onClick={() => { setForm(EMPTY_FORM); setCreateDialogOpen(true); }}>
+                <Plus className="h-4 w-4" />
+                Create new flow
+              </Button>
+            </div>
           }
         />
 

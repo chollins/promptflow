@@ -26,12 +26,19 @@ type FlowStepItem = {
   is_required: boolean;
 };
 
+type FlowModelConfig = {
+  provider: string;
+  name: string;
+  temperature: number;
+};
+
 type FlowDetail = {
   id: string;
   name: string;
   slug: string;
   description: string | null;
   content_json?: string | null;
+  model_configuration?: FlowModelConfig | null;
   is_active: boolean;
   steps: FlowStepItem[];
 };
@@ -45,6 +52,9 @@ export default function EditFlowPage() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [contentJson, setContentJson] = useState("");
+  const [modelProvider, setModelProvider] = useState("openai");
+  const [modelName, setModelName] = useState("gpt-4o-mini");
+  const [modelTemp, setModelTemp] = useState(0.7);
   const [isActive, setIsActive] = useState(true);
   const [saving, setSaving] = useState(false);
   const [stepFormId, setStepFormId] = useState("");
@@ -67,6 +77,11 @@ export default function EditFlowPage() {
     setName(data.name);
     setDescription(data.description || "");
     setContentJson(data.content_json || "");
+    if (data.model_configuration) {
+      setModelProvider(data.model_configuration.provider || "openai");
+      setModelName(data.model_configuration.name || "gpt-4o-mini");
+      setModelTemp(data.model_configuration.temperature ?? 0.7);
+    }
     setIsActive(data.is_active);
     setForms(formData.items);
   }
@@ -82,6 +97,11 @@ export default function EditFlowPage() {
         name,
         description,
         content_json: contentJson,
+        model_configuration: {
+          provider: modelProvider,
+          name: modelName,
+          temperature: modelTemp,
+        },
         is_active: isActive,
       });
       toast.success("Flow updated");
@@ -217,6 +237,33 @@ export default function EditFlowPage() {
               <div className="space-y-2">
                 <label className="text-xs font-medium text-foreground/80">Description</label>
                 <Input value={description} onChange={(e) => setDescription(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-foreground/80">Default Flow Model</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <Input
+                    placeholder="Provider (e.g. openai)"
+                    value={modelProvider}
+                    onChange={(e) => setModelProvider(e.target.value)}
+                  />
+                  <Input
+                    placeholder="Model Name (e.g. gpt-4o)"
+                    value={modelName}
+                    onChange={(e) => setModelName(e.target.value)}
+                  />
+                </div>
+                <div className="flex items-center gap-2 pt-1">
+                  <span className="text-xs text-muted-foreground shrink-0">Temperature ({modelTemp}):</span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="2"
+                    step="0.1"
+                    value={modelTemp}
+                    onChange={(e) => setModelTemp(parseFloat(e.target.value))}
+                    className="w-full accent-primary"
+                  />
+                </div>
               </div>
               <div className="space-y-2">
                 <label className="text-xs font-medium text-foreground/80">Flow JSON</label>
