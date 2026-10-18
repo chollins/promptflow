@@ -175,6 +175,9 @@ def _execute_step(
     form = get_form(step.prompt_form_id)
     effective_model = resolve_effective_model(flow, form, model_override)
     values, input_sources = _build_step_values(step, user_values, context)
+    for field in form.fields:
+        if field.id not in values or values[field.id] is None:
+            values[field.id] = ""
     rendered_system_prompt = _render_prompt_with_validation(form.prompt.system, values)
     rendered_prompt = _render_prompt_with_validation(form.prompt.user, values)
     result = execute_prompt(

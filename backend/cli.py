@@ -131,6 +131,59 @@ def main(args: list[str] | None = None) -> int:
                 print(f"Output saved to: {parsed_args.output}")
             else:
                 print(json.dumps(result["output"], indent=2))
+
+            # Check if output is or contains an image spec or URL
+            out_obj = result.get("output")
+            image_url = None
+            if isinstance(out_obj, dict):
+                image_url = out_obj.get("url")
+            elif isinstance(out_obj, str):
+                try:
+                    parsed_sub = json.loads(out_obj)
+                    if isinstance(parsed_sub, dict):
+                        out_obj = parsed_sub
+                        image_url = parsed_sub.get("url")
+                except Exception:
+                    pass
+
+            # If image spec has prompt but no URL, generate image via LeonardoAdapter
+            if isinstance(out_obj, dict) and out_obj.get("type") == "image" and not image_url and out_obj.get("prompt"):
+                try:
+                    from services.adapters.leonardo_adapter import LeonardoAdapter
+                    adapter = LeonardoAdapter()
+                    print("\n🎨 Generating photo via Leonardo.AI...")
+                    img_gen_res = adapter.generate_image(
+                        out_obj,
+                        output_dir=Path("outputs"),
+                        save_as=result["flow_id"],
+                    )
+                    image_url = img_gen_res.get("url")
+                except Exception as img_exc:
+                    print(f"Notice: Image generation could not be completed: {img_exc}")
+
+            # Download local copy if image URL is available
+            local_image_path = None
+            if image_url and image_url.startswith("http"):
+                try:
+                    ext = ".png" if ".png" in image_url else ".jpg"
+                    img_dir = Path("outputs") / "images"
+                    img_dir.mkdir(parents=True, exist_ok=True)
+                    target_file = img_dir / f"{result['flow_id']}{ext}"
+                    import urllib.request
+                    urllib.request.urlretrieve(image_url, target_file)
+                    local_image_path = target_file.resolve()
+                except Exception:
+                    pass
+
+            if local_image_path or image_url:
+                print("\n" + "=" * 55)
+                print("🖼️  Image Output:")
+                if local_image_path:
+                    print(f"image can be viewed here: {local_image_path}")
+                if image_url:
+                    print(f"web preview URL:         {image_url}")
+                print("=" * 55 + "\n")
+
             return 0
         except FileRunnerValidationError as exc:
             print(f"Validation Error: {exc}", file=sys.stderr)

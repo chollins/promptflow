@@ -1,0 +1,81 @@
+{
+  "id": "photo_generator",
+  "name": "AI Photo & Image Generator",
+  "description": "Generate a high-quality photo prompt specification for Leonardo.AI and image output handlers.",
+  "version": "1.0",
+  "fields": [
+    {
+      "id": "subject",
+      "label": "Subject / Main Focus",
+      "type": "textarea",
+      "required": true
+    },
+    {
+      "id": "style",
+      "label": "Visual Style",
+      "type": "dropdown",
+      "options": [
+        "Photorealistic",
+        "Cinematic 35mm",
+        "Studio Portrait",
+        "Digital Concept Art",
+        "Anime / Fantasy",
+        "Minimalist Architectural"
+      ],
+      "required": true
+    },
+    {
+      "id": "aspect_ratio",
+      "label": "Aspect Ratio",
+      "type": "radio",
+      "options": [
+        "16:9",
+        "1:1",
+        "9:16",
+        "4:3",
+        "3:4"
+      ],
+      "required": true
+    },
+    {
+      "id": "lighting",
+      "label": "Lighting & Mood",
+      "type": "dropdown",
+      "options": [
+        "Natural Golden Hour",
+        "Studio Softbox Lighting",
+        "Dramatic Warm Sunset",
+        "Neon Cyberpunk Glow",
+        "Moody Dark & Cinematic"
+      ],
+      "required": true
+    },
+    {
+      "id": "camera_details",
+      "label": "Camera & Lens Direction",
+      "type": "dropdown",
+      "options": [
+        "85mm Portrait Lens f/1.4",
+        "35mm Street Photography",
+        "Macro Close-up Shot",
+        "Drone Aerial Perspective"
+      ],
+      "required": false
+    },
+    {
+      "id": "negative_prompt",
+      "label": "Negative Prompt (Things to Avoid)",
+      "type": "text",
+      "required": false
+    }
+  ],
+  "prompt": {
+    "system": "You are an expert AI image prompt engineer and creative director. Return ONLY a valid raw JSON object formatted for image generation handlers. Do not include markdown formatting or explanations.",
+    "user": "Create a detailed image generation JSON specification based on the following input:\n\nSubject: {{subject}}\nStyle: {{style}}\nAspect Ratio: {{aspect_ratio}}\nLighting: {{lighting}}\nCamera Details: {{camera_details}}\nNegative Prompt: {{negative_prompt}}\n\nOutput a valid JSON object with the following structure:\n{\n  \"type\": \"image\",\n  \"prompt\": \"<detailed, highly descriptive photographic prompt incorporating subject, lighting, style, camera details, high resolution, 8k>\",\n  \"negative_prompt\": \"<negative prompt details>\",\n  \"aspect_ratio\": \"{{aspect_ratio}}\"\n}"
+  },
+  "model": {
+    "provider": "openai",
+    "name": "gpt-4o-mini",
+    "temperature": 0.7
+  }
+}

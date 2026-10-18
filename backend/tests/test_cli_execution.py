@@ -170,6 +170,16 @@ def test_cli_interactive_input(tmp_path: Path, monkeypatch):
 
 
 def test_cli_markdown_file_execution(tmp_path: Path, monkeypatch):
+    md_file = tmp_path / "sample_test_prompt.md"
+    md_file.write_text(
+        "# Business Summary\n\n"
+        "<!-- PROMPT: test_summary -->\n\n"
+        "You are a business research analyst.\n\n"
+        "Business Name: {{business_name}}\n\n"
+        "Business Content: {{business_content}}\n",
+        encoding="utf-8"
+    )
+
     output_file = tmp_path / "md_output.json"
 
     user_inputs = iter([
@@ -183,11 +193,12 @@ def test_cli_markdown_file_execution(tmp_path: Path, monkeypatch):
 
     monkeypatch.setattr("runtime.flow_executor.execute_prompt", mock_execute_prompt)
 
-    code = cli_main(["run", "prompts/test_prompt.md", "--output", str(output_file)])
+    code = cli_main(["run", str(md_file), "--output", str(output_file)])
     assert code == 0
     assert output_file.is_file()
     saved = json.loads(output_file.read_text(encoding="utf-8"))
-    assert saved["flow_id"] == "test_prompt"
+    assert saved["flow_id"] == "sample_test_prompt"
     assert saved["context"]["business_name"] == "Acme Corp"
+
 
 

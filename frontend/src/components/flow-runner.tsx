@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
-import ReactMarkdown from "react-markdown";
-import { ChevronLeft, ChevronRight, RotateCcw, Zap, BookmarkCheck } from "lucide-react";
+import { ChevronLeft, ChevronRight, RotateCcw, Zap, BookmarkCheck, Pencil } from "lucide-react";
+import { FormattedResultView } from "@/components/formatted-result-view";
 import { toast } from "sonner";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge, Button, Card, Field, Input } from "@/components/ui-kit";
@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { apiGet, apiPost } from "@/lib/api";
 import { logActivity } from "@/lib/activity";
 import { ExportDropdown } from "@/components/export-dropdown";
+import { useFavoriteModels, sortModelsWithFavorites, getDefaultModelId, getFavoriteModelIds, INITIAL_DEFAULT_MODELS } from "@/lib/favorite-models";
 
 export type RuntimeField = {
   id: string;
@@ -289,15 +290,26 @@ export function FlowRunner({ flowId, onDebugSnapshot }: FlowRunnerProps) {
   const [stepResult, setStepResult] = useState<string>("");
   const [stepDebug, setStepDebug] = useState<FlowExecutionDebug | null>(null);
   const [diagnosticCapabilities, setDiagnosticCapabilities] = useState<string[]>([]);
-  const [selectedModel, setSelectedModel] = useState<string>("gpt-4o-mini");
-  const [modelsList, setModelsList] = useState<ModelRegistryItem[]>([
-    { id: "gpt-4o-mini", name: "GPT-4o Mini", provider: "openai", category: "text" },
-    { id: "gpt-4o", name: "GPT-4o", provider: "openai", category: "text" },
-  ]);
+  const { favoriteIds } = useFavoriteModels();
+  const [selectedModel, setSelectedModel] = useState<string>(() => getDefaultModelId());
+  const [hasUserSelectedModel, setHasUserSelectedModel] = useState(false);
+  const [modelsList, setModelsList] = useState<ModelRegistryItem[]>(INITIAL_DEFAULT_MODELS);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeAccordion, setActiveAccordion] = useState<string>("step-0");
+  const [isEditingStepResult, setIsEditingStepResult] = useState(false);
+
+  const prioritizedModels = useMemo(() => {
+    return sortModelsWithFavorites(modelsList, favoriteIds);
+  }, [modelsList, favoriteIds]);
+
+  // Default to favorite model if there is one; if no favorite, default to gpt-4o
+  useEffect(() => {
+    if (!hasUserSelectedModel) {
+      setSelectedModel(getDefaultModelId(favoriteIds, modelsList));
+    }
+  }, [favoriteIds, modelsList, hasUserSelectedModel]);
 
   useEffect(() => {
     apiGet<{ models: ModelRegistryItem[] }>("/models")
@@ -306,17 +318,17 @@ export function FlowRunner({ flowId, onDebugSnapshot }: FlowRunnerProps) {
           setModelsList(res.models);
         }
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   useEffect(() => {
     setLoading(true);
+    setHasUserSelectedModel(false);
     apiGet<RuntimeFlow>(`/flows/${flowId}`)
       .then((data) => {
         setFlow(data);
-        if ((data as any).model?.name) {
-          setSelectedModel((data as any).model.name);
-        }
+        const defaultMod = getDefaultModelId(getFavoriteModelIds(), modelsList);
+        setSelectedModel(defaultMod);
         logActivity("viewed flow", data.name);
         setCurrentStepIndex(0);
         setValues({});
@@ -345,9 +357,6 @@ export function FlowRunner({ flowId, onDebugSnapshot }: FlowRunnerProps) {
     apiGet<RuntimeForm>(`/forms/${formKey}`)
       .then((form) => {
         setForms((prev) => ({ ...prev, [form.id]: form, [formKey]: form }));
-        if (form.model?.name) {
-          setSelectedModel(form.model.name);
-        }
         setValues((prev) => {
           const next = { ...prev };
           for (const field of form.fields) {
@@ -472,12 +481,13 @@ export function FlowRunner({ flowId, onDebugSnapshot }: FlowRunnerProps) {
     setRunning(true);
     setError(null);
     try {
+      const currentModelObj = modelsList.find((m) => m.id === selectedModel);
       const response = await apiPost<FlowExecuteResponse>(`/flows/${flow.id}/execute`, {
         step_id: currentStep.id,
         values,
         context,
         model_override: {
-          provider: "openai",
+          provider: currentModelObj?.provider || "openai",
           name: selectedModel,
           temperature: 0.7,
         },
@@ -495,6 +505,7 @@ export function FlowRunner({ flowId, onDebugSnapshot }: FlowRunnerProps) {
       setDiagnosticCapabilities(response.diagnostic_capabilities ?? []);
       setStepResults((prev) => [...prev.slice(0, currentStepIndex), executed]);
       setActiveAccordion(`step-${currentStepIndex}`);
+      setIsEditingStepResult(false);
       logActivity("executed flow step", `${flow.name} - ${currentStep.name}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to execute flow step");
@@ -558,17 +569,6 @@ export function FlowRunner({ flowId, onDebugSnapshot }: FlowRunnerProps) {
       return val !== undefined && val !== "" && val !== "Loading options...";
     });
 
-  // Format result nicely if it's valid JSON
-  let formattedResult = stepResult;
-  let isJson = false;
-  try {
-    if (stepResult) {
-      formattedResult = JSON.stringify(JSON.parse(stepResult), null, 2);
-      isJson = true;
-    }
-  } catch {
-    // not JSON — keep as-is
-  }
 
   return (
     <div className="space-y-5">
@@ -663,53 +663,36 @@ export function FlowRunner({ flowId, onDebugSnapshot }: FlowRunnerProps) {
         {/* Result section */}
         {isExecuted && (
           <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <div className="text-xs uppercase tracking-wide text-muted-foreground">
-                {isLastStep ? "Final Output" : "LLM Result"}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                  {isLastStep ? "Final Output" : "Result"}
+                </div>
+                {isLastStep && <span className="text-xs text-green-600 font-medium">✓ Flow complete</span>}
               </div>
-              {isLastStep && <span className="text-xs text-green-600 font-medium">✓ Flow complete</span>}
+              {!isLastStep && (
+                <button
+                  type="button"
+                  onClick={() => setIsEditingStepResult((prev) => !prev)}
+                  className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1.5 transition-colors"
+                >
+                  <Pencil className="h-3 w-3" />
+                  <span>{isEditingStepResult ? "View Formatted" : "Edit Raw Text"}</span>
+                </button>
+              )}
             </div>
-            {isLastStep ? (
-              <div className="rounded-xl border border-border bg-muted/20 p-5 overflow-hidden">
-                {isJson ? (
-                  <pre className="whitespace-pre-wrap text-sm font-mono text-foreground">{formattedResult}</pre>
-                ) : (
-                  <div className="text-sm text-foreground max-w-none">
-                    <ReactMarkdown
-                      components={{
-                        h1: ({ node, ...props }) => <h1 className="text-2xl font-bold mt-6 mb-4" {...props} />,
-                        h2: ({ node, ...props }) => <h2 className="text-xl font-semibold mt-5 mb-3" {...props} />,
-                        h3: ({ node, ...props }) => <h3 className="text-lg font-semibold mt-4 mb-2" {...props} />,
-                        h4: ({ node, ...props }) => <h4 className="text-base font-semibold mt-3 mb-2" {...props} />,
-                        p: ({ node, ...props }) => <p className="mb-3 leading-relaxed" {...props} />,
-                        ul: ({ node, ...props }) => <ul className="list-disc pl-6 mb-3 space-y-1" {...props} />,
-                        ol: ({ node, ...props }) => <ol className="list-decimal pl-6 mb-3 space-y-1" {...props} />,
-                        li: ({ node, ...props }) => <li className="leading-relaxed" {...props} />,
-                        code: ({ node, inline, ...props }: any) =>
-                          inline ? (
-                            <code className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono" {...props} />
-                          ) : (
-                            <pre className="bg-muted p-3 rounded-lg overflow-x-auto text-xs font-mono mb-3">
-                              <code {...props} />
-                            </pre>
-                          ),
-                        blockquote: ({ node, ...props }) => (
-                          <blockquote className="border-l-4 border-muted-foreground/30 pl-4 italic text-muted-foreground mb-3" {...props} />
-                        ),
-                      }}
-                    >
-                      {formattedResult}
-                    </ReactMarkdown>
-                  </div>
-                )}
-              </div>
-            ) : (
+
+            {isEditingStepResult ? (
               <Textarea
                 value={stepResult}
                 onChange={(e) => setStepResult(e.target.value)}
                 rows={8}
                 className="font-mono text-sm"
               />
+            ) : (
+              <div className="rounded-xl border border-border bg-muted/20 p-5 overflow-hidden">
+                <FormattedResultView content={stepResult} />
+              </div>
             )}
           </div>
         )}
@@ -730,16 +713,29 @@ export function FlowRunner({ flowId, onDebugSnapshot }: FlowRunnerProps) {
 
           {/* Execute + Next */}
           <div className="flex items-center gap-2">
-            <Select value={selectedModel} onValueChange={setSelectedModel}>
-              <SelectTrigger className="w-[160px] h-10 text-xs">
+            <Select
+              value={selectedModel}
+              onValueChange={(val) => {
+                setSelectedModel(val);
+                setHasUserSelectedModel(true);
+              }}
+            >
+              <SelectTrigger className="w-[170px] h-10 text-xs">
                 <SelectValue placeholder="Model" />
               </SelectTrigger>
               <SelectContent className="max-h-60 overflow-y-auto">
-                {modelsList.map((m) => (
-                  <SelectItem key={m.id} value={m.id}>
-                    {m.name} ({m.provider})
-                  </SelectItem>
-                ))}
+                {prioritizedModels.map((m) => {
+                  const isFav = favoriteIds.includes(m.id);
+                  return (
+                    <SelectItem key={m.id} value={m.id}>
+                      <span className="flex items-center gap-1.5">
+                        {isFav && <span className="text-amber-500 font-bold">★</span>}
+                        <span>{m.name}</span>
+                        <span className="text-muted-foreground text-[10px]">({m.provider})</span>
+                      </span>
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
 
@@ -797,12 +793,12 @@ export function FlowRunner({ flowId, onDebugSnapshot }: FlowRunnerProps) {
                 </AccordionTrigger>
                 <AccordionContent>
                   <div className="space-y-3">
-                    <details className="group">
+                    {/* <details className="group">
                       <summary className="cursor-pointer text-xs uppercase tracking-wide text-muted-foreground hover:text-foreground select-none">
                         Prompt
                       </summary>
                       <pre className="mt-2 whitespace-pre-wrap text-sm bg-muted/30 rounded p-3">{step.prompt}</pre>
-                    </details>
+                    </details> */}
                     <div>
                       <div className="flex items-center justify-between mb-2">
                         <div className="text-xs uppercase tracking-wide text-muted-foreground">Result</div>
@@ -832,18 +828,9 @@ export function FlowRunner({ flowId, onDebugSnapshot }: FlowRunnerProps) {
                           </Button>
                         </div>
                       </div>
-                      <Textarea
-                        value={step.result}
-                        onChange={(e) => {
-                          setStepResults((prev) =>
-                            prev.map((item, itemIndex) =>
-                              itemIndex === index ? { ...item, result: e.target.value } : item,
-                            ),
-                          );
-                        }}
-                        rows={6}
-                        className="font-mono text-sm"
-                      />
+                      <div className="rounded-xl border border-border bg-muted/20 p-4 overflow-hidden">
+                        <FormattedResultView content={step.result} />
+                      </div>
                     </div>
                     {step.output && (
                       <div className="text-xs text-muted-foreground">

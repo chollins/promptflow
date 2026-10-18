@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timedelta
 from hashlib import sha256
 from uuid import uuid4
+
+logger = logging.getLogger(__name__)
 
 from flask import Blueprint, jsonify, request, session
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -711,13 +714,21 @@ def execute_form_route(form_id: str):
         return error
     payload = request.get_json(silent=True) or {}
     capabilities = diagnostic_policy_for(current_user)
-    result = execute_form(
-        form_id=form_id,
-        values=payload.get("values") or {},
-        diagnostic_capabilities=capabilities,
-        user_id=str(current_user.id),
-        role_name=current_user.role.name if current_user.role else None,
-    )
+    model_override = payload.get("model_override") or payload.get("model") or payload.get("model_name")
+    try:
+        result = execute_form(
+            form_id=form_id,
+            values=payload.get("values") or {},
+            diagnostic_capabilities=capabilities,
+            user_id=str(current_user.id),
+            role_name=current_user.role.name if current_user.role else None,
+            model_override=model_override,
+        )
+    except FormNotFoundError as exc:
+        return jsonify({"error": str(exc)}), 404
+    except Exception as exc:
+        logger.error("Form execution failed form_id=%s: %s", form_id, exc, exc_info=True)
+        return jsonify({"error": str(exc)}), 500
     if current_app.config.get("SAVED_RESULTS_AUTO_SAVE", True):
         try:
             form_obj = load_form(form_id)
@@ -778,16 +789,22 @@ def run_flow(flow_id: str):
     payload = request.get_json(silent=True) or {}
     capabilities = diagnostic_policy_for(current_user)
     model_override = payload.get("model_override") or payload.get("model")
-    result = execute_flow(
-        flow_id=flow_id,
-        values=payload.get("values"),
-        context=payload.get("context"),
-        step_id=payload.get("step_id"),
-        model_override=model_override,
-        diagnostic_capabilities=capabilities,
-        user_id=str(current_user.id),
-        role_name=current_user.role.name if current_user.role else None,
-    )
+    try:
+        result = execute_flow(
+            flow_id=flow_id,
+            values=payload.get("values"),
+            context=payload.get("context"),
+            step_id=payload.get("step_id"),
+            model_override=model_override,
+            diagnostic_capabilities=capabilities,
+            user_id=str(current_user.id),
+            role_name=current_user.role.name if current_user.role else None,
+        )
+    except FlowNotFoundError as exc:
+        return jsonify({"error": str(exc)}), 404
+    except Exception as exc:
+        logger.error("Flow execution failed flow_id=%s: %s", flow_id, exc, exc_info=True)
+        return jsonify({"error": str(exc)}), 500
     if current_app.config.get("SAVED_RESULTS_AUTO_SAVE", True):
         try:
             flow_obj = load_flow(flow_id)

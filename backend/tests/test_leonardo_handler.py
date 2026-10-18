@@ -64,3 +64,52 @@ def test_registry_integration_leonardo(tmp_path: Path):
     )
     assert res.success
     assert res.output_type == "image"
+
+
+def test_extract_clean_image_prompt_from_template():
+    from services.prompt_executor import extract_clean_image_prompt
+
+    raw_template_input = """Create a detailed image generation JSON specification based on the following input:
+
+Subject: a majestic lion in the savannah
+Style: Photorealistic
+Aspect Ratio: 16:9
+Lighting: Golden Hour
+Camera Details: 85mm lens
+Negative Prompt: blur, low quality
+
+Output a valid JSON object with the following structure:
+{
+  "type": "image",
+  "prompt": "<detailed, highly descriptive photographic prompt incorporating subject, lighting, style, camera details, high resolution, 8k>",
+  "negative_prompt": "<negative prompt details>",
+  "aspect_ratio": "16:9"
+}"""
+
+    prompt, neg, ar = extract_clean_image_prompt("You are an expert", raw_template_input)
+    assert "majestic lion" in prompt
+    assert "Golden Hour" in prompt
+    assert "85mm lens" in prompt
+    assert neg == "blur, low quality"
+    assert ar == "16:9"
+    # Ensure raw template schema was stripped
+    assert "<detailed" not in prompt
+    assert "Output a valid JSON" not in prompt
+    assert "{" not in prompt
+
+
+def test_extract_clean_image_prompt_from_json():
+    from services.prompt_executor import extract_clean_image_prompt
+
+    json_input = json.dumps({
+        "type": "image",
+        "prompt": "Cyberpunk street in rain with neon reflections",
+        "negative_prompt": "fog, haze",
+        "aspect_ratio": "9:16"
+    })
+
+    prompt, neg, ar = extract_clean_image_prompt("", json_input)
+    assert prompt == "Cyberpunk street in rain with neon reflections"
+    assert neg == "fog, haze"
+    assert ar == "9:16"
+

@@ -100,7 +100,7 @@ def create_app(config_object: type[Config] | None = None) -> Flask:
         if isinstance(e, HTTPException):
             return jsonify({"error": e.description}), e.code
         logger.exception("Unhandled error during request processing")
-        return jsonify({"error": "An internal server error occurred."}), 500
+        return jsonify({"error": str(e) or "An internal server error occurred."}), 500
 
     app.register_blueprint(api)
 

@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" fill="none">
+  <!-- Sleek dark rounded background tile -->
+  <rect width="32" height="32" rx="7" fill="#09090b" />
+  
+  <!-- Primary Sparkle -->
+  <path
+    d="M 15 6 Q 15 16.5 25.5 16.5 Q 15 16.5 15 27 Q 15 16.5 4.5 16.5 Q 15 16.5 15 6 Z"
+    fill="#ffffff"
+  />
+
+  <!-- Top-Right Accent Sparkle -->
+  <path
+    d="M 24 4.5 Q 24 8.5 28 8.5 Q 24 8.5 24 12.5 Q 24 8.5 20 8.5 Q 24 8.5 24 4.5 Z"
+    fill="#ffffff"
+    opacity="0.9"
+  />
+
+  <!-- Bottom-Left Micro Sparkle -->
+  <path
+    d="M 8 20.5 Q 8 23 10.5 23 Q 8 23 8 25.5 Q 8 23 5.5 23 Q 8 23 8 20.5 Z"
+    fill="#ffffff"
+    opacity="0.75"
+  />
+</svg>

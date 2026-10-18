@@ -41,6 +41,7 @@ def execute_form(
     diagnostic_capabilities: frozenset[str] | None = None,
     user_id: str | None = None,
     role_name: str | None = None,
+    model_override: dict | str | None = None,
 ) -> FormExecuteResponse:
     if diagnostic_capabilities is None:
         diagnostic_capabilities = frozenset()
@@ -48,13 +49,30 @@ def execute_form(
     started_at = datetime.utcnow()
     form = get_form(form_id)
     merged_values = {key: str(value) for key, value in (values or {}).items()}
+    for field in form.fields:
+        if field.id not in merged_values or merged_values[field.id] is None:
+            merged_values[field.id] = ""
     rendered_system_prompt = _render_prompt_with_validation(form.prompt.system, merged_values)
     rendered_prompt = _render_prompt_with_validation(form.prompt.user, merged_values)
+    
+    model_name = form.model.name
+    temperature = form.model.temperature
+    if model_override:
+        if isinstance(model_override, dict):
+            model_name = model_override.get("name") or model_override.get("model") or model_name
+            if "temperature" in model_override:
+                try:
+                    temperature = float(model_override["temperature"])
+                except (ValueError, TypeError):
+                    pass
+        elif isinstance(model_override, str):
+            model_name = model_override
+
     result = execute_prompt(
         system_prompt=rendered_system_prompt,
         user_prompt=rendered_prompt,
-        model=form.model.name,
-        temperature=form.model.temperature,
+        model=model_name,
+        temperature=temperature,
     )
     completed_at = datetime.utcnow()
     debug = {}

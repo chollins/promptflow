@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
-import { Database, PencilLine, Plus, Trash2, Upload, FormInput, Eye, FileText } from "lucide-react";
+import { Database, PencilLine, Plus, Trash2, Upload, FormInput, Eye, FileText, Search, X, CheckCircle2, Workflow } from "lucide-react";
 import { AppShell, PageHeader } from "@/components/app-shell";
 import { Button, Card, Input } from "@/components/ui-kit";
 import { Textarea } from "@/components/ui/textarea";
@@ -164,104 +164,269 @@ export default function AdminFormsPage() {
     }
   }
 
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
+
+  const filteredItems = useMemo(() => {
+    return items.filter((item) => {
+      const q = searchQuery.toLowerCase().trim();
+      const matchesSearch =
+        !q ||
+        item.name.toLowerCase().includes(q) ||
+        item.slug.toLowerCase().includes(q) ||
+        (item.description && item.description.toLowerCase().includes(q)) ||
+        (item.flows && item.flows.some((flow) => flow.toLowerCase().includes(q)));
+
+      const matchesStatus =
+        statusFilter === "all" ||
+        (statusFilter === "active" && item.is_active) ||
+        (statusFilter === "inactive" && !item.is_active);
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [items, searchQuery, statusFilter]);
+
+  const activeCount = useMemo(() => items.filter((i) => i.is_active).length, [items]);
+  const linkedCount = useMemo(() => items.filter((i) => i.flows && i.flows.length > 0).length, [items]);
+
   return (
     <AppShell>
-      <PageHeader
-        title="Forms Catalog"
-        description="Create, edit, or delete reusable form definitions stored in the database."
-        actions={
-          <div className="flex items-center gap-2">
-            <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted/50">
-              <FileText className="h-4 w-4" />
-              Import Markdown
-              <input
-                type="file"
-                accept=".md,.markdown,text/markdown"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0] ?? null;
-                  void handleMarkdownImport(file);
-                  e.target.value = "";
-                }}
-              />
-            </label>
-            <Button onClick={openCreateModal}>
-              <Plus className="h-4 w-4" />
-              New form
-            </Button>
-          </div>
-        }
-      />
+      <div className="space-y-6">
+        <PageHeader
+          title="Forms Catalog"
+          description="Create, edit, and manage reusable prompt form definitions stored in the database."
+          actions={
+            <div className="flex items-center gap-2">
+              <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted">
+                <FileText className="h-4 w-4" />
+                Import Markdown
+                <input
+                  type="file"
+                  accept=".md,.markdown,text/markdown"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] ?? null;
+                    void handleMarkdownImport(file);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+              <Button onClick={openCreateModal} className="gap-1.5 bg-foreground text-background hover:bg-foreground/90">
+                <Plus className="h-4 w-4" />
+                New form
+              </Button>
+            </div>
+          }
+        />
 
-      <Card className="p-5">
-        <div className="mb-4 flex items-center gap-2 text-sm font-medium">
-          <FormInput className="h-4 w-4" />
-          Form list
-        </div>
-        {loading ? (
-          <div className="text-sm text-muted-foreground">Loading forms...</div>
-        ) : items.length === 0 ? (
-          <div className="text-sm text-muted-foreground">No forms yet.</div>
-        ) : (
-          <div className="space-y-3">
-            {items.map((item) => (
-              <div
-                key={item.id}
-                className="rounded-xl border border-border bg-background p-4 transition-colors hover:bg-muted/20"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="text-left">
-                    <div className="font-medium">{item.name}</div>
-                    <div className="mt-1 text-xs text-muted-foreground">{item.slug}</div>
-                    <div className="mt-2 text-sm text-muted-foreground">
-                      {item.description || "No description."}
-                    </div>
-                    {item.flows && item.flows.length > 0 && (
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {item.flows.map((flowName) => (
-                          <span
-                            key={flowName}
-                            className="inline-flex items-center rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary ring-1 ring-inset ring-primary/20"
-                          >
-                            Flow: {flowName}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => void navigate(`/admin/forms/${item.id}`)}
-                      title="View"
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => openEditModal(item)}
-                      title="Edit"
-                    >
-                      <PencilLine className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      className="text-red-500 hover:bg-red-50"
-                      size="sm"
-                      onClick={() => setDeleteId(item.id)}
-                      title="Delete"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
+        {/* Stats Summary Bar */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <Card className="p-4 bg-card border-border shadow-xs">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Forms</p>
+                <p className="text-2xl font-bold text-foreground mt-1">{items.length}</p>
               </div>
-            ))}
+              <div className="p-2.5 bg-muted text-foreground rounded-lg border border-border">
+                <FormInput className="w-5 h-5" />
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-4 bg-card border-border shadow-xs">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Active Status</p>
+                <p className="text-2xl font-bold text-foreground mt-1">{activeCount} / {items.length}</p>
+              </div>
+              <div className="p-2.5 bg-muted text-foreground rounded-lg border border-border">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-4 bg-card border-border shadow-xs">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Linked to Flows</p>
+                <p className="text-2xl font-bold text-foreground mt-1">{linkedCount}</p>
+              </div>
+              <div className="p-2.5 bg-muted text-foreground rounded-lg border border-border">
+                <Workflow className="w-5 h-5 text-muted-foreground" />
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        {/* Search & Filters */}
+        <Card className="p-4 bg-card border-border shadow-xs">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search forms by name, slug, description, or flow..."
+                className="pl-9 pr-8"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Status Tabs */}
+            <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-lg border border-border text-xs shrink-0">
+              <span className="text-muted-foreground px-2 font-medium">Status:</span>
+              {(["all", "active", "inactive"] as const).map((st) => (
+                <button
+                  key={st}
+                  onClick={() => setStatusFilter(st)}
+                  className={`px-3 py-1.5 rounded-md font-medium capitalize transition-all cursor-pointer ${statusFilter === st
+                    ? "bg-foreground text-background shadow-xs"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                    }`}
+                >
+                  {st}
+                </button>
+              ))}
+            </div>
           </div>
-        )}
-      </Card>
+        </Card>
+
+        {/* Forms Table (Mobile-Responsive) */}
+        <Card className="border-border bg-card overflow-hidden shadow-xs">
+          {loading ? (
+            <div className="p-12 text-center text-muted-foreground flex flex-col items-center gap-3">
+              <span className="h-6 w-6 animate-spin rounded-full border-2 border-foreground border-t-transparent" />
+              <span>Loading forms...</span>
+            </div>
+          ) : filteredItems.length === 0 ? (
+            <div className="p-12 text-center text-muted-foreground">
+              <FormInput className="h-10 w-10 mx-auto mb-3 text-muted-foreground opacity-50" />
+              <p className="font-semibold text-foreground">No forms found</p>
+              <p className="text-xs text-muted-foreground mt-1 mb-4">
+                {searchQuery || statusFilter !== "all"
+                  ? "Try adjusting your search query or filters."
+                  : "Get started by creating a new form definition or importing from Markdown."}
+              </p>
+              {!searchQuery && statusFilter === "all" && (
+                <Button onClick={openCreateModal} className="gap-1.5 text-xs inline-flex bg-foreground text-background hover:bg-foreground/90">
+                  <Plus className="h-4 w-4" /> New form
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm text-foreground min-w-[700px]">
+                <thead className="bg-muted/50 text-xs font-semibold uppercase tracking-wider text-muted-foreground border-b border-border">
+                  <tr>
+                    <th className="px-6 py-3.5">Form Name & ID</th>
+                    <th className="px-6 py-3.5">Linked Flows</th>
+                    <th className="px-6 py-3.5">Status</th>
+                    <th className="px-6 py-3.5 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {filteredItems.map((item) => (
+                    <tr key={item.id} className="hover:bg-muted/40 transition-colors">
+                      {/* Name & Slug */}
+                      <td className="px-6 py-4">
+                        <div className="flex items-start gap-3">
+                          <div className="p-2.5 rounded-lg bg-muted border border-border text-foreground shrink-0 mt-0.5">
+                            <FormInput className="w-4 h-4" />
+                          </div>
+                          <div className="min-w-0 max-w-sm sm:max-w-md">
+                            <div className="font-semibold text-foreground truncate">{item.name}</div>
+                            <div className="text-xs text-muted-foreground font-mono truncate">{item.slug}</div>
+                            {item.description && (
+                              <div className="text-xs text-muted-foreground line-clamp-1 mt-1">
+                                {item.description}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Linked Flows */}
+                      <td className="px-6 py-4">
+                        {item.flows && item.flows.length > 0 ? (
+                          <div className="flex flex-wrap gap-1.5 max-w-xs">
+                            {item.flows.map((flowName) => (
+                              <span
+                                key={flowName}
+                                className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-foreground border border-border"
+                              >
+                                <Workflow className="h-3 w-3 text-muted-foreground" />
+                                <span>{flowName}</span>
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground italic">Standalone (not in flow)</span>
+                        )}
+                      </td>
+
+                      {/* Status */}
+                      <td className="px-6 py-4">
+                        <span
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-medium border ${item.is_active
+                            ? "bg-zinc-100 text-zinc-900 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-100 dark:border-zinc-700"
+                            : "bg-muted text-muted-foreground border-border"
+                            }`}
+                        >
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${item.is_active ? "bg-emerald-500" : "bg-muted-foreground/50"
+                              }`}
+                          />
+                          {item.is_active ? "Active" : "Inactive"}
+                        </span>
+                      </td>
+
+                      {/* Actions */}
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => void navigate(`/admin/forms/${item.id}`)}
+                            className=" text-foreground hover:bg-muted"
+                            title="View form builder"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openEditModal(item)}
+                            className=" text-foreground hover:bg-muted"
+                            title="Edit form"
+                          >
+                            <PencilLine className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setDeleteId(item.id)}
+                            className=" text-red-700 hover:text-destructive hover:bg-destructive/10"
+                            title="Delete form"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+      </div>
 
       {/* Create / Edit Modal */}
       <Dialog open={modalOpen} onOpenChange={(open) => { if (!open) closeModal(); }}>

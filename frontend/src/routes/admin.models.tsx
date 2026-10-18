@@ -197,26 +197,26 @@ export default function AdminModelsPage() {
         switch (cat) {
             case "text":
                 return (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
-                        <FileText className="w-3.5 h-3.5" /> Text LLM
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-medium bg-zinc-100 text-zinc-800 border border-zinc-200">
+                        <FileText className="w-3.5 h-3.5 text-zinc-500" /> Text LLM
                     </span>
                 );
             case "image":
                 return (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-medium bg-purple-50 text-purple-700 border border-purple-200">
-                        <ImageIcon className="w-3.5 h-3.5" /> Image Model
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-medium bg-zinc-100 text-zinc-800 border border-zinc-200">
+                        <ImageIcon className="w-3.5 h-3.5 text-zinc-500" /> Image Model
                     </span>
                 );
             case "audio":
                 return (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
-                        <Volume2 className="w-3.5 h-3.5" /> Audio / Voice
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-medium bg-zinc-100 text-zinc-800 border border-zinc-200">
+                        <Volume2 className="w-3.5 h-3.5 text-zinc-500" /> Audio / Voice
                     </span>
                 );
             default:
                 return (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-medium bg-zinc-100 text-zinc-700 border border-zinc-200">
-                        <Sparkles className="w-3.5 h-3.5" /> {cat}
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-medium bg-zinc-100 text-zinc-800 border border-zinc-200">
+                        <Sparkles className="w-3.5 h-3.5 text-zinc-500" /> {cat}
                     </span>
                 );
         }
@@ -257,9 +257,9 @@ export default function AdminModelsPage() {
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Active Status</p>
-                                <p className="text-2xl font-bold text-emerald-600 mt-1">{activeCount} / {models.length}</p>
+                                <p className="text-2xl font-bold text-zinc-900 mt-1">{activeCount} / {models.length}</p>
                             </div>
-                            <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl border border-emerald-100">
+                            <div className="p-3 bg-zinc-100 text-zinc-900 rounded-xl border border-zinc-200">
                                 <CheckCircle2 className="w-5 h-5" />
                             </div>
                         </div>
@@ -271,7 +271,7 @@ export default function AdminModelsPage() {
                                 <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Generative LLMs</p>
                                 <p className="text-2xl font-bold text-zinc-900 mt-1">{textCount}</p>
                             </div>
-                            <div className="p-3 bg-blue-50 text-blue-600 rounded-xl border border-blue-100">
+                            <div className="p-3 bg-zinc-100 text-zinc-900 rounded-xl border border-zinc-200">
                                 <FileText className="w-5 h-5" />
                             </div>
                         </div>
@@ -281,9 +281,9 @@ export default function AdminModelsPage() {
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Image & Audio</p>
-                                <p className="text-2xl font-bold text-purple-600 mt-1">{imageCount + audioCount}</p>
+                                <p className="text-2xl font-bold text-zinc-900 mt-1">{imageCount + audioCount}</p>
                             </div>
-                            <div className="p-3 bg-purple-50 text-purple-600 rounded-xl border border-purple-100">
+                            <div className="p-3 bg-zinc-100 text-zinc-900 rounded-xl border border-zinc-200">
                                 <Sparkles className="w-5 h-5" />
                             </div>
                         </div>
@@ -394,8 +394,8 @@ export default function AdminModelsPage() {
                                                         <div className="flex items-center gap-2 font-semibold text-zinc-900">
                                                             {item.name}
                                                             {item.recommended && (
-                                                                <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium bg-amber-50 text-amber-800 border border-amber-200">
-                                                                    <Star className="w-2.5 h-2.5 fill-amber-500 text-amber-500" /> Rec
+                                                                <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium bg-zinc-100 text-zinc-800 border border-zinc-200">
+                                                                    <Sparkles className="w-2.5 h-2.5 text-zinc-500" /> Rec
                                                                 </span>
                                                             )}
                                                         </div>
@@ -425,14 +425,14 @@ export default function AdminModelsPage() {
                                             <td className="px-6 py-4">
                                                 <button
                                                     onClick={() => handleToggleStatus(item)}
-                                                    className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer ${item.is_active
-                                                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
+                                                    className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all cursor-pointer ${item.is_active
+                                                            ? "bg-black text-white hover:bg-zinc-800"
                                                             : "bg-zinc-100 text-zinc-500 border border-zinc-300 hover:bg-zinc-200"
                                                         }`}
                                                 >
                                                     {item.is_active ? (
                                                         <>
-                                                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Active
+                                                            <CheckCircle2 className="w-3.5 h-3.5 text-white" /> Active
                                                         </>
                                                     ) : (
                                                         <>

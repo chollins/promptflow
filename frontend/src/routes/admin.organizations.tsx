@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
-import { Building2, PencilLine, Plus, RefreshCw, Trash2, EyeIcon, X } from "lucide-react";
+import { Building2, PencilLine, Plus, RefreshCw, Trash2, EyeIcon, X, Search, CheckCircle2 } from "lucide-react";
 import { AppShell, PageHeader } from "@/components/app-shell";
 import { Badge, Button, Card, Field, Input } from "@/components/ui-kit";
 import {
@@ -188,85 +188,244 @@ export default function OrganizationsAdmin() {
     await refresh();
   }
 
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
+
+  const filteredItems = useMemo(() => {
+    return items.filter((item) => {
+      const q = searchQuery.toLowerCase().trim();
+      const matchesSearch =
+        !q ||
+        item.name.toLowerCase().includes(q) ||
+        item.slug.toLowerCase().includes(q) ||
+        item.code.toLowerCase().includes(q);
+
+      const matchesStatus =
+        statusFilter === "all" ||
+        (statusFilter === "active" && item.is_active) ||
+        (statusFilter === "inactive" && !item.is_active);
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [items, searchQuery, statusFilter]);
+
+  const activeCount = useMemo(() => items.filter((i) => i.is_active).length, [items]);
+  const inactiveCount = items.length - activeCount;
+
   return (
     <AppShell>
-      <PageHeader
-        title="Organizations"
-        description="Create, edit, and remove organizations for superadmins."
-        actions={
-          <>
-            <Button variant="secondary" onClick={() => void refresh()} disabled={loading}>
-              <RefreshCw className="h-4 w-4" />
-              Refresh
-            </Button>
-            <Button onClick={openCreateModal}>
-              <Plus className="h-4 w-4" />
-              New organization
-            </Button>
-          </>
-        }
-      />
+      <div className="space-y-6">
+        <PageHeader
+          title="Organizations"
+          description="Create, edit, and manage organizations across the system."
+          actions={
+            <div className="flex items-center gap-2">
+              <Button variant="secondary" onClick={() => void refresh()} disabled={loading} className="gap-1.5">
+                <RefreshCw className="h-4 w-4" />
+                Refresh
+              </Button>
+              <Button onClick={openCreateModal} className="gap-1.5 bg-foreground text-background hover:bg-foreground/90">
+                <Plus className="h-4 w-4" />
+                New organization
+              </Button>
+            </div>
+          }
+        />
 
-      <Card className="p-5">
-        <div className="mb-4 flex items-center gap-2 text-sm font-medium">
-          <Building2 className="h-4 w-4" />
-          Organization list
-        </div>
-        {loading ? (
-          <div className="text-sm text-muted-foreground">Loading organizations...</div>
-        ) : items.length === 0 ? (
-          <div className="text-sm text-muted-foreground">No organizations found.</div>
-        ) : (
-          <div className="space-y-3">
-            {items.map((item) => (
-              <div
-                key={item.id}
-                className="rounded-xl border border-border bg-background p-4 transition-colors hover:bg-muted/20"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="text-left">
-                    <div className="flex items-center gap-2">
-                      <div className="font-medium">{item.name}</div>
-                      <Badge tone={item.is_active ? "neutral" : "muted"}>
-                        {item.is_active ? "Active" : "Inactive"}
-                      </Badge>
-                    </div>
-                    <div className="mt-1 text-xs text-muted-foreground">
-                      {item.code} · {item.slug}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => void navigate(`/admin/organizations/${item.id}`)}
-                      title="View details"
-                    >
-                      <EyeIcon className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => openEditModal(item)}
-                      title="Edit"
-                    >
-                      <PencilLine className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setDeleteId(item.id)}
-                      title="Delete"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
+        {/* Stats Summary Bar */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <Card className="p-4 bg-card border-border shadow-xs">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Organizations</p>
+                <p className="text-2xl font-bold text-foreground mt-1">{items.length}</p>
               </div>
-            ))}
+              <div className="p-2.5 bg-muted text-foreground rounded-lg border border-border">
+                <Building2 className="w-5 h-5" />
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-4 bg-card border-border shadow-xs">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Active</p>
+                <p className="text-2xl font-bold text-foreground mt-1">{activeCount}</p>
+              </div>
+              <div className="p-2.5 bg-muted text-foreground rounded-lg border border-border">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-4 bg-card border-border shadow-xs">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Inactive</p>
+                <p className="text-2xl font-bold text-foreground mt-1">{inactiveCount}</p>
+              </div>
+              <div className="p-2.5 bg-muted text-foreground rounded-lg border border-border">
+                <X className="w-5 h-5 text-muted-foreground" />
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        {/* Search & Filters */}
+        <Card className="p-4 bg-card border-border shadow-xs">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search organizations by name, code, slug..."
+                className="pl-9 pr-8"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Status Tabs */}
+            <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-lg border border-border text-xs shrink-0">
+              <span className="text-muted-foreground px-2 font-medium">Status:</span>
+              {(["all", "active", "inactive"] as const).map((st) => (
+                <button
+                  key={st}
+                  onClick={() => setStatusFilter(st)}
+                  className={`px-3 py-1.5 rounded-md font-medium capitalize transition-all cursor-pointer ${
+                    statusFilter === st
+                      ? "bg-foreground text-background shadow-xs"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  }`}
+                >
+                  {st}
+                </button>
+              ))}
+            </div>
           </div>
-        )}
-      </Card>
+        </Card>
+
+        {/* Organizations Table (Mobile-Responsive) */}
+        <Card className="border-border bg-card overflow-hidden shadow-xs">
+          {loading ? (
+            <div className="p-12 text-center text-muted-foreground flex flex-col items-center gap-3">
+              <span className="h-6 w-6 animate-spin rounded-full border-2 border-foreground border-t-transparent" />
+              <span>Loading organizations...</span>
+            </div>
+          ) : filteredItems.length === 0 ? (
+            <div className="p-12 text-center text-muted-foreground">
+              <Building2 className="h-10 w-10 mx-auto mb-3 text-muted-foreground opacity-50" />
+              <p className="font-semibold text-foreground">No organizations found</p>
+              <p className="text-xs text-muted-foreground mt-1 mb-4">
+                {searchQuery || statusFilter !== "all"
+                  ? "Try adjusting your search query or status filter."
+                  : "Get started by creating your first organization."}
+              </p>
+              {!searchQuery && statusFilter === "all" && (
+                <Button onClick={openCreateModal} className="gap-1.5 text-xs inline-flex bg-foreground text-background hover:bg-foreground/90">
+                  <Plus className="h-4 w-4" /> New organization
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm text-foreground min-w-[640px]">
+                <thead className="bg-muted/50 text-xs font-semibold uppercase tracking-wider text-muted-foreground border-b border-border">
+                  <tr>
+                    <th className="px-6 py-3.5">Organization</th>
+                    <th className="px-6 py-3.5">Code</th>
+                    <th className="px-6 py-3.5">Status</th>
+                    <th className="px-6 py-3.5 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {filteredItems.map((item) => (
+                    <tr key={item.id} className="hover:bg-muted/40 transition-colors">
+                      {/* Organization Name & Slug */}
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2.5 rounded-lg bg-muted border border-border text-foreground shrink-0">
+                            <Building2 className="w-4 h-4" />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="font-semibold text-foreground truncate">{item.name}</div>
+                            <div className="text-xs text-muted-foreground font-mono truncate">{item.slug}</div>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Code */}
+                      <td className="px-6 py-4">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-md font-mono text-xs font-semibold bg-muted text-foreground border border-border">
+                          {item.code}
+                        </span>
+                      </td>
+
+                      {/* Status */}
+                      <td className="px-6 py-4">
+                        <span
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-medium border ${
+                            item.is_active
+                              ? "bg-zinc-100 text-zinc-900 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-100 dark:border-zinc-700"
+                              : "bg-muted text-muted-foreground border-border"
+                          }`}
+                        >
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              item.is_active ? "bg-emerald-500" : "bg-muted-foreground/50"
+                            }`}
+                          />
+                          {item.is_active ? "Active" : "Inactive"}
+                        </span>
+                      </td>
+
+                      {/* Actions */}
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => void navigate(`/admin/organizations/${item.id}`)}
+                            className="h-8 w-8 p-0 border-border text-foreground hover:bg-muted"
+                            title="View details"
+                          >
+                            <EyeIcon className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openEditModal(item)}
+                            className="h-8 w-8 p-0 border-border text-foreground hover:bg-muted"
+                            title="Edit organization"
+                          >
+                            <PencilLine className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setDeleteId(item.id)}
+                            className="h-8 w-8 p-0 border-border text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                            title="Delete organization"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+      </div>
 
       {/* Create / Edit Modal */}
       <Dialog open={modalOpen} onOpenChange={(open) => { if (!open) closeModal(); }}>

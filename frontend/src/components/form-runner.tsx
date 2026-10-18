@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import DynamicForm, { type PromptForm } from "@/components/DynamicForm";
 import { Button, Card } from "@/components/ui-kit";
 import { apiGet, apiPost } from "@/lib/api";
@@ -6,6 +6,9 @@ import { logActivity } from "@/lib/activity";
 import { RotateCcw, Zap, BookmarkCheck } from "lucide-react";
 import { toast } from "sonner";
 import { ExportDropdown } from "@/components/export-dropdown";
+import { FormattedResultView } from "@/components/formatted-result-view";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useFavoriteModels, sortModelsWithFavorites, getDefaultModelId, getFavoriteModelIds, INITIAL_DEFAULT_MODELS } from "@/lib/favorite-models";
 
 type FormExecuteResult = {
   form_id: string;
@@ -48,18 +51,6 @@ type FormRunnerProps = {
   onDebugSnapshot?: (snapshot: FormRunnerSnapshot | null) => void;
 };
 
-function formatLlmResult(text: string) {
-  return text
-    .replace(/\r\n/g, "\n")
-    .replace(/^\s*#{1,6}\s*/gm, "")
-    .replace(/^\s*[-*+]\s+/gm, "")
-    .replace(/^\s*\d+\.\s+/gm, "")
-    .replace(/\*\*(.*?)\*\*/g, "$1")
-    .replace(/\*(.*?)\*/g, "$1")
-    .replace(/`([^`]+)`/g, "$1")
-    .replace(/^\s*>\s?/gm, "")
-    .trim();
-}
 
 export function FormRunner({ formId, onDebugSnapshot }: FormRunnerProps) {
   const [form, setForm] = useState<PromptForm | null>(null);
@@ -72,15 +63,43 @@ export function FormRunner({ formId, onDebugSnapshot }: FormRunnerProps) {
   const [running, setRunning] = useState(false);
   const [isExecuted, setIsExecuted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { favoriteIds } = useFavoriteModels();
+  const [selectedModel, setSelectedModel] = useState<string>(() => getDefaultModelId());
+  const [hasUserSelectedModel, setHasUserSelectedModel] = useState(false);
+  const [modelsList, setModelsList] = useState<Array<{ id: string; name: string; provider: string; category: string }>>(INITIAL_DEFAULT_MODELS);
+
+  const prioritizedModels = useMemo(() => {
+    return sortModelsWithFavorites(modelsList, favoriteIds);
+  }, [modelsList, favoriteIds]);
+
+  // Default to favorite model if there is one; if no favorite, default to gpt-4o
+  useEffect(() => {
+    if (!hasUserSelectedModel) {
+      setSelectedModel(getDefaultModelId(favoriteIds, modelsList));
+    }
+  }, [favoriteIds, modelsList, hasUserSelectedModel]);
+
+  useEffect(() => {
+    apiGet<{ models: Array<{ id: string; name: string; provider: string; category: string }> }>("/models")
+      .then((res) => {
+        if (res && res.models && res.models.length > 0) {
+          setModelsList(res.models);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     let active = true;
     setLoading(true);
     setError(null);
+    setHasUserSelectedModel(false);
     apiGet<PromptForm>(`/forms/${formId}`)
       .then((data) => {
         if (!active) return;
         setForm(data);
+        const defaultMod = getDefaultModelId(getFavoriteModelIds(), modelsList);
+        setSelectedModel(defaultMod);
         logActivity("viewed form", data.name);
         setIsExecuted(false);
         setDebug(null);
@@ -109,6 +128,7 @@ export function FormRunner({ formId, onDebugSnapshot }: FormRunnerProps) {
         `/forms/${form.id}/execute`,
         {
           values: nextValues,
+          model_override: selectedModel,
         },
       );
 
@@ -155,46 +175,72 @@ export function FormRunner({ formId, onDebugSnapshot }: FormRunnerProps) {
   }
 
   const hasRequiredValues = form.fields
-  .filter((field) => field.required)
-  .every((field) => {
-    const value = values[field.id];
-    return value !== undefined && value.trim() !== "";
-  });
+    .filter((field) => field.required)
+    .every((field) => {
+      const value = values[field.id];
+      return value !== undefined && value.trim() !== "";
+    });
 
   return (
     <div className="space-y-6">
       <Card className="p-5">
-      <DynamicForm
-        form={form}
-        values={values}
-        onValuesChange={setValues}
-      />
-  
-      <div className="flex items-center gap-2 pt-2">
-        <Button
-          variant="primary"
-          onClick={() => void runForm(values)}
-          disabled={running || !hasRequiredValues}
-          className="gap-2 bg-black text-white hover:bg-black/90"
-        >
-          {running ? (
-            <>
-              <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-              Running...
-            </>
-          ) : isExecuted ? (
-            <>
-              <RotateCcw className="h-4 w-4" />
-              Execute again
-            </>
-          ) : (
-            <>
-              <Zap className="h-4 w-4" />
-              Execute
-            </>
-          )}
-        </Button>
-      </div>
+        <DynamicForm
+          form={form}
+          values={values}
+          onValuesChange={setValues}
+        />
+
+        <div className="flex items-center gap-2 pt-2">
+          <Select
+            value={selectedModel}
+            onValueChange={(val) => {
+              setSelectedModel(val);
+              setHasUserSelectedModel(true);
+            }}
+          >
+            <SelectTrigger className="w-[170px] h-10 text-xs">
+              <SelectValue placeholder="Model" />
+            </SelectTrigger>
+            <SelectContent className="max-h-60 overflow-y-auto">
+              {prioritizedModels.map((m) => {
+                const isFav = favoriteIds.includes(m.id);
+                return (
+                  <SelectItem key={m.id} value={m.id}>
+                    <span className="flex items-center gap-1.5">
+                      {isFav && <span className="text-amber-500 font-bold">★</span>}
+                      <span>{m.name}</span>
+                      <span className="text-muted-foreground text-[10px]">({m.provider})</span>
+                    </span>
+                  </SelectItem>
+                );
+              })}
+            </SelectContent>
+          </Select>
+
+          <Button
+            variant="primary"
+            onClick={() => void runForm(values)}
+            disabled={running || !hasRequiredValues}
+            className="gap-2 bg-black text-white hover:bg-black/90"
+          >
+            {running ? (
+              <>
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                Running...
+              </>
+            ) : isExecuted ? (
+              <>
+                <RotateCcw className="h-4 w-4" />
+                Execute again
+              </>
+            ) : (
+              <>
+                <Zap className="h-4 w-4" />
+                Execute
+              </>
+            )}
+          </Button>
+        </div>
       </Card>
 
       {prompt && (
@@ -236,8 +282,8 @@ export function FormRunner({ formId, onDebugSnapshot }: FormRunnerProps) {
               </Button>
             </div>
           </div>
-          <div className="rounded-lg border border-border bg-background p-4 text-sm leading-7 whitespace-pre-wrap">
-            {formatLlmResult(result)}
+          <div className="rounded-lg border border-border bg-background p-4">
+            <FormattedResultView content={result} />
           </div>
         </Card>
       )}

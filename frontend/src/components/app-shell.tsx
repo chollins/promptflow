@@ -29,6 +29,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider,
+  SidebarSeparator,
   SidebarTrigger,
   SidebarUserFooter,
 } from "@/components/ui/sidebar";
@@ -42,24 +43,29 @@ import {
 } from "@/components/ui/dialog";
 import { Toaster } from "sonner";
 
-const ALL_ITEMS: {
+type NavItem = {
   title: string;
   url: string;
   icon: typeof LayoutDashboard;
   roles: Array<"admin" | "user" | "member" | "superadmin">;
-}[] = [
+  group?: "main" | "user";
+};
+
+const ALL_ITEMS: NavItem[] = [
     { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, roles: ["admin", "user", "superadmin", "member"] },
-    { title: "Flows", url: "/flows", icon: Workflow, roles: ["admin", "member", "superadmin"] },
-    // { title: "Forms", url: "/forms", icon: Form, roles: ["admin", "member", "superadmin"] },
-    { title: "Saved Results", url: "/saved-results", icon: BookmarkCheck, roles: ["admin", "user", "superadmin", "member"] },
-    { title: "Users", url: "/users", icon: Users, roles: ["admin", "superadmin"] },
     { title: "Organization", url: "/organization", icon: Building2, roles: ["admin"] },
     { title: "Organizations", url: "/admin/organizations", icon: Building2, roles: ["superadmin"] },
-    { title: "Forms Catalog", url: "/admin/forms", icon: Form, roles: ["superadmin"] },
-    { title: "Flow Composer", url: "/admin/flows", icon: ListTree, roles: ["superadmin"] },
-    { title: "Flow Access", url: "/admin/manage-flows", icon: ShieldCheck, roles: ["superadmin"] },
-    { title: "AI Models Catalog", url: "/admin/models", icon: Cpu, roles: ["superadmin"] },
-    { title: "Settings", url: "/settings", icon: Settings, roles: ["admin", "user", "member", "superadmin"] },
+    { title: "Users", url: "/users", icon: Users, roles: ["admin", "superadmin"] },
+    { title: "Flows", url: "/flows", icon: Workflow, roles: ["admin", "member", "user", "superadmin"] },
+    // { title: "Forms", url: "/forms", icon: Form, roles: ["admin", "member", "superadmin"] },
+    { title: "Forms", url: "/admin/forms", icon: Form, roles: ["superadmin"] },
+    { title: "AI Models", url: "/models", icon: Cpu, roles: ["admin", "member", "user"] },
+    { title: "AI Models", url: "/admin/models", icon: Cpu, roles: ["superadmin"] },
+    // { title: "Flow Access", url: "/admin/manage-flows", icon: ShieldCheck, roles: ["superadmin"] },
+
+    // User-specific options
+    { title: "Saved Results", url: "/saved-results", icon: BookmarkCheck, roles: ["admin", "user", "superadmin", "member"], group: "user" },
+    { title: "Settings", url: "/settings", icon: Settings, roles: ["admin", "user", "member", "superadmin"], group: "user" },
   ];
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -71,8 +77,13 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [logoutOpen, setLogoutOpen] = useState(false);
 
-  const items = useMemo(
-    () => ALL_ITEMS.filter((item) => !role || item.roles.includes(role)),
+  const mainItems = useMemo(
+    () => ALL_ITEMS.filter((item) => (!role || item.roles.includes(role)) && item.group !== "user"),
+    [role],
+  );
+
+  const userItems = useMemo(
+    () => ALL_ITEMS.filter((item) => (!role || item.roles.includes(role)) && item.group === "user"),
     [role],
   );
 
@@ -144,7 +155,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <SidebarGroup>
               <SidebarGroupLabel>Workspace</SidebarGroupLabel>
               <SidebarMenu>
-                {items.map((item) => {
+                {mainItems.map((item) => {
                   const active = pathname === item.url || pathname.startsWith(item.url + "/");
                   return (
                     <SidebarMenuItem key={item.url}>
@@ -159,6 +170,29 @@ export function AppShell({ children }: { children: ReactNode }) {
                 })}
               </SidebarMenu>
             </SidebarGroup>
+
+            {userItems.length > 0 && (
+              <>
+                <SidebarSeparator className="my-2" />
+                <SidebarGroup>
+                  <SidebarMenu>
+                    {userItems.map((item) => {
+                      const active = pathname === item.url || pathname.startsWith(item.url + "/");
+                      return (
+                        <SidebarMenuItem key={item.url}>
+                          <SidebarMenuButton asChild isActive={active}>
+                            <Link to={item.url}>
+                              <item.icon className="h-4 w-4" />
+                              <span>{item.title}</span>
+                            </Link>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      );
+                    })}
+                  </SidebarMenu>
+                </SidebarGroup>
+              </>
+            )}
           </SidebarContent>
 
           <SidebarFooter className="mt-auto p-2">

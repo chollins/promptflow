@@ -27,6 +27,7 @@
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
+  --color-sidebar-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-subtle: var(--subtle);
@@ -103,6 +104,12 @@
 #lovable-badge,
 lovable-badge,
 .lovable-badge,
-[id^="lovable-badge"] {
+[id^="lovable-badge"],
+[class*="lovable-badge"],
+[id*="lovable"],
+a[href*="lovable.dev"] {
   display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
 }
