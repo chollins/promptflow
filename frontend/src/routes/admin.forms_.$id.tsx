@@ -1,6 +1,6 @@
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { ArrowLeft, Database, Trash2 } from "lucide-react";
+import { ArrowLeft, Database, Play, Trash2 } from "lucide-react";
 import { AppShell, PageHeader } from "@/components/app-shell";
 import { Button, Card, Input } from "@/components/ui-kit";
 import { Textarea } from "@/components/ui/textarea";
@@ -112,9 +112,18 @@ export default function FormDetailView() {
           title={form.name || "Edit Form"}
           description={form.slug || "Manage form properties and JSON schema."}
           actions={
-            <Button variant="outline" className="text-red-500 hover:text-red-600 hover:bg-red-50 gap-2" onClick={handleDelete}>
-              <Trash2 className="h-4 w-4" /> Delete Form
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                className="gap-2 text-foreground hover:bg-muted"
+                onClick={() => void navigate(`/forms/${form.id}`)}
+              >
+                <Play className="h-4 w-4 fill-current" /> Run Form
+              </Button>
+              <Button variant="outline" className="text-red-500 hover:text-red-600 hover:bg-red-50 gap-2" onClick={handleDelete}>
+                <Trash2 className="h-4 w-4" /> Delete Form
+              </Button>
+            </div>
           }
         />
 

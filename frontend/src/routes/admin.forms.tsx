@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
-import { Database, PencilLine, Plus, Trash2, Upload, FormInput, Eye, FileText, Search, X, CheckCircle2, Workflow } from "lucide-react";
+import { Database, PencilLine, Plus, Trash2, Upload, FormInput, Eye, FileText, Search, X, CheckCircle2, Workflow, Play, ChevronDown } from "lucide-react";
 import { AppShell, PageHeader } from "@/components/app-shell";
 import { Button, Card, Input } from "@/components/ui-kit";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,11 +11,25 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { apiDelete, apiGet, apiPost, apiPut } from "@/lib/api";
 import { logActivity } from "@/lib/activity";
 import { toast } from "sonner";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
+
+type FlowDetail = {
+  id: string;
+  slug: string;
+  name: string;
+};
 
 type FormItem = {
   id: string;
@@ -28,6 +42,7 @@ type FormItem = {
   created_at?: string | null;
   updated_at?: string | null;
   flows?: string[];
+  flow_details?: FlowDetail[];
 };
 
 type FormState = {
@@ -354,7 +369,22 @@ export default function AdminFormsPage() {
 
                       {/* Linked Flows */}
                       <td className="px-6 py-4">
-                        {item.flows && item.flows.length > 0 ? (
+                        {item.flow_details && item.flow_details.length > 0 ? (
+                          <div className="flex flex-wrap gap-1.5 max-w-xs">
+                            {item.flow_details.map((flow) => (
+                              <button
+                                key={flow.id}
+                                type="button"
+                                onClick={() => void navigate(`/flows/${flow.id}`)}
+                                className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-foreground border border-border hover:bg-primary/10 hover:border-primary/40 hover:text-primary transition-all cursor-pointer group"
+                                title={`Open Flow Runner for "${flow.name}"`}
+                              >
+                                <Workflow className="h-3 w-3 text-muted-foreground group-hover:text-primary transition-colors" />
+                                <span>{flow.name}</span>
+                              </button>
+                            ))}
+                          </div>
+                        ) : item.flows && item.flows.length > 0 ? (
                           <div className="flex flex-wrap gap-1.5 max-w-xs">
                             {item.flows.map((flowName) => (
                               <span
@@ -390,6 +420,96 @@ export default function AdminFormsPage() {
                       {/* Actions */}
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          {/* Run Action Button */}
+                          {item.flow_details && item.flow_details.length > 1 ? (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  size="sm"
+                                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium gap-1.5 px-2.5 h-8 shadow-xs"
+                                  title="Run form in Flow Runner"
+                                >
+                                  <Play className="h-3.5 w-3.5 fill-current" />
+                                  <span>Run</span>
+                                  <ChevronDown className="h-3 w-3 opacity-70" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-56">
+                                <DropdownMenuLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                  Flow Runner
+                                </DropdownMenuLabel>
+                                {item.flow_details.map((flow) => (
+                                  <DropdownMenuItem
+                                    key={flow.id}
+                                    onClick={() => void navigate(`/flows/${flow.id}`)}
+                                    className="cursor-pointer gap-2"
+                                  >
+                                    <Workflow className="h-3.5 w-3.5 text-primary" />
+                                    <span className="truncate">{flow.name}</span>
+                                  </DropdownMenuItem>
+                                ))}
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  onClick={() => void navigate(`/forms/${item.id}`)}
+                                  className="cursor-pointer gap-2"
+                                >
+                                  <FormInput className="h-3.5 w-3.5 text-muted-foreground" />
+                                  <span>Form Runner (Standalone)</span>
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          ) : item.flow_details && item.flow_details.length === 1 ? (
+                            <DropdownMenu>
+                              <div className="inline-flex rounded-md shadow-xs">
+                                <Button
+                                  size="sm"
+                                  onClick={() => void navigate(`/flows/${item.flow_details![0].id}`)}
+                                  className="rounded-r-none bg-primary hover:bg-primary/90 text-primary-foreground font-medium gap-1.5 px-2.5 h-8"
+                                  title={`Run in Flow Runner (${item.flow_details[0].name})`}
+                                >
+                                  <Play className="h-3.5 w-3.5 fill-current" />
+                                  <span>Run</span>
+                                </Button>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    size="sm"
+                                    className="rounded-l-none border-l border-primary-foreground/20 bg-primary hover:bg-primary/90 text-primary-foreground px-1.5 h-8"
+                                    title="More run options"
+                                  >
+                                    <ChevronDown className="h-3.5 w-3.5" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                              </div>
+                              <DropdownMenuContent align="end" className="w-56">
+                                <DropdownMenuItem
+                                  onClick={() => void navigate(`/flows/${item.flow_details![0].id}`)}
+                                  className="cursor-pointer gap-2 font-medium"
+                                >
+                                  <Workflow className="h-3.5 w-3.5 text-primary" />
+                                  <span className="truncate">Flow: {item.flow_details[0].name}</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  onClick={() => void navigate(`/forms/${item.id}`)}
+                                  className="cursor-pointer gap-2 text-muted-foreground"
+                                >
+                                  <FormInput className="h-3.5 w-3.5" />
+                                  <span>Standalone Form Runner</span>
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          ) : (
+                            <Button
+                              size="sm"
+                              onClick={() => void navigate(`/forms/${item.id}`)}
+                              className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium gap-1.5 px-2.5 h-8 shadow-xs"
+                              title="Run in Form Runner"
+                            >
+                              <Play className="h-3.5 w-3.5 fill-current" />
+                              <span>Run</span>
+                            </Button>
+                          )}
+
                           <Button
                             variant="outline"
                             size="sm"

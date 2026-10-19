@@ -597,6 +597,10 @@ def admin_forms():
             "created_at": form.created_at.isoformat() if form.created_at else None,
             "updated_at": form.updated_at.isoformat() if form.updated_at else None,
             "flows": [s.flow.name for s in sorted(form.flow_steps, key=lambda s: s.flow.name)],
+            "flow_details": [
+                {"id": s.flow.id, "slug": s.flow.slug, "name": s.flow.name}
+                for s in sorted(form.flow_steps, key=lambda s: s.flow.name)
+            ],
         }
         for form in forms
     ]
