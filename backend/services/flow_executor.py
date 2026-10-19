@@ -144,16 +144,19 @@ def _render_prompt_with_validation(template: str, values: dict[str, object]) -> 
 from .output_handlers import default_registry
 
 
-def _save_output(flow_id: str, output: OutputSettings, result: str) -> None:
+def _save_output(flow_id: str, output: OutputSettings, result: str):
     output_dir = OUTPUTS_DIR / flow_id
     output_dir.mkdir(parents=True, exist_ok=True)
+    out_results = []
     for fmt in output.formats:
-        default_registry.process_output(
+        res = default_registry.process_output(
             handler_name=fmt,
             raw_output=result,
             save_as=output.save_as,
             output_dir=output_dir,
         )
+        out_results.append(res)
+    return out_results
 
 
 def _execute_step(
@@ -211,6 +214,34 @@ def _execute_step(
             )
             parsed_result = result  # fall back to raw string
 
+    if step.output:
+        out_results = _save_output(flow.id, step.output, result)
+        for out_res in out_results:
+            if out_res.success and out_res.output_type == "image" and out_res.data:
+                img_url = out_res.data.get("url")
+                if img_url:
+                    try:
+                        parsed_json = json.loads(result) if isinstance(result, str) else {}
+                        if isinstance(parsed_json, dict):
+                            parsed_json["url"] = img_url
+                            parsed_json["type"] = "image"
+                            if "artifacts" in out_res.data:
+                                parsed_json["artifacts"] = out_res.data["artifacts"]
+                            result = json.dumps(parsed_json, indent=2)
+                            parsed_result = parsed_json
+                        else:
+                            parsed_json = {
+                                "type": "image",
+                                "url": img_url,
+                                "prompt": result,
+                                "artifacts": out_res.data.get("artifacts", []),
+                            }
+                            result = json.dumps(parsed_json, indent=2)
+                            parsed_result = parsed_json
+                    except Exception:
+                        pass
+        context.set(step.output.save_as, result)
+
     # Store step result in context so subsequent forms can reference it
     # via data_source: { type: "step_output", step_id: "<step.id>", path: "<key>" }
     context.store_step_result(
@@ -219,10 +250,6 @@ def _execute_step(
         raw_result=result,
         parsed_result=parsed_result,
     )
-
-    if step.output:
-        context.set(step.output.save_as, result)
-        _save_output(flow.id, step.output, result)
     logger.info(
         "Step completed flow=%s step=%s user_id=%s role=%s categories=%s in %.1f ms",
         flow.id,

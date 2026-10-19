@@ -299,11 +299,10 @@ export default function OrganizationsAdmin() {
                 <button
                   key={st}
                   onClick={() => setStatusFilter(st)}
-                  className={`px-3 py-1.5 rounded-md font-medium capitalize transition-all cursor-pointer ${
-                    statusFilter === st
-                      ? "bg-foreground text-background shadow-xs"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                  }`}
+                  className={`px-3 py-1.5 rounded-md font-medium capitalize transition-all cursor-pointer ${statusFilter === st
+                    ? "bg-foreground text-background shadow-xs"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                    }`}
                 >
                   {st}
                 </button>
@@ -371,16 +370,14 @@ export default function OrganizationsAdmin() {
                       {/* Status */}
                       <td className="px-6 py-4">
                         <span
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-medium border ${
-                            item.is_active
-                              ? "bg-zinc-100 text-zinc-900 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-100 dark:border-zinc-700"
-                              : "bg-muted text-muted-foreground border-border"
-                          }`}
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-medium border ${item.is_active
+                            ? "bg-zinc-100 text-zinc-900 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-100 dark:border-zinc-700"
+                            : "bg-muted text-muted-foreground border-border"
+                            }`}
                         >
                           <span
-                            className={`w-1.5 h-1.5 rounded-full ${
-                              item.is_active ? "bg-emerald-500" : "bg-muted-foreground/50"
-                            }`}
+                            className={`w-1.5 h-1.5 rounded-full ${item.is_active ? "bg-emerald-500" : "bg-muted-foreground/50"
+                              }`}
                           />
                           {item.is_active ? "Active" : "Inactive"}
                         </span>
@@ -393,7 +390,7 @@ export default function OrganizationsAdmin() {
                             variant="outline"
                             size="sm"
                             onClick={() => void navigate(`/admin/organizations/${item.id}`)}
-                            className="h-8 w-8 p-0 border-border text-foreground hover:bg-muted"
+                            className="text-foreground hover:bg-muted"
                             title="View details"
                           >
                             <EyeIcon className="h-4 w-4" />
@@ -402,7 +399,7 @@ export default function OrganizationsAdmin() {
                             variant="outline"
                             size="sm"
                             onClick={() => openEditModal(item)}
-                            className="h-8 w-8 p-0 border-border text-foreground hover:bg-muted"
+                            className="text-foreground hover:bg-muted"
                             title="Edit organization"
                           >
                             <PencilLine className="h-4 w-4" />
@@ -411,7 +408,7 @@ export default function OrganizationsAdmin() {
                             variant="outline"
                             size="sm"
                             onClick={() => setDeleteId(item.id)}
-                            className="h-8 w-8 p-0 border-border text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                            className="text-red-600 hover:text-red-900 hover:bg-red-100"
                             title="Delete organization"
                           >
                             <Trash2 className="h-4 w-4" />

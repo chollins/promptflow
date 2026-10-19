@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
-import { Check, Copy, Code2, Sparkles, Image as ImageIcon } from "lucide-react";
+import { Check, Copy, Code2 } from "lucide-react";
 import { processLlmResult } from "@/lib/result-formatter";
 import { cn } from "@/lib/utils";
+import { ImageOutputView } from "@/components/image-output-view";
 
 interface FormattedResultViewProps {
   content: string;
@@ -143,6 +144,11 @@ export function FormattedResultView({
                   {...props}
                 />
               ),
+              img: ({ node, ...props }: any) => (
+                <div className="my-3 rounded-lg overflow-hidden border border-border bg-muted/10 max-w-fit">
+                  <img className="max-h-96 w-auto rounded-md object-contain" alt={props.alt || "Markdown Image"} {...props} />
+                </div>
+              ),
             }}
           >
             {processed.readableMarkdown}
@@ -152,20 +158,11 @@ export function FormattedResultView({
 
       {/* Generated image preview if detected */}
       {showImagePreview && processed.imageUrl && (
-        <div className="rounded-lg border border-border bg-muted/20 p-3 mt-3">
-          <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">
-            <ImageIcon className="h-3.5 w-3.5" />
-            Generated Image Preview
-          </div>
-          <img
-            src={processed.imageUrl}
-            alt="Generated Output Preview"
-            className="max-h-80 rounded-md object-contain border border-border bg-background"
-            onError={(e) => {
-              (e.target as HTMLElement).style.display = "none";
-            }}
-          />
-        </div>
+        <ImageOutputView
+          imageUrl={processed.imageUrl}
+          metadata={processed.imageMetadata}
+          className="mt-3"
+        />
       )}
     </div>
   );

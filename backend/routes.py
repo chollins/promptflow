@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 from uuid import uuid4
 
@@ -166,7 +166,15 @@ def _build_invitation_link(token: str) -> str:
 
 
 def _utcnow() -> datetime:
-    return datetime.utcnow()
+    return datetime.now(timezone.utc)
+
+
+def _ensure_utc(dt: datetime | None) -> datetime | None:
+    if dt is None:
+        return None
+    if dt.tzinfo is None or dt.tzinfo.utcoffset(dt) is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
 
 
 def _require_superadmin():
@@ -392,7 +400,7 @@ def verify_otp():
     if otp_record.attempts >= 5:
         return jsonify({"error": "Maximum verification attempts exceeded."}), 400
 
-    if _utcnow() > otp_record.expires_at:
+    if _utcnow() > _ensure_utc(otp_record.expires_at):
         return jsonify({"error": "OTP has expired."}), 400
 
     input_hash = sha256(otp.encode("utf-8")).hexdigest()
@@ -431,7 +439,7 @@ def reset_password():
         return jsonify({"error": "Invalid or expired reset token."}), 400
 
     expires_at = datetime.fromisoformat(token_data["expires_at"])
-    if _utcnow() > expires_at:
+    if _utcnow() > _ensure_utc(expires_at):
         session.pop(f"reset_token_{reset_token}", None)
         return jsonify({"error": "Reset token has expired."}), 400
 
@@ -829,6 +837,14 @@ def run_flow(flow_id: str):
             logger.warning("Failed to auto-save flow execution result: %s", exc)
 
     return _format_execution_response(result.model_dump(exclude_none=True), capabilities)
+
+
+@api.get("/api/outputs/<flow_id>/<path:filename>")
+def serve_output_file(flow_id: str, filename: str):
+    from flask import send_from_directory
+    from services.flow_executor import OUTPUTS_DIR
+    output_dir = OUTPUTS_DIR / flow_id
+    return send_from_directory(output_dir, filename)
 
 
 @api.get("/api/admin/flows")
@@ -1308,7 +1324,7 @@ def validate_invitation():
     if not invitation:
         return jsonify({"error": "Invalid or expired invitation"}), 404
 
-    if invitation.expires_at < _utcnow():
+    if _ensure_utc(invitation.expires_at) < _utcnow():
         return jsonify({"error": "Invitation expired"}), 410
 
     return jsonify(
@@ -1341,7 +1357,7 @@ def accept_invitation():
     if not invitation:
         return jsonify({"error": "Invalid or expired invitation"}), 404
 
-    if invitation.expires_at < _utcnow():
+    if _ensure_utc(invitation.expires_at) < _utcnow():
         return jsonify({"error": "Invitation expired"}), 410
 
     existing_user = User.query.filter_by(email=invitation.email).first()
