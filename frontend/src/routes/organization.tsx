@@ -1,6 +1,6 @@
 import { } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
-import { Building2, Copy, Check, Link as LinkIcon } from "lucide-react";
+import { Building2, Copy, Check, Link as LinkIcon, Users } from "lucide-react";
 import { AppShell, PageHeader } from "@/components/app-shell";
 import { Badge, Button, Card } from "@/components/ui-kit";
 import { apiGet } from "@/lib/api";
@@ -158,24 +158,65 @@ export default function OrganizationPage() {
         )}
 
         {organization && (
-          <Card className="p-5">
-            <div className="font-medium">Members</div>
-            <div className="mt-4 space-y-3">
-              {(organization.users || []).map((member) => (
-                <div
-                  key={member.id}
-                  className="flex items-center justify-between rounded-md border border-border p-3"
-                >
-                  <div>
-                    <div className="text-sm font-medium">{member.name}</div>
-                    <div className="text-xs text-muted-foreground">{member.email}</div>
-                  </div>
-                  <div className="text-xs text-muted-foreground">{member.role || "Member"}</div>
-                </div>
-              ))}
-              {organization.users && organization.users.length === 0 && (
-                <p className="text-sm text-muted-foreground">No members assigned.</p>
-              )}
+          <Card className="overflow-hidden p-0 border border-border shadow-xs">
+            <div className="flex items-center justify-between border-b border-border px-5 py-4 bg-muted/10">
+              <div className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-muted-foreground" />
+                <span className="font-medium text-sm text-foreground">Members</span>
+              </div>
+              <Badge tone="muted">
+                {(organization.users || []).length} {organization.users?.length === 1 ? "member" : "members"}
+              </Badge>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="border-b border-border bg-muted/30 text-left">
+                  <tr>
+                    <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Name
+                    </th>
+                    <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Email
+                    </th>
+                    <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Role
+                    </th>
+                    <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Status
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {(organization.users || []).length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="px-5 py-8 text-center text-muted-foreground">
+                        No members assigned to this organization.
+                      </td>
+                    </tr>
+                  ) : (
+                    (organization.users || []).map((member) => (
+                      <tr key={member.id} className="hover:bg-muted/20 transition-colors">
+                        <td className="px-5 py-3 font-medium text-foreground">
+                          {member.name || "—"}
+                        </td>
+                        <td className="px-5 py-3 text-muted-foreground text-xs">
+                          {member.email}
+                        </td>
+                        <td className="px-5 py-3">
+                          <span className="capitalize text-xs font-medium">
+                            {member.role || "Member"}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3">
+                          <Badge tone={member.is_active ? "neutral" : "outline"}>
+                            {member.is_active ? "Active" : "Inactive"}
+                          </Badge>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
           </Card>
         )}

@@ -40,6 +40,7 @@ type UserItem = {
 type UserForm = {
   name: string;
   role: "member" | "admin";
+  status: "active" | "inactive";
 };
 
 type InviteForm = {
@@ -63,7 +64,7 @@ export default function UsersPage() {
   const [deleteItem, setDeleteItem] = useState<UserItem | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [inviteForm, setInviteForm] = useState<InviteForm>({ email: "", role: "member" });
-  const [editForm, setEditForm] = useState<UserForm>({ name: "", role: "member" });
+  const [editForm, setEditForm] = useState<UserForm>({ name: "", role: "member", status: "active" });
   const [inviteLink, setInviteLink] = useState<string | null>(null);
   const [inviteCopied, setInviteCopied] = useState(false);
 
@@ -87,7 +88,13 @@ export default function UsersPage() {
     () =>
       items.map((item) => ({
         ...item,
-        status: item.status ?? (item.created_at || item.date_joined ? "active" : "pending"),
+        status:
+          item.status ??
+          (item.created_at || item.date_joined
+            ? item.is_active === false
+              ? "inactive"
+              : "active"
+            : "pending"),
       })),
     [items],
   );
@@ -119,7 +126,11 @@ export default function UsersPage() {
 
   function openEdit(item: UserItem) {
     setEditItem(item);
-    setEditForm({ name: item.name || "", role: (item.role as "member" | "admin") || "member" });
+    setEditForm({
+      name: item.name || "",
+      role: (item.role as "member" | "admin") || "member",
+      status: item.is_active === false || item.status === "inactive" ? "inactive" : "active",
+    });
   }
 
   function showToast(message: string) {
@@ -157,6 +168,8 @@ export default function UsersPage() {
       await apiPut(`/users/${editItem.id}`, {
         name: editForm.name.trim(),
         role: editForm.role,
+        status: editForm.status,
+        is_active: editForm.status === "active",
       });
       setEditItem(null);
       showToast("User updated.");
@@ -312,10 +325,18 @@ export default function UsersPage() {
                     <td className="px-4 py-3">{item.email}</td>
                     <td className="px-4 py-3 capitalize">{item.role || "User"}</td>
                     <td className="px-4 py-3">
-                      <Badge tone={item.status === "pending" ? "muted" : "neutral"}>
+                      <Badge
+                        tone={
+                          item.status === "pending"
+                            ? "muted"
+                            : item.is_active || item.status === "active"
+                              ? "neutral"
+                              : "outline"
+                        }
+                      >
                         {item.status === "pending"
                           ? "Pending Invitation"
-                          : item.is_active
+                          : item.is_active || item.status === "active"
                             ? "Active"
                             : "Inactive"}
                       </Badge>
@@ -473,7 +494,7 @@ export default function UsersPage() {
           <DialogHeader>
             <DialogTitle>Edit User</DialogTitle>
             <DialogDescription>
-              Update the user name and role. Email cannot be changed here.
+              Update the user name, role, and account status. Email cannot be changed here.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -496,6 +517,21 @@ export default function UsersPage() {
               >
                 <option value="member">User</option>
                 <option value="admin">Admin</option>
+              </select>
+            </Field>
+            <Field label="Status">
+              <select
+                value={editForm.status}
+                onChange={(e) =>
+                  setEditForm((prev) => ({
+                    ...prev,
+                    status: e.target.value as "active" | "inactive",
+                  }))
+                }
+                className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
+              >
+                <option value="active">Active (Activated)</option>
+                <option value="inactive">Inactive (Deactivated)</option>
               </select>
             </Field>
           </div>

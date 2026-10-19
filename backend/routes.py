@@ -1594,17 +1594,32 @@ def update_user(user_id: str):
     if not new_role:
         return jsonify({"error": f"Role '{new_role_name}' not found."}), 400
 
+    # Determine new is_active status if passed
+    new_is_active = target.is_active
+    if "status" in data:
+        status_val = str(data["status"]).strip().lower()
+        if status_val == "active":
+            new_is_active = True
+        elif status_val in ("inactive", "deactivated"):
+            new_is_active = False
+    elif "is_active" in data:
+        new_is_active = bool(data["is_active"])
+
     active_admins = User.query.join(Role).filter(
         User.organization_id == target.organization_id,
         User.is_active.is_(True),
         Role.name == "admin",
     ).count()
     target_is_only_admin = target.role and target.role.name == "admin" and active_admins <= 1
-    if target_is_only_admin and new_role.name != "admin":
-        return jsonify({"error": "Cannot change the only remaining administrator."}), 400
+    if target_is_only_admin and (new_role.name != "admin" or not new_is_active):
+        return jsonify({"error": "Cannot deactivate or change the only remaining administrator."}), 400
+
+    if current_user.id == target.id and not new_is_active:
+        return jsonify({"error": "Cannot deactivate your own account."}), 400
 
     target.name = name
     target.role_id = new_role.id
+    target.is_active = new_is_active
     db.session.commit()
     return jsonify({
         "id": target.id,
@@ -1612,6 +1627,7 @@ def update_user(user_id: str):
         "email": target.email,
         "role": target.role.name if target.role else None,
         "is_active": target.is_active,
+        "status": "active" if target.is_active else "inactive",
     })
 
 
