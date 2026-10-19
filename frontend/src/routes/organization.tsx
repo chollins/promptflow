@@ -138,26 +138,6 @@ export default function OrganizationPage() {
         </Card>
 
         {organization && (
-          <Card className="p-5">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2 text-sm font-medium">
-                  <LinkIcon className="h-4 w-4" />
-                  Registration link
-                </div>
-                <div className="text-xs text-muted-foreground mt-1 max-w-md">
-                  Share this link with team members to let them join this organization.
-                </div>
-              </div>
-              <Button variant="secondary" onClick={() => setShowLink(true)}>
-                <Copy className="h-4 w-4" />
-                Copy Registration Link
-              </Button>
-            </div>
-          </Card>
-        )}
-
-        {organization && (
           <Card className="overflow-hidden p-0 border border-border shadow-xs">
             <div className="flex items-center justify-between border-b border-border px-5 py-4 bg-muted/10">
               <div className="flex items-center gap-2">
