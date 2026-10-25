@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, RotateCcw, Zap, BookmarkCheck, Pencil } from "lucide-react";
+import { Link } from "react-router-dom";
+import { ChevronLeft, ChevronRight, RotateCcw, Zap, BookmarkCheck, Pencil, ShieldAlert } from "lucide-react";
 import { FormattedResultView } from "@/components/formatted-result-view";
 import { toast } from "sonner";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -552,7 +553,39 @@ export function FlowRunner({ flowId, onDebugSnapshot }: FlowRunnerProps) {
   }
 
   if (loading) return <Card className="p-5">Loading flow...</Card>;
-  if (error && !flow) return <Card className="p-5 text-sm text-red-600">{error}</Card>;
+  if (error && !flow) {
+    const isForbidden =
+      error.includes("403") ||
+      error.toLowerCase().includes("forbidden") ||
+      error.toLowerCase().includes("access denied");
+    return (
+      <Card className="p-8 text-center max-w-lg mx-auto my-12 border border-border shadow-xs">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10 text-destructive mb-4">
+          <ShieldAlert className="h-6 w-6" />
+        </div>
+        <h3 className="text-base font-semibold text-foreground">
+          {isForbidden ? "Flow Access Restricted" : "Unable to Load Flow"}
+        </h3>
+        <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
+          {isForbidden
+            ? "You do not currently have access to run this flow. Access to this workflow must be assigned to your organization by an administrator."
+            : error}
+        </p>
+        <div className="mt-6 flex items-center justify-center gap-3">
+          <Link to="/flows">
+            <Button size="sm" variant="secondary">
+              Back to Flows
+            </Button>
+          </Link>
+          <Link to="/dashboard">
+            <Button size="sm" variant="ghost">
+              Go to Dashboard
+            </Button>
+          </Link>
+        </div>
+      </Card>
+    );
+  }
   if (!flow || !currentStep) return <Card className="p-5">Flow not found.</Card>;
 
   const sortedSteps = flow.steps.slice().sort((a, b) => a.sequence - b.sequence);

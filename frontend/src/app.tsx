@@ -25,6 +25,7 @@ import AdminOrganizationsPage from "@/routes/admin.organizations";
 import AdminOrganizationDetailPage from "@/routes/admin.organizations_.$id";
 import AdminModelsPage from "@/routes/admin.models";
 import ModelsPage from "@/routes/models";
+import SharedResultPage from "@/routes/shared-result";
 
 export default function App() {
   return (
@@ -44,6 +45,7 @@ export default function App() {
       <Route path="/forms/:formId" element={<FormDetailPage />} />
       <Route path="/models" element={<ModelsPage />} />
       <Route path="/saved-results" element={<SavedResultsPage />} />
+      <Route path="/share/results/:shareToken" element={<SharedResultPage />} />
       <Route path="/organization" element={<OrganizationPage />} />
       <Route path="/settings" element={<SettingsPage />} />
       <Route path="/users" element={<UsersPage />} />

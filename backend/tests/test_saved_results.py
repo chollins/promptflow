@@ -157,3 +157,50 @@ class TestSavedResultsPermissions:
             # Total count for u1 should be 1
             all_res = SavedResult.query.filter_by(user_id=u1.id, source_id="f_dedup").all()
             assert len(all_res) == 1
+
+    def test_saved_result_sharing(self, client, app_instance):
+        with app_instance.app_context():
+            u1 = User.query.filter_by(email="user1_sr@example.com").first()
+            from services.saved_result_service import save_execution_result
+
+            r = save_execution_result(
+                user_id=u1.id,
+                organization_id=u1.organization_id,
+                source_type="form",
+                source_id="f_share",
+                source_name="Shareable Form",
+                input_summary={"prompt": "hello"},
+                output_text="Generated response to share",
+            )
+            r_id = r.id
+
+        # Unauthorized user (user2 in org2) cannot share user1's result
+        res = client.post(f"/api/saved-results/{r_id}/share", headers={"X-Session-Token": "tok_user2"})
+        assert res.status_code == 404
+
+        # Owner shares the result
+        res = client.post(f"/api/saved-results/{r_id}/share", headers={"X-Session-Token": "tok_user1"})
+        assert res.status_code == 200
+        data = res.get_json()
+        assert data["is_shared"] is True
+        assert data["share_token"] is not None
+        share_token = data["share_token"]
+        assert data["shared_at"] is not None
+
+        # Public access without any session token
+        pub_res = client.get(f"/api/shared/results/{share_token}")
+        assert pub_res.status_code == 200
+        pub_data = pub_res.get_json()
+        assert pub_data["output_text"] == "Generated response to share"
+        assert pub_data["source_name"] == "Shareable Form"
+        assert pub_data["share_token"] == share_token
+
+        # Unshare the result
+        unshare_res = client.post(f"/api/saved-results/{r_id}/unshare", headers={"X-Session-Token": "tok_user1"})
+        assert unshare_res.status_code == 200
+        assert unshare_res.get_json()["is_shared"] is False
+
+        # Public access now returns 404
+        pub_res2 = client.get(f"/api/shared/results/{share_token}")
+        assert pub_res2.status_code == 404
+

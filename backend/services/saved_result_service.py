@@ -142,3 +142,39 @@ def delete_saved_result(result_id: str, current_user: User) -> bool:
     db.session.commit()
     logger.info("Deleted saved result id=%s by user_id=%s", result_id, current_user.id)
     return True
+
+
+def share_saved_result(result_id: str, current_user: User) -> SavedResult | None:
+    from datetime import datetime, timezone
+    import secrets
+
+    result = get_saved_result_by_id(result_id, current_user)
+    if not result:
+        return None
+
+    if not result.share_token:
+        result.share_token = secrets.token_urlsafe(16)
+
+    result.is_shared = True
+    result.shared_at = datetime.now(timezone.utc)
+    db.session.commit()
+    logger.info("Shared saved result id=%s token=%s by user_id=%s", result_id, result.share_token, current_user.id)
+    return result
+
+
+def unshare_saved_result(result_id: str, current_user: User) -> SavedResult | None:
+    result = get_saved_result_by_id(result_id, current_user)
+    if not result:
+        return None
+
+    result.is_shared = False
+    db.session.commit()
+    logger.info("Unshared saved result id=%s by user_id=%s", result_id, current_user.id)
+    return result
+
+
+def get_shared_result_by_token(share_token: str) -> SavedResult | None:
+    if not share_token:
+        return None
+    return SavedResult.query.filter_by(share_token=share_token, is_shared=True).first()
+

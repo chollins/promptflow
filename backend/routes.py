@@ -42,6 +42,9 @@ from services.saved_result_service import (
     list_saved_results,
     get_saved_result_by_id,
     delete_saved_result,
+    share_saved_result,
+    unshare_saved_result,
+    get_shared_result_by_token,
 )
 from services.model_registry import (
     get_available_models,
@@ -1747,6 +1750,50 @@ def api_delete_saved_result(result_id: str):
     if not success:
         return jsonify({"error": "Saved result not found or access denied."}), 404
     return jsonify({"ok": True})
+
+
+@api.post("/api/saved-results/<result_id>/share")
+def api_share_saved_result(result_id: str):
+    current_user, error = _require_auth()
+    if error:
+        return error
+    result = share_saved_result(result_id, current_user)
+    if not result:
+        return jsonify({"error": "Saved result not found or access denied."}), 404
+    return jsonify(result.to_dict())
+
+
+@api.post("/api/saved-results/<result_id>/unshare")
+@api.delete("/api/saved-results/<result_id>/share")
+def api_unshare_saved_result(result_id: str):
+    current_user, error = _require_auth()
+    if error:
+        return error
+    result = unshare_saved_result(result_id, current_user)
+    if not result:
+        return jsonify({"error": "Saved result not found or access denied."}), 404
+    return jsonify(result.to_dict())
+
+
+@api.get("/api/shared/results/<share_token>")
+def api_get_public_shared_result(share_token: str):
+    result = get_shared_result_by_token(share_token)
+    if not result:
+        return jsonify({"error": "Shared result not found or sharing has been disabled."}), 404
+    return jsonify({
+        "id": result.id,
+        "share_token": result.share_token,
+        "source_type": result.source_type,
+        "source_id": result.source_id,
+        "source_name": result.source_name,
+        "input_summary": result.to_dict().get("input_summary"),
+        "output_text": result.output_text,
+        "output_json": result.to_dict().get("output_json"),
+        "shared_at": result.shared_at.isoformat() + "Z" if result.shared_at else None,
+        "created_at": result.created_at.isoformat() + "Z" if result.created_at else None,
+        "user_name": result.user.name if result.user else "Anonymous",
+        "organization_name": result.organization.name if result.organization else None,
+    })
 
 
 # Backward-compatible alias

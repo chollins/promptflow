@@ -14,11 +14,13 @@ import {
   Calendar,
   Code,
   FileText,
+  Share2,
+  Globe,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell, PageHeader } from "@/components/app-shell";
 import { Card, Badge, Button, Input } from "@/components/ui-kit";
-import { apiDelete, apiGet } from "@/lib/api";
+import { apiDelete, apiGet, apiPost } from "@/lib/api";
 import {
   Dialog,
   DialogContent,
@@ -40,6 +42,9 @@ export interface SavedResultItem {
   input_summary: Record<string, any> | null;
   output_text: string;
   output_json: Record<string, any> | any[] | null;
+  is_shared?: boolean;
+  share_token?: string | null;
+  shared_at?: string | null;
   created_at: string | null;
 }
 
@@ -53,6 +58,50 @@ export default function SavedResultsPage() {
   const [activeTab, setActiveTab] = useState<"markdown" | "json" | "inputs">("markdown");
   const [copied, setCopied] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [sharingResult, setSharingResult] = useState<SavedResultItem | null>(null);
+  const [sharingLoading, setSharingLoading] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
+
+  const handleOpenShare = async (item: SavedResultItem, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setSharingResult(item);
+    setShareCopied(false);
+
+    if (!item.is_shared || !item.share_token) {
+      try {
+        setSharingLoading(true);
+        const updated = await apiPost<SavedResultItem>(`/saved-results/${item.id}/share`, {});
+        setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, ...updated } : i)));
+        setSharingResult(updated);
+        if (selectedResult?.id === item.id) {
+          setSelectedResult(updated);
+        }
+        toast.success("Share link generated.");
+      } catch (err: any) {
+        toast.error(err.message || "Failed to generate share link.");
+      } finally {
+        setSharingLoading(false);
+      }
+    }
+  };
+
+  const handleToggleUnshare = async () => {
+    if (!sharingResult) return;
+    try {
+      setSharingLoading(true);
+      const updated = await apiPost<SavedResultItem>(`/saved-results/${sharingResult.id}/unshare`, {});
+      setItems((prev) => prev.map((i) => (i.id === sharingResult.id ? { ...i, ...updated } : i)));
+      setSharingResult(updated);
+      if (selectedResult?.id === sharingResult.id) {
+        setSelectedResult(updated);
+      }
+      toast.success("Sharing disabled.");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to disable sharing.");
+    } finally {
+      setSharingLoading(false);
+    }
+  };
 
   const fetchResults = async () => {
     try {
@@ -200,9 +249,17 @@ export default function SavedResultsPage() {
             >
               <div>
                 <div className="flex items-center justify-between gap-2">
-                  <Badge tone={item.source_type === "form" ? "neutral" : "muted"}>
-                    <span className="capitalize">{item.source_type}</span>
-                  </Badge>
+                  <div className="flex items-center gap-1.5">
+                    <Badge tone={item.source_type === "form" ? "neutral" : "muted"}>
+                      <span className="capitalize">{item.source_type}</span>
+                    </Badge>
+                    {item.is_shared && (
+                      <span className="flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                        <Globe className="h-3 w-3" />
+                        Shared
+                      </span>
+                    )}
+                  </div>
                   <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
                     <Calendar className="h-3 w-3" />
                     {item.created_at ? new Date(item.created_at).toLocaleDateString() : ""}
@@ -247,6 +304,15 @@ export default function SavedResultsPage() {
                 </Button>
 
                 <div className="flex items-center gap-1">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={(e) => handleOpenShare(item, e)}
+                    title={item.is_shared ? "Share Settings (Shared)" : "Share Result"}
+                    className={item.is_shared ? "text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10" : ""}
+                  >
+                    <Share2 className="h-3.5 w-3.5" />
+                  </Button>
                   <Button
                     size="sm"
                     variant="ghost"
@@ -374,6 +440,14 @@ export default function SavedResultsPage() {
                 </Button>
 
                 <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => handleOpenShare(selectedResult)}
+                  >
+                    <Share2 className="h-3.5 w-3.5 mr-1" />
+                    {selectedResult.is_shared ? "Shared" : "Share"}
+                  </Button>
                   <Button size="sm" variant="secondary" onClick={() => handleCopy(selectedResult.output_text)}>
                     {copied ? <Check className="h-3.5 w-3.5 mr-1" /> : <Copy className="h-3.5 w-3.5 mr-1" />}
                     {copied ? "Copied" : "Copy Output"}
@@ -382,6 +456,105 @@ export default function SavedResultsPage() {
               </DialogFooter>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Share Dialog */}
+      <Dialog open={!!sharingResult} onOpenChange={(open) => !open && setSharingResult(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <Share2 className="h-4 w-4" />
+              </div>
+              <div>
+                <DialogTitle className="text-base font-semibold">Share Result</DialogTitle>
+                <DialogDescription className="text-xs">
+                  {sharingResult?.source_name}
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          {sharingResult && (
+            <div className="space-y-4 py-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">Status</span>
+                {sharingResult.is_shared ? (
+                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                    <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                    Publicly Accessible
+                  </span>
+                ) : (
+                  <span className="text-xs font-medium text-muted-foreground">Private (Sharing Disabled)</span>
+                )}
+              </div>
+
+              {sharingResult.is_shared && sharingResult.share_token ? (
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-foreground">Unique Share URL</label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      readOnly
+                      value={`${window.location.origin}/share/results/${sharingResult.share_token}`}
+                      className="text-xs font-mono select-all bg-muted/40"
+                    />
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      className="shrink-0 text-xs"
+                      onClick={() => {
+                        navigator.clipboard.writeText(
+                          `${window.location.origin}/share/results/${sharingResult.share_token}`
+                        );
+                        setShareCopied(true);
+                        toast.success("Share URL copied to clipboard!");
+                        setTimeout(() => setShareCopied(false), 2000);
+                      }}
+                    >
+                      {shareCopied ? <Check className="h-3.5 w-3.5 mr-1" /> : <Copy className="h-3.5 w-3.5 mr-1" />}
+                      {shareCopied ? "Copied" : "Copy"}
+                    </Button>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground leading-normal">
+                    Anyone with this unique link can view this execution output and input summary without signing in.
+                  </p>
+                </div>
+              ) : (
+                <div className="rounded-lg bg-muted/30 p-3 text-xs text-muted-foreground">
+                  Sharing is currently disabled for this result. Click below to generate an accessible share link.
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter className="flex items-center justify-between sm:justify-between pt-2 border-t border-border">
+            {sharingResult?.is_shared ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-destructive hover:bg-destructive/10 text-xs"
+                disabled={sharingLoading}
+                onClick={handleToggleUnshare}
+              >
+                Disable Link
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="primary"
+                className="text-xs"
+                disabled={sharingLoading}
+                onClick={() => sharingResult && handleOpenShare(sharingResult)}
+              >
+                {sharingLoading ? "Enabling..." : "Enable Link"}
+              </Button>
+            )}
+
+            <Button size="sm" variant="secondary" onClick={() => setSharingResult(null)}>
+              Close
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </AppShell>

@@ -48,6 +48,24 @@ class SavedResult(db.Model, UUIDMixin, TimestampMixin):
         nullable=True,
     )
 
+    is_shared = db.Column(
+        db.Boolean,
+        default=False,
+        nullable=False,
+    )
+
+    share_token = db.Column(
+        db.String(64),
+        unique=True,
+        index=True,
+        nullable=True,
+    )
+
+    shared_at = db.Column(
+        db.DateTime(timezone=True),
+        nullable=True,
+    )
+
     user = db.relationship("User", backref=db.backref("saved_results", cascade="all, delete-orphan"))
     organization = db.relationship("Organization", backref=db.backref("saved_results", cascade="all, delete-orphan"))
 
@@ -79,5 +97,8 @@ class SavedResult(db.Model, UUIDMixin, TimestampMixin):
             "input_summary": inputs,
             "output_text": self.output_text,
             "output_json": out_json,
+            "is_shared": bool(self.is_shared),
+            "share_token": self.share_token,
+            "shared_at": self.shared_at.isoformat() + "Z" if self.shared_at else None,
             "created_at": self.created_at.isoformat() + "Z" if self.created_at else None,
         }

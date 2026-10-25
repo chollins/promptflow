@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Sparkles } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Button, Input, Field } from "@/components/ui-kit";
@@ -74,6 +74,8 @@ function getErrorMessage(error: unknown): string {
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirectUrl = searchParams.get("redirect");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -87,6 +89,10 @@ export default function LoginPage() {
     authService
       .login(email, password)
       .then((user) => {
+        if (redirectUrl && redirectUrl.startsWith("/")) {
+          navigate(redirectUrl);
+          return;
+        }
         const role = user.role;
         if (role === "superadmin") {
           navigate("/admin/organizations");

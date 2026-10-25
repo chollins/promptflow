@@ -14,6 +14,8 @@ import {
   Loader2,
   X,
   Layers,
+  Share2,
+  Copy,
 } from "lucide-react";
 import { AppShell, PageHeader } from "@/components/app-shell";
 import { Badge, Button, Card, Input } from "@/components/ui-kit";
@@ -103,6 +105,10 @@ export default function FlowsPage() {
   const [loadingAccess, setLoadingAccess] = useState(false);
   const [togglingOrgId, setTogglingOrgId] = useState<string | null>(null);
   const [orgSearchQuery, setOrgSearchQuery] = useState("");
+
+  // Share Flow Modal
+  const [sharingFlow, setSharingFlow] = useState<UnifiedFlowItem | null>(null);
+  const [flowLinkCopied, setFlowLinkCopied] = useState(false);
 
   const isSuperadmin = currentUser?.role === "superadmin";
 
@@ -473,6 +479,21 @@ export default function FlowsPage() {
                         </Link>
                       </Button>
 
+                      {/* Share - Available to ALL roles */}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setSharingFlow(flow);
+                          setFlowLinkCopied(false);
+                        }}
+                        className="gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+                        title="Share flow link"
+                      >
+                        <Share2 className="h-3.5 w-3.5" />
+                        <span className="hidden sm:inline">Share</span>
+                      </Button>
+
                       {/* Superadmin actions: Edit | Access | Delete */}
                       {isSuperadmin && (
                         <>
@@ -693,6 +714,72 @@ export default function FlowsPage() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Share Flow Dialog */}
+        <Dialog open={!!sharingFlow} onOpenChange={(open) => !open && setSharingFlow(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <Share2 className="h-4 w-4" />
+                </div>
+                <div>
+                  <DialogTitle className="text-base font-semibold">Share Flow</DialogTitle>
+                  <DialogDescription className="text-xs">
+                    {sharingFlow?.name}
+                  </DialogDescription>
+                </div>
+              </div>
+            </DialogHeader>
+
+            {sharingFlow && (
+              <div className="space-y-4 py-2">
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-foreground">Direct Flow URL</label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      readOnly
+                      value={`${window.location.origin}/flows/${sharingFlow.slug || sharingFlow.id}`}
+                      className="text-xs font-mono select-all bg-muted/40"
+                    />
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      className="shrink-0 text-xs"
+                      onClick={() => {
+                        navigator.clipboard.writeText(
+                          `${window.location.origin}/flows/${sharingFlow.slug || sharingFlow.id}`
+                        );
+                        setFlowLinkCopied(true);
+                        toast.success("Flow link copied to clipboard!");
+                        setTimeout(() => setFlowLinkCopied(false), 2000);
+                      }}
+                    >
+                      {flowLinkCopied ? <Check className="h-3.5 w-3.5 mr-1" /> : <Copy className="h-3.5 w-3.5 mr-1" />}
+                      {flowLinkCopied ? "Copied" : "Copy"}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-border bg-muted/30 p-3 text-xs text-muted-foreground space-y-1">
+                  <div className="font-semibold text-foreground flex items-center gap-1.5">
+                    <ShieldCheck className="h-3.5 w-3.5 text-primary" />
+                    Authentication & Access Required
+                  </div>
+                  <p className="leading-relaxed">
+                    Users opening this link must log in. Only users whose organization has been granted access to this flow can view and execute it.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end pt-2 border-t border-border">
+              <Button size="sm" variant="secondary" onClick={() => setSharingFlow(null)}>
+                Close
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </AppShell>
   );

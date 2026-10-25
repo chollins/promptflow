@@ -98,10 +98,15 @@ export function AppShell({ children }: { children: ReactNode }) {
       })
       .catch(() => {
         if (!active) return;
-        if (hasSessionToken()) return;
         setRole(null);
         setName(null);
-        navigate("/login");
+        authService.clearSession();
+        const currentPath = pathname + window.location.search;
+        const redirectParam =
+          currentPath && currentPath !== "/" && currentPath !== "/login"
+            ? `?redirect=${encodeURIComponent(currentPath)}`
+            : "";
+        navigate(`/login${redirectParam}`, { replace: true });
       })
       .finally(() => {
         if (active) setLoading(false);
