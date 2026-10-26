@@ -17,7 +17,7 @@ depends_on = None
 
 
 def upgrade():
-    op.add_column('saved_results', sa.Column('is_shared', sa.Boolean(), nullable=False, server_default=sa.text('0')))
+    op.add_column('saved_results', sa.Column('is_shared', sa.Boolean(), nullable=False, server_default=sa.false()))
     op.add_column('saved_results', sa.Column('share_token', sa.String(length=64), nullable=True))
     op.add_column('saved_results', sa.Column('shared_at', sa.DateTime(timezone=True), nullable=True))
     op.create_index(op.f('ix_saved_results_share_token'), 'saved_results', ['share_token'], unique=True)
