@@ -11,7 +11,18 @@ from flask import Flask, request
 
 from config import Config
 from extensions import cors, db, migrate
-from models import Flow, Invitation, Organization, OrganizationFlowAccess, Role, User, PasswordResetOTP, SavedResult
+from models import (
+    Flow,
+    Invitation,
+    Organization,
+    OrganizationFlowAccess,
+    Role,
+    User,
+    PasswordResetOTP,
+    SavedResult,
+    AIModel,
+    OrganizationModelLabel,
+)
 from routes import api
 
 
@@ -84,7 +95,7 @@ def create_app(config_object: type[Config] | None = None) -> Flask:
         return response
 
     # Ensure Alembic sees all models through the app import path.
-    _ = (Flow, Invitation, Organization, OrganizationFlowAccess, Role, User, PasswordResetOTP)
+    _ = (Flow, Invitation, Organization, OrganizationFlowAccess, Role, User, PasswordResetOTP, SavedResult, AIModel, OrganizationModelLabel)
 
     @app.route("/api/version", methods=["GET"])
     def version():

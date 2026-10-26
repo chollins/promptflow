@@ -8,10 +8,16 @@ import {
   Volume2,
   Sparkles,
   SlidersHorizontal,
+  Tag,
+  Pencil,
+  X,
+  Check,
+  Loader2,
 } from "lucide-react";
 import { AppShell, PageHeader } from "@/components/app-shell";
 import { Button, Card, Input } from "@/components/ui-kit";
-import { apiGet } from "@/lib/api";
+import { apiDelete, apiGet, apiPost } from "@/lib/api";
+import { authService } from "@/lib/auth";
 import { useFavoriteModels } from "@/lib/favorite-models";
 import { toast } from "sonner";
 
@@ -23,16 +29,23 @@ export type AIModelItem = {
   description?: string | null;
   is_active: boolean;
   recommended?: boolean;
+  custom_label?: string | null;
 };
 
 export default function MemberModelsPage() {
   const [models, setModels] = useState<AIModelItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   // Filters
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [favoritesOnly, setFavoritesOnly] = useState<boolean>(false);
+
+  // Label editing modal state (for org admins)
+  const [editingModel, setEditingModel] = useState<AIModelItem | null>(null);
+  const [labelInput, setLabelInput] = useState("");
+  const [savingLabel, setSavingLabel] = useState(false);
 
   const { favoriteIds, isFavorite, toggleFavorite } = useFavoriteModels();
 
@@ -54,14 +67,56 @@ export default function MemberModelsPage() {
 
   useEffect(() => {
     fetchActiveModels();
+    authService.getMe().then((me) => {
+      setUserRole(me?.role || null);
+    }).catch(() => {});
   }, []);
+
+  const handleOpenEditModal = (model: AIModelItem) => {
+    setEditingModel(model);
+    setLabelInput(model.custom_label || "");
+  };
+
+  const handleSaveModalLabel = async () => {
+    if (!editingModel) return;
+    const cleanLabel = labelInput.trim();
+    setSavingLabel(true);
+    try {
+      if (!cleanLabel) {
+        await apiDelete(`/organization/model-labels/${editingModel.id}`);
+        setModels((prev) =>
+          prev.map((m) =>
+            m.id === editingModel.id ? { ...m, custom_label: null } : m
+          )
+        );
+        toast.success(`Removed nickname for ${editingModel.name}`);
+      } else {
+        await apiPost<{ ok: boolean; label: string }>("/organization/model-labels", {
+          model_id: editingModel.id,
+          label: cleanLabel,
+        });
+        setModels((prev) =>
+          prev.map((m) =>
+            m.id === editingModel.id ? { ...m, custom_label: cleanLabel } : m
+          )
+        );
+        toast.success(`Set nickname for ${editingModel.name} to "${cleanLabel}"`);
+      }
+      setEditingModel(null);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.error(`Failed to save nickname: ${msg}`);
+    } finally {
+      setSavingLabel(false);
+    }
+  };
 
   const handleToggleFavorite = (model: AIModelItem) => {
     const isNowFav = toggleFavorite(model.id);
     if (isNowFav) {
-      toast.success(`Added ${model.name} to favorites`);
+      toast.success(`Added ${model.custom_label || model.name} to favorites`);
     } else {
-      toast.info(`Removed ${model.name} from favorites`);
+      toast.info(`Removed ${model.custom_label || model.name} from favorites`);
     }
   };
 
@@ -86,7 +141,8 @@ export default function MemberModelsPage() {
           const matchDesc = (m.description || "").toLowerCase().includes(q);
           const matchProvider = m.provider.toLowerCase().includes(q);
           const matchId = m.id.toLowerCase().includes(q);
-          if (!matchName && !matchDesc && !matchProvider && !matchId) {
+          const matchLabel = (m.custom_label || "").toLowerCase().includes(q);
+          if (!matchName && !matchDesc && !matchProvider && !matchId && !matchLabel) {
             return false;
           }
         }
@@ -94,7 +150,7 @@ export default function MemberModelsPage() {
         return true;
       })
       .sort((a, b) => {
-        // Prioritize favorites first, then recommended, then alphabetical
+        // Prioritize favorites first, then recommended, then alphabetical by custom_label / name
         const aFav = isFavorite(a.id);
         const bFav = isFavorite(b.id);
         if (aFav && !bFav) return -1;
@@ -103,9 +159,12 @@ export default function MemberModelsPage() {
         if (a.recommended && !b.recommended) return -1;
         if (!a.recommended && b.recommended) return 1;
 
-        return a.name.localeCompare(b.name);
+        const aDisplayName = a.custom_label || a.name;
+        const bDisplayName = b.custom_label || b.name;
+        return aDisplayName.localeCompare(bDisplayName);
       });
   }, [models, categoryFilter, favoritesOnly, searchQuery, favoriteIds]);
+
 
   const stats = useMemo(() => {
     const total = models.length;
@@ -306,12 +365,24 @@ export default function MemberModelsPage() {
                         className={`transition-colors hover:bg-muted/30 ${favorited ? "bg-muted/20" : ""
                           }`}
                       >
-                        {/* Model name + ID + provider + optional badges */}
+                        {/* Model name + ID + provider + custom label */}
                         <td className="py-3 px-4">
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-foreground">
-                              {model.name}
-                            </span>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {model.custom_label ? (
+                              <>
+                                <span className="font-semibold text-foreground">
+                                  {model.custom_label}
+                                </span>
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 border border-emerald-500/20">
+                                  <Tag className="h-2.5 w-2.5 text-emerald-600 dark:text-emerald-400" />
+                                  Org Label
+                                </span>
+                              </>
+                            ) : (
+                              <span className="font-semibold text-foreground">
+                                {model.name}
+                              </span>
+                            )}
                             {getProviderBadge(model.provider)}
                             {model.recommended && (
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-muted text-foreground border border-border">
@@ -320,8 +391,14 @@ export default function MemberModelsPage() {
                               </span>
                             )}
                           </div>
-                          <div className="text-xs text-muted-foreground font-mono mt-0.5">
-                            {model.id}
+                          <div className="text-xs text-muted-foreground font-mono mt-0.5 flex items-center gap-1.5">
+                            {model.custom_label && (
+                              <>
+                                <span className="font-sans font-medium text-muted-foreground/80">{model.name}</span>
+                                <span>·</span>
+                              </>
+                            )}
+                            <span>{model.id}</span>
                           </div>
                         </td>
 
@@ -339,23 +416,37 @@ export default function MemberModelsPage() {
                           )}
                         </td>
 
-                        {/* Action column with Add to Favorites button */}
+                        {/* Action column with Add to Favorites button and optional Edit Label button */}
                         <td className="py-3 px-4 text-right">
-                          <Button
-                            variant={favorited ? "secondary" : "outline"}
-                            size="sm"
-                            onClick={() => handleToggleFavorite(model)}
-                            className={`gap-1.5 text-xs transition-colors cursor-pointer ${favorited
-                              ? "bg-foreground text-white border-foreground hover:bg-foreground/90 hover:text-black"
-                              : "border-border hover:bg-muted text-foreground"
-                              }`}
-                          >
-                            <Star
-                              className={`h-3.5 w-3.5 ${favorited ? "fill-background text-background" : "text-muted-foreground"
+                          <div className="flex items-center justify-end gap-2">
+                            {userRole === "admin" && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleOpenEditModal(model)}
+                                title="Set/edit organization nickname"
+                                className="gap-1 text-xs h-8 px-2.5 border border-dashed border-border text-muted-foreground hover:text-foreground"
+                              >
+                                <Pencil className="h-3 w-3" />
+                                <span>{model.custom_label ? "Edit Label" : "Set Label"}</span>
+                              </Button>
+                            )}
+                            <Button
+                              variant={favorited ? "secondary" : "outline"}
+                              size="sm"
+                              onClick={() => handleToggleFavorite(model)}
+                              className={`gap-1.5 text-xs transition-colors cursor-pointer ${favorited
+                                ? "bg-foreground text-white border-foreground hover:bg-foreground/90 hover:text-black"
+                                : "border-border hover:bg-muted text-foreground"
                                 }`}
-                            />
-                            <span>{favorited ? "Favorited" : "Add to favorites"}</span>
-                          </Button>
+                            >
+                              <Star
+                                className={`h-3.5 w-3.5 ${favorited ? "fill-background text-background" : "text-muted-foreground"
+                                  }`}
+                              />
+                              <span>{favorited ? "Favorited" : "Add to favorites"}</span>
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -366,6 +457,102 @@ export default function MemberModelsPage() {
           )}
         </Card>
       </div>
+
+      {/* Edit Model Label Modal (Exclusive for Org Admins) */}
+      {editingModel && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/20 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-xl border border-border bg-background shadow-xl">
+            <div className="flex items-center justify-between border-b border-border px-6 py-4">
+              <div className="flex items-center gap-2">
+                <Tag className="h-4 w-4 text-primary" />
+                <span className="font-semibold text-sm">Set Model Nickname</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 font-medium">
+                  Org Admin
+                </span>
+              </div>
+              <button
+                onClick={() => setEditingModel(null)}
+                className="text-muted-foreground hover:text-foreground p-1 rounded"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">Target Model</div>
+                <div className="text-sm font-semibold text-foreground flex items-center gap-2">
+                  <span>{editingModel.name}</span>
+                  <span className="font-mono text-xs text-muted-foreground font-normal">({editingModel.id})</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-foreground block mb-1.5">
+                  Organization Nickname / Friendly Label
+                </label>
+                <Input
+                  value={labelInput}
+                  onChange={(e) => setLabelInput(e.target.value)}
+                  placeholder="e.g. Fast Draft Assistant"
+                  autoFocus
+                  disabled={savingLabel}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      void handleSaveModalLabel();
+                    } else if (e.key === "Escape") {
+                      setEditingModel(null);
+                    }
+                  }}
+                />
+                <p className="text-[11px] text-muted-foreground mt-1.5">
+                  This nickname will be displayed to all members in your organization. Leave blank to remove the custom nickname.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-between pt-2">
+                {editingModel.custom_label ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={savingLabel}
+                    onClick={() => {
+                      setLabelInput("");
+                      void handleSaveModalLabel();
+                    }}
+                    className="text-destructive hover:bg-destructive/10 text-xs gap-1"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                    Remove Label
+                  </Button>
+                ) : <div />}
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={savingLabel}
+                    onClick={() => setEditingModel(null)}
+                    className="text-xs"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    disabled={savingLabel}
+                    onClick={() => void handleSaveModalLabel()}
+                    className="text-xs gap-1.5"
+                  >
+                    {savingLabel ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                    Save Label
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }

@@ -10,6 +10,7 @@ from .invitation import Invitation
 from .password_reset_otp import PasswordResetOTP
 from .saved_result import SavedResult
 from .ai_model import AIModel
+from .organization_model_label import OrganizationModelLabel
 
 __all__ = [
     "TimestampMixin",
@@ -25,4 +26,5 @@ __all__ = [
     "PasswordResetOTP",
     "SavedResult",
     "AIModel",
+    "OrganizationModelLabel",
 ]

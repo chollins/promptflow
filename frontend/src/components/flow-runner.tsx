@@ -278,6 +278,7 @@ interface ModelRegistryItem {
   provider: string;
   category: string;
   recommended?: boolean;
+  custom_label?: string | null;
 }
 
 export function FlowRunner({ flowId, onDebugSnapshot }: FlowRunnerProps) {
@@ -313,14 +314,26 @@ export function FlowRunner({ flowId, onDebugSnapshot }: FlowRunnerProps) {
   }, [favoriteIds, modelsList, hasUserSelectedModel]);
 
   useEffect(() => {
-    apiGet<{ models: ModelRegistryItem[] }>("/models")
-      .then((res) => {
-        if (res && res.models && res.models.length > 0) {
-          setModelsList(res.models);
-        }
-      })
-      .catch(() => { });
-  }, []);
+    Promise.all([
+      apiGet<{ models: ModelRegistryItem[]; labels?: Record<string, string> }>(
+        `/models?flow_id=${encodeURIComponent(flowId)}`
+      ).catch(() => null),
+      apiGet<{ labels?: Record<string, string> }>("/organization/model-labels").catch(() => null),
+    ]).then(([modelsRes, labelsRes]) => {
+      const models = modelsRes?.models || [];
+      if (models.length > 0) {
+        const labelsMap: Record<string, string> = {
+          ...(modelsRes?.labels || {}),
+          ...(labelsRes?.labels || {}),
+        };
+        const enriched = models.map((m) => ({
+          ...m,
+          custom_label: m.custom_label || labelsMap[m.id] || null,
+        }));
+        setModelsList(enriched);
+      }
+    });
+  }, [flowId]);
 
   useEffect(() => {
     setLoading(true);
@@ -753,19 +766,61 @@ export function FlowRunner({ flowId, onDebugSnapshot }: FlowRunnerProps) {
                 setHasUserSelectedModel(true);
               }}
             >
-              <SelectTrigger className="w-[170px] h-10 text-xs">
-                <SelectValue placeholder="Model" />
+              <SelectTrigger className="min-w-[190px] max-w-[320px] h-10 text-xs [&>span]:flex [&>span]:items-center [&>span]:gap-1.5 [&>span]:truncate">
+                <SelectValue placeholder="Model">
+                  {(() => {
+                    const selectedObj = modelsList.find((m) => m.id === selectedModel);
+                    if (!selectedObj) return undefined;
+                    const isFav = favoriteIds.includes(selectedModel);
+                    return (
+                      <span className="flex items-center gap-1.5 truncate">
+                        {isFav && <span className="text-amber-500 font-bold shrink-0">★</span>}
+                        {selectedObj.custom_label ? (
+                          <span className="flex items-center gap-1.5 truncate">
+                            <span className="font-semibold text-foreground truncate">
+                              {selectedObj.custom_label}
+                            </span>
+                            <span className="text-muted-foreground text-[10px] shrink-0 font-normal">
+                              ({selectedObj.name})
+                            </span>
+                          </span>
+                        ) : (
+                          <span className="font-medium text-foreground truncate">{selectedObj.name}</span>
+                        )}
+                      </span>
+                    );
+                  })()}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent className="max-h-60 overflow-y-auto">
                 {prioritizedModels.map((m) => {
                   const isFav = favoriteIds.includes(m.id);
+                  const displayTitle = m.custom_label ? `${m.custom_label} (${m.name})` : m.name;
                   return (
-                    <SelectItem key={m.id} value={m.id}>
-                      <span className="flex items-center gap-1.5">
-                        {isFav && <span className="text-amber-500 font-bold">★</span>}
-                        <span>{m.name}</span>
-                        <span className="text-muted-foreground text-[10px]">({m.provider})</span>
-                      </span>
+                    <SelectItem
+                      key={m.id}
+                      value={m.id}
+                      textValue={displayTitle}
+                    >
+                      <div className="flex items-center justify-between gap-2 py-0.5 w-full">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          {isFav && <span className="text-amber-500 font-bold shrink-0">★</span>}
+                          {m.custom_label ? (
+                            <span className="flex items-center gap-1.5 min-w-0">
+                              <span className="font-semibold text-foreground truncate">{m.custom_label}</span>
+                              <span className="text-muted-foreground text-[10px] shrink-0">({m.name})</span>
+                              <span className="px-1.5 py-0.2 rounded text-[9px] bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 font-medium shrink-0">
+                                Org Label
+                              </span>
+                            </span>
+                          ) : (
+                            <span className="truncate">{m.name}</span>
+                          )}
+                        </div>
+                        <span className="text-muted-foreground text-[10px] font-mono uppercase shrink-0 pl-1">
+                          [{m.provider}]
+                        </span>
+                      </div>
                     </SelectItem>
                   );
                 })}

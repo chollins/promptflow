@@ -11,7 +11,18 @@ from flask import Blueprint, jsonify, request, session
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from extensions import db
-from models import Flow, FlowFormStep, Form, Invitation, Organization, OrganizationFlowAccess, Role, User, PasswordResetOTP
+from models import (
+    Flow,
+    FlowFormStep,
+    Form,
+    Invitation,
+    Organization,
+    OrganizationFlowAccess,
+    Role,
+    User,
+    PasswordResetOTP,
+    OrganizationModelLabel,
+)
 from services.flow_executor import execute_flow
 from services.flow_service import (
     FlowNotFoundError,
@@ -54,6 +65,12 @@ from services.model_registry import (
     update_db_model,
     delete_db_model,
 )
+from services.organization_model_label_service import (
+    get_organization_model_labels,
+    get_organization_model_label_items,
+    set_organization_model_label,
+    delete_organization_model_label,
+)
 from flask import current_app
 
 # Spec-mandated mapping from capability name → debug keys it controls.
@@ -74,14 +91,38 @@ api = Blueprint("api", __name__)
 
 @api.get("/api/models")
 def list_available_models():
+    current_user = _get_current_user()
+    org_id = request.args.get("organization_id")
+    if not org_id and current_user:
+        org_id = current_user.organization_id
+
+    # If org_id is not yet determined, check if a flow_id was passed
+    if not org_id:
+        flow_id = request.args.get("flow_id")
+        if flow_id:
+            flow = Flow.query.filter((Flow.id == flow_id) | (Flow.slug == flow_id)).first()
+            if flow:
+                access = OrganizationFlowAccess.query.filter_by(flow_id=flow.id).first()
+                if access:
+                    org_id = access.organization_id
+
+    # Fallback to first organization with labels if org_id is not yet resolved
+    if not org_id:
+        first_label = OrganizationModelLabel.query.first()
+        if first_label:
+            org_id = first_label.organization_id
+
     category = request.args.get("category")
-    models = get_available_models(category=category)
+    models = get_available_models(category=category, organization_id=org_id)
     categories = get_model_categories()
     default_model = get_default_model()
+    org_labels = get_organization_model_labels(org_id) if org_id else {}
     return jsonify({
         "models": models,
         "categories": categories,
         "default": default_model,
+        "labels": org_labels,
+        "organization_id": org_id,
         "count": len(models)
     })
 
@@ -141,6 +182,114 @@ def admin_delete_model(model_id: str):
         return jsonify({"error": f"Failed to delete model: {exc}"}), 400
 
 
+@api.get("/api/organization/model-labels")
+def list_org_model_labels():
+    """Get custom model labels for the user's organization.
+    Both organization admins and members can view these labels."""
+    current_user, error = _require_auth()
+    if error:
+        return error
+
+    org_id = current_user.organization_id
+    if not org_id:
+        req_org_id = request.args.get("organization_id")
+        if req_org_id:
+            org_id = req_org_id
+        else:
+            first_label = OrganizationModelLabel.query.first()
+            if first_label:
+                org_id = first_label.organization_id
+
+    if not org_id:
+        return jsonify({"labels": {}, "items": []})
+
+    labels_map = get_organization_model_labels(org_id)
+    label_items = get_organization_model_label_items(org_id)
+    return jsonify({
+        "labels": labels_map,
+        "items": label_items,
+        "organization_id": org_id,
+    })
+
+
+@api.post("/api/organization/model-labels")
+def set_org_model_label_route():
+    """Set or update a model label/nickname for the admin's organization.
+    Exclusive for organization admins ONLY."""
+    current_user, error = _require_org_admin()
+    if error:
+        return error
+
+    payload = request.get_json(silent=True) or {}
+    model_id = payload.get("model_id") or payload.get("id")
+    label = payload.get("label") or payload.get("nickname")
+
+    if not model_id:
+        return jsonify({"error": "Model ID is required."}), 400
+
+    if not label or not str(label).strip():
+        delete_organization_model_label(current_user.organization_id, model_id)
+        return jsonify({"ok": True, "model_id": model_id, "label": None, "deleted": True})
+
+    try:
+        record = set_organization_model_label(current_user.organization_id, model_id, str(label))
+        return jsonify({
+            "ok": True,
+            "id": record.id,
+            "organization_id": record.organization_id,
+            "model_id": record.model_id,
+            "label": record.label,
+        })
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception as exc:
+        logger.exception("Failed to set organization model label: %s", exc)
+        return jsonify({"error": "Failed to set model label."}), 500
+
+
+@api.put("/api/organization/model-labels/<model_id>")
+def update_org_model_label_route(model_id: str):
+    """Update a model label/nickname for the admin's organization.
+    Exclusive for organization admins ONLY."""
+    current_user, error = _require_org_admin()
+    if error:
+        return error
+
+    payload = request.get_json(silent=True) or {}
+    label = payload.get("label") or payload.get("nickname")
+
+    if not label or not str(label).strip():
+        delete_organization_model_label(current_user.organization_id, model_id)
+        return jsonify({"ok": True, "model_id": model_id, "label": None, "deleted": True})
+
+    try:
+        record = set_organization_model_label(current_user.organization_id, model_id, str(label))
+        return jsonify({
+            "ok": True,
+            "id": record.id,
+            "organization_id": record.organization_id,
+            "model_id": record.model_id,
+            "label": record.label,
+        })
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception as exc:
+        logger.exception("Failed to update organization model label: %s", exc)
+        return jsonify({"error": "Failed to update model label."}), 500
+
+
+@api.delete("/api/organization/model-labels/<model_id>")
+def delete_org_model_label_route(model_id: str):
+    """Delete a custom label/nickname for a model in the admin's organization.
+    Exclusive for organization admins ONLY."""
+    current_user, error = _require_org_admin()
+    if error:
+        return error
+
+    deleted = delete_organization_model_label(current_user.organization_id, model_id)
+    return jsonify({"ok": True, "model_id": model_id, "deleted": deleted})
+
+
 
 
 def _get_current_user() -> User | None:
@@ -197,6 +346,18 @@ def _require_admin():
     role_name = current_user.role.name if current_user.role else ""
     if role_name not in ["admin", "superadmin"]:
         return None, (jsonify({"error": "Forbidden"}), 403)
+    return current_user, None
+
+
+def _require_org_admin():
+    """Requires the user to be an organization admin (role 'admin' with an organization_id).
+    Exclusive for organization admins only (regular members and superadmins are not organization admins)."""
+    current_user, error = _require_auth()
+    if error:
+        return None, error
+    role_name = current_user.role.name if current_user.role else ""
+    if role_name != "admin" or not current_user.organization_id:
+        return None, (jsonify({"error": "This feature is exclusive to organization admins."}), 403)
     return current_user, None
 
 
@@ -1311,6 +1472,9 @@ def _serialize_organization_detail(organization: Organization):
                     "flow_slug": access.flow.slug if access.flow else None,
                 }
                 for access in organization.flows
+            ],
+            "model_labels": [
+                ml.to_dict() for ml in organization.model_labels
             ],
         }
     )

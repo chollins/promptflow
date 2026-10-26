@@ -93,8 +93,13 @@ def load_model_registry() -> Dict[str, Any]:
         return DEFAULT_MODEL_CONFIG
 
 
-def get_available_models(category: Optional[str] = None, include_inactive: bool = False) -> List[Dict[str, Any]]:
+def get_available_models(
+    category: Optional[str] = None,
+    include_inactive: bool = False,
+    organization_id: Optional[str] = None,
+) -> List[Dict[str, Any]]:
     """Returns list of models from DB (or fallback models.json) optionally filtered by category and active status."""
+    result: List[Dict[str, Any]] = []
     try:
         from flask import has_app_context
         if has_app_context():
@@ -106,7 +111,7 @@ def get_available_models(category: Optional[str] = None, include_inactive: bool 
                 query = query.filter_by(category=category)
             db_models = query.order_by(AIModel.name.asc()).all()
             if db_models:
-                return [
+                result = [
                     {
                         "id": m.model_id,
                         "name": m.name,
@@ -121,13 +126,27 @@ def get_available_models(category: Optional[str] = None, include_inactive: bool 
     except Exception as exc:
         logger.debug("Falling back to models.json: %s", exc)
 
-    data = load_model_registry()
-    models = data.get("models", [])
-    if category:
-        models = [m for m in models if m.get("category") == category]
-    if not include_inactive:
-        models = [m for m in models if m.get("is_active", True) is not False]
-    return models
+    if not result:
+        data = load_model_registry()
+        models = data.get("models", [])
+        if category:
+            models = [m for m in models if m.get("category") == category]
+        if not include_inactive:
+            models = [m for m in models if m.get("is_active", True) is not False]
+        result = [dict(m) for m in models]
+
+    org_labels: Dict[str, str] = {}
+    if organization_id:
+        try:
+            from services.organization_model_label_service import get_organization_model_labels
+            org_labels = get_organization_model_labels(organization_id)
+        except Exception as exc:
+            logger.debug("Could not attach org model labels: %s", exc)
+
+    for item in result:
+        item["custom_label"] = org_labels.get(item["id"])
+
+    return result
 
 
 def get_model_categories() -> List[Dict[str, str]]:

@@ -49,3 +49,10 @@ class Organization(db.Model, UUIDMixin, TimestampMixin):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+
+    model_labels = db.relationship(
+        "OrganizationModelLabel",
+        back_populates="organization",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
