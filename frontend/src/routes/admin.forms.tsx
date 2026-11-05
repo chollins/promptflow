@@ -23,6 +23,7 @@ import { apiDelete, apiGet, apiPost, apiPut } from "@/lib/api";
 import { logActivity } from "@/lib/activity";
 import { toast } from "sonner";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { FormBuilder } from "@/components/FormBuilder";
 
 
 type FlowDetail = {
@@ -550,83 +551,87 @@ export default function AdminFormsPage() {
 
       {/* Create / Edit Modal */}
       <Dialog open={modalOpen} onOpenChange={(open) => { if (!open) closeModal(); }}>
-        <DialogContent className="w-full max-w-2xl">
+        <DialogContent className="w-[95vw] max-w-6xl max-h-[92vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>{editingItem ? "Edit form" : "New form"}</DialogTitle>
             <DialogDescription>
               {editingItem
-                ? "Update the form definition below."
-                : "Fill in the details to create a new form definition."}
+                ? "Update the form definition and inputs below."
+                : "Configure your inputs, prompt template, and model to create a reusable form."}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-4 mt-2 max-h-[70vh] overflow-y-auto pr-1">
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-foreground/80">Name</label>
-              <Input
-                value={form.name}
-                onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
-                placeholder="My Form"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-foreground/80">Description</label>
-              <Input
-                value={form.description}
-                onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
-                placeholder="Optional description"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-medium text-foreground/80">Content JSON</label>
-                <div className="flex items-center gap-3">
-                  <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
-                    <Upload className="h-3.5 w-3.5" />
-                    Upload JSON
-                    <input
-                      type="file"
-                      accept=".json,application/json"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0] ?? null;
-                        void handleUpload(file);
-                        e.target.value = "";
-                      }}
-                    />
-                  </label>
-                  <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
-                    <FileText className="h-3.5 w-3.5" />
-                    Upload Markdown
-                    <input
-                      type="file"
-                      accept=".md,.markdown,text/markdown"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0] ?? null;
-                        void handleMarkdownImport(file);
-                        e.target.value = "";
-                      }}
-                    />
-                  </label>
-                </div>
+          <div className="grid gap-4 mt-2 overflow-y-auto pr-1 flex-1">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-foreground/80">Form Name</label>
+                <Input
+                  value={form.name}
+                  onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
+                  placeholder="e.g. Meeting Summary"
+                />
               </div>
-              <Textarea
-                value={form.content_json}
-                onChange={(e) => setForm((prev) => ({ ...prev, content_json: e.target.value }))}
-                rows={12}
-                className="font-mono text-sm"
-                placeholder="Paste form JSON here"
-              />
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-foreground/80">Description</label>
+                <Input
+                  value={form.description}
+                  onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
+                  placeholder="Optional summary of this form's purpose"
+                />
+              </div>
             </div>
 
-            <label className="flex items-center gap-2 text-sm text-foreground">
+            <div className="flex items-center justify-between border-t border-border pt-2">
+              <span className="text-xs font-semibold text-foreground">Form Configuration</span>
+              <div className="flex items-center gap-3">
+                <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
+                  <Upload className="h-3.5 w-3.5" />
+                  Upload JSON
+                  <input
+                    type="file"
+                    accept=".json,application/json"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] ?? null;
+                      void handleUpload(file);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+                <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
+                  <FileText className="h-3.5 w-3.5" />
+                  Upload Markdown
+                  <input
+                    type="file"
+                    accept=".md,.markdown,text/markdown"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] ?? null;
+                      void handleMarkdownImport(file);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+              </div>
+            </div>
+
+            {/* Visual Form Builder with Raw JSON fallback */}
+            <FormBuilder
+              contentJson={form.content_json}
+              onChangeContentJson={(json) => setForm((prev) => ({ ...prev, content_json: json }))}
+              formName={form.name}
+              onFormNameChange={(name) => setForm((prev) => ({ ...prev, name }))}
+              formDescription={form.description}
+              onFormDescriptionChange={(description) => setForm((prev) => ({ ...prev, description }))}
+            />
+
+            <label className="flex items-center gap-2 text-sm text-foreground pt-2">
               <input
                 type="checkbox"
                 checked={form.is_active}
                 onChange={(e) => setForm((prev) => ({ ...prev, is_active: e.target.checked }))}
+                className="h-4 w-4 rounded border-border text-primary"
               />
               Active
             </label>

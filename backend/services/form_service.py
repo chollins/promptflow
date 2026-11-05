@@ -70,9 +70,17 @@ def _candidate_form_paths(form_id: str) -> list[Path]:
 
 
 def find_form_by_id_or_slug(form_id: str) -> Form | None:
-    return Form.query.filter(
+    if not form_id:
+        return None
+    record = Form.query.filter(
         (Form.id == form_id) | (Form.slug == form_id) | (Form.slug == _slugify(form_id))
     ).first()
+    if not record:
+        # Fallback: find by JSON id stored in content_json
+        record = Form.query.filter(
+            Form.content_json.like(f'%"id": "{form_id}"%')
+        ).first()
+    return record
 
 
 def get_form(form_id: str) -> PromptForm:
@@ -80,7 +88,10 @@ def get_form(form_id: str) -> PromptForm:
     if record:
         if record.content_json:
             try:
-                return PromptForm.model_validate_json(record.content_json)
+                form_def = PromptForm.model_validate_json(record.content_json)
+                if not form_def.id or form_def.id != record.slug:
+                    form_def.id = record.slug
+                return form_def
             except ValidationError as exc:
                 raise InvalidFormError(f"Invalid PromptForm JSON for '{form_id}': {exc}") from exc
 
@@ -133,6 +144,7 @@ def create_form(*, name: str, description: str | None, content_json: str, is_act
         slug = _unique_slug(_slugify(name))
     else:
         slug = _unique_slug(_slugify(slug))
+    form_def.id = slug
     file_path = f"forms/{slug}.form.json"
     form = Form(
         name=name,
@@ -162,9 +174,10 @@ def update_form(
     form_def = PromptForm.model_validate_json(content_json)
     form.name = name
     form.description = description
-    form.content_json = json.dumps(form_def.model_dump(exclude_none=True, by_alias=True), indent=2)
     form.is_active = is_active
     form.slug = _unique_slug(_slugify(name), form.id)
+    form_def.id = form.slug
+    form.content_json = json.dumps(form_def.model_dump(exclude_none=True, by_alias=True), indent=2)
     db.session.commit()
     return form
 

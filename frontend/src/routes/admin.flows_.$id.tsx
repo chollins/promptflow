@@ -14,6 +14,7 @@ import {
 import { apiDelete, apiGet, apiPost, apiPut } from "@/lib/api";
 import { logActivity } from "@/lib/activity";
 import { toast } from "sonner";
+import { FormBuilder } from "@/components/FormBuilder";
 
 type FormItem = { id: string; name: string; slug: string };
 
@@ -392,64 +393,67 @@ export default function EditFlowPage() {
       </div>
       {/* Create Form Modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="w-full max-w-2xl">
+        <DialogContent className="w-[95vw] max-w-6xl max-h-[92vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>New form</DialogTitle>
             <DialogDescription>
-              Fill in the details to create a new form definition.
+              Configure input fields, prompt instructions, and model settings to create a new reusable form.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-4 mt-2 max-h-[70vh] overflow-y-auto pr-1">
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-foreground/80">Name</label>
-              <Input
-                value={newFormName}
-                onChange={(e) => setNewFormName(e.target.value)}
-                placeholder="My Form"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-foreground/80">Description</label>
-              <Input
-                value={newFormDesc}
-                onChange={(e) => setNewFormDesc(e.target.value)}
-                placeholder="Optional description"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-medium text-foreground/80">Content JSON</label>
-                <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-muted-foreground hover:text-foreground">
-                  <Upload className="h-4 w-4" />
-                  Upload JSON
-                  <input
-                    type="file"
-                    accept=".json,application/json"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0] ?? null;
-                      void handleUpload(file);
-                    }}
-                  />
-                </label>
+          <div className="grid gap-4 mt-2 overflow-y-auto pr-1 flex-1">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-foreground/80">Name</label>
+                <Input
+                  value={newFormName}
+                  onChange={(e) => setNewFormName(e.target.value)}
+                  placeholder="My Form"
+                />
               </div>
-              <Textarea
-                value={newFormJson}
-                onChange={(e) => setNewFormJson(e.target.value)}
-                rows={12}
-                className="font-mono text-sm"
-                placeholder="Paste form JSON here"
-              />
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-foreground/80">Description</label>
+                <Input
+                  value={newFormDesc}
+                  onChange={(e) => setNewFormDesc(e.target.value)}
+                  placeholder="Optional description"
+                />
+              </div>
             </div>
 
-            <label className="flex items-center gap-2 text-sm text-foreground">
+            <div className="flex items-center justify-between border-t border-border pt-2">
+              <span className="text-xs font-semibold text-foreground">Form Configuration</span>
+              <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-muted-foreground hover:text-foreground">
+                <Upload className="h-3.5 w-3.5" />
+                Upload JSON
+                <input
+                  type="file"
+                  accept=".json,application/json"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] ?? null;
+                    void handleUpload(file);
+                  }}
+                />
+              </label>
+            </div>
+
+            <FormBuilder
+              contentJson={newFormJson}
+              onChangeContentJson={setNewFormJson}
+              formName={newFormName}
+              onFormNameChange={setNewFormName}
+              formDescription={newFormDesc}
+              onFormDescriptionChange={setNewFormDesc}
+            />
+
+            <label className="flex items-center gap-2 text-sm text-foreground pt-2">
               <input
                 type="checkbox"
                 checked={newFormActive}
                 onChange={(e) => setNewFormActive(e.target.checked)}
+                className="h-4 w-4 rounded border-border text-primary"
               />
               Active
             </label>

@@ -134,8 +134,9 @@ export function FormRunner({ formId, onDebugSnapshot }: FormRunnerProps) {
     setError(null);
     setValues(nextValues);
     try {
+      const targetFormId = formId || form.id;
       const response = await apiPost<FormExecuteResult>(
-        `/forms/${form.id}/execute`,
+        `/forms/${targetFormId}/execute`,
         {
           values: nextValues,
           model_override: selectedModel,

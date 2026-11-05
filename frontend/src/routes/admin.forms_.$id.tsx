@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { apiDelete, apiGet, apiPut } from "@/lib/api";
 import { logActivity } from "@/lib/activity";
 import { toast } from "sonner";
+import { FormBuilder } from "@/components/FormBuilder";
 
 type FormDetail = {
   id: string;
@@ -151,13 +152,14 @@ export default function FormDetailView() {
               />
             </div>
 
-            <div className="space-y-2 flex-1 flex flex-col">
-              <label className="text-sm font-medium text-foreground/80">Content JSON</label>
-              <Textarea
-                value={form.content_json || ""}
-                onChange={(e) => setForm({ ...form, content_json: e.target.value })}
-                className="font-mono text-sm flex-1 min-h-[300px]"
-                placeholder="Paste form JSON here"
+            <div className="space-y-2 flex-1 flex flex-col border-t border-border pt-4">
+              <FormBuilder
+                contentJson={form.content_json || ""}
+                onChangeContentJson={(json) => setForm({ ...form, content_json: json })}
+                formName={form.name}
+                onFormNameChange={(name) => setForm({ ...form, name })}
+                formDescription={form.description || ""}
+                onFormDescriptionChange={(desc) => setForm({ ...form, description: desc })}
               />
             </div>
 

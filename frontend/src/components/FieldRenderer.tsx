@@ -7,6 +7,7 @@ export type Field = {
   id: string;
   label: string;
   description?: string | null;
+  placeholder?: string | null;
   type: "text" | "textarea" | "date" | "checkbox" | "radio" | "dropdown" | "multiselect" | "hidden";
   required?: boolean;
   default?: string | null;
@@ -48,6 +49,8 @@ export default function FieldRenderer({
     }
   }, [field.default, value, onChange]);
 
+  const placeholderText = field.placeholder || field.description || field.label;
+
   switch (field.type) {
     case "textarea":
       return (
@@ -56,7 +59,7 @@ export default function FieldRenderer({
           className={inputClass}
           value={value ?? ""}
           required={field.required}
-          placeholder={field.label}
+          placeholder={placeholderText}
           rows={4}
           disabled={disabled}
           onChange={(e) => onChange(e.target.value)}
@@ -84,7 +87,7 @@ export default function FieldRenderer({
           disabled={disabled}
         >
           <SelectTrigger id={field.id} className={inputClass}>
-            <SelectValue placeholder={`Select ${field.label}`} />
+            <SelectValue placeholder={field.placeholder || field.description || `Select ${field.label}`} />
           </SelectTrigger>
           <SelectContent>
             {field.options?.map((option) => {
@@ -221,7 +224,7 @@ export default function FieldRenderer({
           className={inputClass}
           value={value ?? ""}
           required={field.required}
-          placeholder={field.label}
+          placeholder={placeholderText}
           disabled={disabled}
           onChange={(e) => onChange(e.target.value)}
         />

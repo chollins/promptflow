@@ -18,6 +18,7 @@ export type RuntimeField = {
   id: string;
   label: string;
   description?: string | null;
+  placeholder?: string | null;
   type: "text" | "textarea" | "date" | "checkbox" | "radio" | "dropdown" | "multiselect" | "hidden";
   required?: boolean;
   default?: string | null;
@@ -126,7 +127,7 @@ function initialValue(field: RuntimeField): string {
 }
 
 function fieldLabel(field: RuntimeField) {
-  return field.description ? `${field.label} (${field.description})` : field.label;
+  return field.label;
 }
 
 function normalizeOption(option: NonNullable<RuntimeField["options"]>[number]) {
