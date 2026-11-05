@@ -50,8 +50,12 @@ def execute_form(
     form = get_form(form_id)
     merged_values = {key: str(value) for key, value in (values or {}).items()}
     for field in form.fields:
-        if field.id not in merged_values or merged_values[field.id] is None:
-            merged_values[field.id] = ""
+        if field.id not in merged_values or merged_values[field.id] is None or merged_values[field.id] == "":
+            field_def = getattr(field, "default", None)
+            if field_def is not None and field_def != "":
+                merged_values[field.id] = str(field_def)
+            else:
+                merged_values[field.id] = merged_values.get(field.id) or ""
     rendered_system_prompt = _render_prompt_with_validation(form.prompt.system, merged_values)
     rendered_prompt = _render_prompt_with_validation(form.prompt.user, merged_values)
     

@@ -8,6 +8,7 @@ import { Badge, Button, Card, Field, Input } from "@/components/ui-kit";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import FieldRenderer from "@/components/FieldRenderer";
 import { apiGet, apiPost } from "@/lib/api";
 import { logActivity } from "@/lib/activity";
 import { ExportDropdown } from "@/components/export-dropdown";
@@ -115,7 +116,13 @@ type FlowRunnerProps = {
 type FieldState = Record<string, string>;
 
 function initialValue(field: RuntimeField): string {
-  return field.default ?? "";
+  if (field.default !== undefined && field.default !== null && field.default !== "") {
+    return field.default;
+  }
+  if (field.type === "checkbox" && (!field.options || field.options.length === 0)) {
+    return "false";
+  }
+  return "";
 }
 
 function fieldLabel(field: RuntimeField) {
@@ -146,128 +153,42 @@ function FieldEditor({
   field,
   value,
   onChange,
+  radioGroupPrefix,
 }: {
   field: RuntimeField;
   value: string;
   onChange: (value: string) => void;
+  radioGroupPrefix?: string;
 }) {
   if (field.type === "hidden") return <input type="hidden" value={value} readOnly />;
-  if (field.type === "textarea") {
-    return (
-      <Field label={fieldLabel(field)} hint={field.description || undefined}>
-        <Textarea value={value} onChange={(e) => onChange(e.target.value)} rows={5} />
-      </Field>
-    );
-  }
-  if (field.type === "date") {
-    return (
-      <Field label={fieldLabel(field)} hint={field.description || undefined}>
-        <Input type="date" value={value} onChange={(e) => onChange(e.target.value)} />
-      </Field>
-    );
-  }
-  if (field.type === "dropdown") {
-    return (
-      <Field label={fieldLabel(field)} hint={field.description || undefined}>
-        <Select value={value} onValueChange={onChange}>
-          <SelectTrigger>
-            <SelectValue placeholder={`Select ${field.label.toLowerCase()}`} />
-          </SelectTrigger>
-          <SelectContent>
-            {(field.options || []).map((option) => {
-              const normalized = normalizeOption(option);
-              return (
-                <SelectItem key={normalized.value} value={normalized.value}>
-                  {normalized.label}
-                </SelectItem>
-              );
-            })}
-          </SelectContent>
-        </Select>
-      </Field>
-    );
-  }
-  if (field.type === "radio") {
-    return (
-      <Field label={fieldLabel(field)} hint={field.description || undefined}>
-        <div className="space-y-2">
-          {(field.options || []).map((option) => {
-            const normalized = normalizeOption(option);
-            return (
-              <label key={normalized.value} className="flex items-start gap-2 text-sm text-foreground">
-                <input
-                  className="mt-0.5 h-4 w-4 rounded-full border-border"
-                  type="radio"
-                  name={field.id}
-                  value={normalized.value}
-                  checked={value === normalized.value}
-                  required={field.required}
-                  onChange={(e) => onChange(e.target.value)}
-                />
-                <span>
-                  <span className="block">{normalized.label}</span>
-                  {normalized.description ? (
-                    <span className="block text-xs text-muted-foreground">{normalized.description}</span>
-                  ) : null}
-                </span>
-              </label>
-            );
-          })}
-        </div>
-      </Field>
-    );
-  }
-  if (field.type === "checkbox" || field.type === "multiselect") {
-    if (field.options && field.options.length > 0) {
-      const selected = value ? value.split(",").filter(Boolean) : [];
-      return (
-        <Field label={fieldLabel(field)} hint={field.description || undefined}>
-          <div className="space-y-2 mt-2">
-            {field.options.map((option) => {
-              const normalized = normalizeOption(option);
-              const isChecked = selected.includes(normalized.value);
-              return (
-                <label key={normalized.value} className="flex items-start gap-2 text-sm text-foreground">
-                  <input
-                    className="mt-0.5 h-4 w-4 rounded border-border"
-                    type="checkbox"
-                    checked={isChecked}
-                    onChange={(e) => {
-                      const newSelected = e.target.checked
-                        ? [...selected, normalized.value]
-                        : selected.filter((v) => v !== normalized.value);
-                      onChange(newSelected.join(","));
-                    }}
-                  />
-                  <span>
-                    <span className="block">{normalized.label}</span>
-                    {normalized.description ? (
-                      <span className="block text-xs text-muted-foreground">{normalized.description}</span>
-                    ) : null}
-                  </span>
-                </label>
-              );
-            })}
-          </div>
-        </Field>
-      );
-    }
 
+  const isSingleCheckbox =
+    field.type === "checkbox" && (!field.options || field.options.length === 0);
+
+  if (isSingleCheckbox) {
     return (
-      <label className="flex items-start gap-2 text-sm text-foreground">
-        <input
-          className="mt-0.5 h-4 w-4 rounded border-border"
-          type="checkbox"
-          checked={value === "true"}
-          onChange={(e) => onChange(e.target.checked ? "true" : "false")}
+      <div className="space-y-1.5">
+        {field.description && (
+          <div className="text-xs text-muted-foreground">{field.description}</div>
+        )}
+        <FieldRenderer
+          field={field as any}
+          value={value}
+          onChange={onChange}
+          radioGroupPrefix={radioGroupPrefix}
         />
-        {fieldLabel(field)}
-      </label>
+      </div>
     );
   }
+
   return (
     <Field label={fieldLabel(field)} hint={field.description || undefined}>
-      <Input value={value} onChange={(e) => onChange(e.target.value)} />
+      <FieldRenderer
+        field={field as any}
+        value={value}
+        onChange={onChange}
+        radioGroupPrefix={radioGroupPrefix}
+      />
     </Field>
   );
 }
@@ -337,6 +258,7 @@ export function FlowRunner({ flowId, onDebugSnapshot }: FlowRunnerProps) {
 
   useEffect(() => {
     setLoading(true);
+    setForms({});
     setHasUserSelectedModel(false);
     apiGet<RuntimeFlow>(`/flows/${flowId}`)
       .then((data) => {
@@ -381,6 +303,22 @@ export function FlowRunner({ flowId, onDebugSnapshot }: FlowRunnerProps) {
       })
       .catch((err: Error) => setError(err.message));
   }, [currentStep, forms]);
+
+  // Ensure values state has initial defaults populated for the current form step
+  useEffect(() => {
+    if (!currentForm) return;
+    setValues((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      for (const field of currentForm.fields) {
+        if (next[field.id] === undefined) {
+          next[field.id] = initialValue(field);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [currentForm, currentStepIndex]);
 
   useEffect(() => {
     if (!onDebugSnapshot) return;
@@ -495,10 +433,19 @@ export function FlowRunner({ flowId, onDebugSnapshot }: FlowRunnerProps) {
     setRunning(true);
     setError(null);
     try {
+      const effectiveValues: Record<string, string> = { ...values };
+      for (const field of renderedFields) {
+        if (effectiveValues[field.id] === undefined || effectiveValues[field.id] === "") {
+          const init = initialValue(field);
+          if (init) {
+            effectiveValues[field.id] = init;
+          }
+        }
+      }
       const currentModelObj = modelsList.find((m) => m.id === selectedModel);
       const response = await apiPost<FlowExecuteResponse>(`/flows/${flow.id}/execute`, {
         step_id: currentStep.id,
-        values,
+        values: effectiveValues,
         context,
         model_override: {
           provider: currentModelObj?.provider || "openai",
@@ -611,7 +558,9 @@ export function FlowRunner({ flowId, onDebugSnapshot }: FlowRunnerProps) {
   const hasRequiredValues = renderedFields
     .filter((f) => f.required && f.type !== "hidden")
     .every((f) => {
-      const val = values[f.id];
+      const val = (values[f.id] !== undefined && values[f.id] !== "")
+        ? values[f.id]
+        : initialValue(f);
       return val !== undefined && val !== "" && val !== "Loading options...";
     });
 
@@ -684,6 +633,7 @@ export function FlowRunner({ flowId, onDebugSnapshot }: FlowRunnerProps) {
               field={field}
               value={values[field.id] ?? initialValue(field)}
               onChange={(value) => setValues((prev) => ({ ...prev, [field.id]: value }))}
+              radioGroupPrefix={`${flowId}-${currentStep.id}`}
             />
           ))}
         </div>

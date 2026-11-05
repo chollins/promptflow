@@ -19,7 +19,11 @@ interface Props {
 
 function buildInitialValues(fields: Field[]): Record<string, string> {
   return fields.reduce<Record<string, string>>((acc, field) => {
-    acc[field.id] = field.type === "checkbox" ? "false" : field.default ?? "";
+    if (field.type === "checkbox" && (!field.options || field.options.length === 0)) {
+      acc[field.id] = field.default ?? "false";
+    } else {
+      acc[field.id] = field.default ?? "";
+    }
     return acc;
   }, {});
 }
@@ -50,8 +54,6 @@ export default function DynamicForm({
     setInternalValues(next);
   }
 
-
-
   return (
     <div className="space-y-4">
       <div>
@@ -59,27 +61,29 @@ export default function DynamicForm({
         {form.description && <p className="mt-1 text-sm text-muted-foreground">{form.description}</p>}
       </div>
 
-      {form.fields.map((field) => (
-        <div key={field.id} className="space-y-1.5">
-          {field.type !== "checkbox" && field.type !== "hidden" && (
-            <label htmlFor={field.id} className="block text-sm font-medium text-foreground/80">
-              {field.label}
-              {field.required && <span className="text-red-500"> *</span>}
-            </label>
-          )}
-          {field.description && field.type !== "checkbox" && (
-            <p className="text-xs text-muted-foreground">{field.description}</p>
-          )}
-          <FieldRenderer
-            field={field}
-            value={values[field.id] ?? ""}
-            onChange={(value) => updateField(field.id, value)}
-          />
-        </div>
-      ))}
-
-
+      {form.fields.map((field) => {
+        const isSingleCheckbox =
+          field.type === "checkbox" && (!field.options || field.options.length === 0);
+        return (
+          <div key={field.id} className="space-y-1.5">
+            {!isSingleCheckbox && field.type !== "hidden" && (
+              <label htmlFor={field.id} className="block text-sm font-medium text-foreground/80">
+                {field.label}
+                {field.required && <span className="text-red-500"> *</span>}
+              </label>
+            )}
+            {field.description && !isSingleCheckbox && (
+              <p className="text-xs text-muted-foreground">{field.description}</p>
+            )}
+            <FieldRenderer
+              field={field}
+              value={values[field.id] ?? ""}
+              onChange={(value) => updateField(field.id, value)}
+              radioGroupPrefix={form.id}
+            />
+          </div>
+        );
+      })}
     </div>
-
   );
 }

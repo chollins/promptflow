@@ -54,10 +54,18 @@ def load_flow_definition(flow: Flow) -> PromptFlow:
     if not steps:
         if flow.content_json:
             flow_def = _load_flow_from_text(flow.slug, flow.content_json)
+            flow_def.id = flow.slug
+            if not flow_def.name:
+                flow_def.name = flow.name
+            if not flow_def.description and flow.description:
+                flow_def.description = flow.description
             if flow_model and not flow_def.model:
                 flow_def.model = flow_model
             return flow_def
         flow_def = _load_flow_from_file(flow.slug, flow.file_path)
+        flow_def.id = flow.slug
+        if not flow_def.name:
+            flow_def.name = flow.name
         if flow_model and not flow_def.model:
             flow_def.model = flow_model
         return flow_def
@@ -103,8 +111,14 @@ def get_all_flows() -> list[PromptFlow]:
 
     for record in Flow.query.order_by(Flow.name.asc()).all():
         try:
-            flows.append(load_flow_definition(record))
+            item = load_flow_definition(record)
+            flows.append(item)
             seen_ids.add(record.slug)
+            seen_ids.add(record.id)
+            if item.id:
+                seen_ids.add(item.id)
+            if item.name:
+                seen_ids.add(item.name.strip().lower())
         except Exception as exc:
             logger.warning("Skipping invalid db flow '%s': %s", record.slug, exc)
 
@@ -113,7 +127,14 @@ def get_all_flows() -> list[PromptFlow]:
         if slug in seen_ids:
             continue
         try:
-            flows.append(_load_flow_from_file(slug, str(file_path)))
+            file_flow = _load_flow_from_file(slug, str(file_path))
+            if file_flow.id in seen_ids or (file_flow.name and file_flow.name.strip().lower() in seen_ids):
+                continue
+            flows.append(file_flow)
+            seen_ids.add(slug)
+            seen_ids.add(file_flow.id)
+            if file_flow.name:
+                seen_ids.add(file_flow.name.strip().lower())
         except Exception as exc:
             logger.warning("Skipping invalid flow '%s': %s", file_path.name, exc)
 
@@ -148,13 +169,17 @@ def create_flow(
     model_configuration: dict | None = None,
     is_active: bool = True,
 ) -> Flow:
-    flow_def = _load_flow_from_text("new-flow", content_json)
+    slug = _unique_slug(_slugify(name))
+    flow_def = _load_flow_from_text(slug, content_json)
+    flow_def.id = slug
+    flow_def.name = name
+    if description:
+        flow_def.description = description
     if model_configuration:
         flow_def.model = ModelSettings.model_validate(model_configuration)
     elif flow_def.model:
         model_configuration = flow_def.model.model_dump()
 
-    slug = _unique_slug(_slugify(name))
     file_path = f"flows/{slug}.flow.json"
     flow = Flow(
         name=name,
@@ -183,7 +208,12 @@ def update_flow(
     if not flow:
         raise FlowNotFoundError(f"Flow '{flow_id}' not found")
 
-    flow_def = _load_flow_from_text(flow_id, content_json)
+    new_slug = _unique_slug(_slugify(name), flow.id)
+    flow_def = _load_flow_from_text(new_slug, content_json)
+    flow_def.id = new_slug
+    flow_def.name = name
+    if description:
+        flow_def.description = description
     if model_configuration:
         flow_def.model = ModelSettings.model_validate(model_configuration)
     elif flow_def.model:
@@ -194,7 +224,7 @@ def update_flow(
     flow.content_json = json.dumps(flow_def.model_dump(), indent=2)
     flow.is_active = is_active
     flow.model_configuration = model_configuration
-    flow.slug = _unique_slug(_slugify(name), flow.id)
+    flow.slug = new_slug
     db.session.commit()
     return flow
 
@@ -202,6 +232,32 @@ def update_flow(
 def delete_flow(flow_id: str) -> None:
     flow = Flow.query.filter((Flow.id == flow_id) | (Flow.slug == flow_id)).first()
     if not flow:
+        file_path = FLOWS_DIR / f"{flow_id}.flow.json"
+        if file_path.is_file():
+            try:
+                file_path.unlink()
+                return
+            except OSError as exc:
+                logger.warning("Failed to delete flow file %s: %s", file_path, exc)
         raise FlowNotFoundError(f"Flow '{flow_id}' not found")
+
+    from models.flow_form_step import FlowFormStep
+    from models.organization_flow_access import OrganizationFlowAccess
+    try:
+        FlowFormStep.query.filter_by(flow_id=flow.id).delete()
+        OrganizationFlowAccess.query.filter_by(flow_id=flow.id).delete()
+    except Exception as exc:
+        logger.warning("Error cleaning up flow associations for %s: %s", flow.id, exc)
+
+    if flow.file_path:
+        disk_path = Path(flow.file_path)
+        if not disk_path.is_absolute():
+            disk_path = (FLOWS_DIR.parent / flow.file_path).resolve()
+        if disk_path.is_file():
+            try:
+                disk_path.unlink()
+            except OSError:
+                pass
+
     db.session.delete(flow)
     db.session.commit()

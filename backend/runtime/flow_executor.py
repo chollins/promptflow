@@ -142,8 +142,27 @@ def _execute_step(flow: PromptFlow, step: FlowStep, user_values: dict, context: 
     effective_model = resolve_effective_model(flow, form, model_override)
     values = _build_step_values(step, user_values, context)
     for field in form.fields:
-        if field.id not in values or values[field.id] is None:
-            values[field.id] = ""
+        if field.id not in values or values[field.id] is None or values[field.id] == "":
+            field_def = getattr(field, "default", None)
+            if field_def is not None and field_def != "":
+                values[field.id] = str(field_def)
+            else:
+                values[field.id] = str(values.get(field.id) or "")
+        else:
+            val = str(values[field.id])
+            if (field.type in ("checkbox", "multiselect") and getattr(field, "options", None)) or (getattr(field, "options", None) and "," in val):
+                raw_items = [item.strip() for item in val.split(",") if item.strip()]
+                opt_values = []
+                for opt in (field.options or []):
+                    if isinstance(opt, dict):
+                        opt_values.append(opt.get("value") or opt.get("label") or "")
+                    else:
+                        opt_values.append(str(opt))
+                ordered_items = sorted(
+                    raw_items,
+                    key=lambda x: opt_values.index(x) if x in opt_values else 999
+                )
+                values[field.id] = ", ".join(ordered_items)
     rendered_system_prompt = _render_prompt_with_validation(form.prompt.system, values)
     rendered_prompt = _render_prompt_with_validation(form.prompt.user, values)
     result = execute_prompt(

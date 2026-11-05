@@ -80,9 +80,12 @@ export default function FlowsCatalog() {
   }
 
   async function handleDelete() {
-    if (!deleteId) return;
+    if (!deleteId || !deleteId.trim()) {
+      setDeleteId(null);
+      return;
+    }
     try {
-      await apiDelete(`/admin/flows/${deleteId}`);
+      await apiDelete(`/admin/flows/${encodeURIComponent(deleteId.trim())}`);
       await refresh();
       toast.success("Flow deleted");
       logActivity("deleted flow", deleteId);

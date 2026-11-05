@@ -334,8 +334,8 @@ export default function OrganizationPage() {
                       type="button"
                       onClick={() => setCategoryFilter(cat)}
                       className={`px-2.5 py-1 rounded-md text-xs font-medium capitalize transition-colors ${categoryFilter === cat
-                          ? "bg-muted text-foreground font-semibold"
-                          : "text-muted-foreground hover:text-foreground"
+                        ? "bg-muted text-foreground font-semibold"
+                        : "text-muted-foreground hover:text-foreground"
                         }`}
                     >
                       {cat}
@@ -351,8 +351,8 @@ export default function OrganizationPage() {
                       type="button"
                       onClick={() => setStatusFilter(st)}
                       className={`px-2.5 py-1 rounded-md text-xs font-medium capitalize transition-colors ${statusFilter === st
-                          ? "bg-muted text-foreground font-semibold"
-                          : "text-muted-foreground hover:text-foreground"
+                        ? "bg-muted text-foreground font-semibold"
+                        : "text-muted-foreground hover:text-foreground"
                         }`}
                     >
                       {st}

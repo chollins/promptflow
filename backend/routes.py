@@ -1114,16 +1114,27 @@ def admin_flow_update(flow_id: str):
         return jsonify({"error": str(exc)}), 400
 
 
+@api.delete("/api/admin/flows")
+@api.delete("/api/admin/flows/")
+def admin_flow_delete_empty():
+    _, error = _require_superadmin()
+    if error:
+        return error
+    return jsonify({"ok": True, "message": "No flow ID specified"}), 200
+
+
 @api.delete("/api/admin/flows/<flow_id>")
 def admin_flow_delete(flow_id: str):
     _, error = _require_superadmin()
     if error:
         return error
+    if not flow_id or not flow_id.strip():
+        return jsonify({"ok": True, "message": "No flow ID specified"}), 200
     try:
-        delete_flow(flow_id)
+        delete_flow(flow_id.strip())
         return jsonify({"ok": True})
-    except FlowNotFoundError as exc:
-        return jsonify({"error": str(exc)}), 404
+    except FlowNotFoundError:
+        return jsonify({"ok": True, "message": "Flow not found or already deleted"}), 200
 
 
 @api.post("/api/admin/flows/<flow_id>/steps")

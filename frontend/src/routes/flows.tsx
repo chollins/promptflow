@@ -121,9 +121,31 @@ export default function FlowsPage() {
           apiGet<{ items: Array<{ id: string; name: string; version: string; description: string; steps: any[]; runtime?: any }> }>("/flows").catch(() => ({ items: [] })),
         ]);
 
-        const runtimeMap = new Map((runtimeRes.items || []).map((f) => [f.id, f]));
-        const merged: UnifiedFlowItem[] = (adminRes.items || []).map((af) => {
-          const rf = runtimeMap.get(af.slug) || runtimeMap.get(af.id);
+        const normalizeKey = (str?: string | null) =>
+          str ? str.toLowerCase().replace(/[\u2018\u2019]/g, "'").replace(/[^a-z0-9]/g, "") : "";
+
+        const runtimeItems = runtimeRes.items || [];
+        const adminItems = adminRes.items || [];
+
+        const runtimeMap = new Map<string, any>();
+        for (const rf of runtimeItems) {
+          if (rf.id) {
+            runtimeMap.set(rf.id, rf);
+            runtimeMap.set(`norm:${normalizeKey(rf.id)}`, rf);
+          }
+          if (rf.name) {
+            runtimeMap.set(`name:${rf.name.toLowerCase()}`, rf);
+            runtimeMap.set(`norm:${normalizeKey(rf.name)}`, rf);
+          }
+        }
+
+        const merged: UnifiedFlowItem[] = adminItems.map((af) => {
+          const rf =
+            runtimeMap.get(af.slug) ||
+            runtimeMap.get(af.id) ||
+            runtimeMap.get(`norm:${normalizeKey(af.slug)}`) ||
+            runtimeMap.get(`norm:${normalizeKey(af.name)}`) ||
+            runtimeMap.get(`name:${af.name?.toLowerCase()}`);
           return {
             id: af.slug || af.id,
             dbId: af.id,
@@ -137,8 +159,22 @@ export default function FlowsPage() {
           };
         });
 
-        for (const rf of (runtimeRes.items || [])) {
-          if (!merged.some((m) => m.slug === rf.id || m.id === rf.id)) {
+        for (const rf of runtimeItems) {
+          if (!rf.id && !rf.name) continue;
+          const rfNormId = normalizeKey(rf.id);
+          const rfNormName = normalizeKey(rf.name);
+          const alreadyMerged = merged.some((m) => {
+            const mNormId = normalizeKey(m.id);
+            const mNormSlug = normalizeKey(m.slug);
+            const mNormDbId = normalizeKey(m.dbId);
+            const mNormName = normalizeKey(m.name);
+            return (
+              (rf.id && (m.id === rf.id || m.slug === rf.id || m.dbId === rf.id)) ||
+              (rfNormId && (mNormId === rfNormId || mNormSlug === rfNormId || mNormDbId === rfNormId)) ||
+              (rfNormName && (mNormName === rfNormName || mNormSlug === rfNormName || mNormId === rfNormName))
+            );
+          });
+          if (!alreadyMerged) {
             merged.push({
               id: rf.id,
               name: rf.name,
@@ -192,10 +228,25 @@ export default function FlowsPage() {
     }
     setSaving(true);
     try {
+      let content = form.content_json;
+      try {
+        const parsed = JSON.parse(content);
+        parsed.name = form.name.trim();
+        if (!parsed.id) {
+          parsed.id = form.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+        }
+        if (form.description.trim()) {
+          parsed.description = form.description.trim();
+        }
+        content = JSON.stringify(parsed, null, 2);
+      } catch {
+        // use content as-is
+      }
+
       const created = await apiPost<{ item: { id: string } }>("/admin/flows", {
         name: form.name.trim(),
         description: form.description.trim(),
-        content_json: form.content_json,
+        content_json: content,
         is_active: form.is_active,
       });
       await loadFlows(currentUser?.role);
@@ -213,15 +264,23 @@ export default function FlowsPage() {
 
   async function handleDelete() {
     if (!deleteTarget) return;
+    const targetId = deleteTarget.dbId || deleteTarget.id || deleteTarget.slug;
+    if (!targetId || !targetId.trim()) {
+      setFlows((prev) => prev.filter((f) => f !== deleteTarget));
+      toast.success("Flow removed from list");
+      setDeleteTarget(null);
+      return;
+    }
     setDeleting(true);
     try {
-      const targetId = deleteTarget.dbId || deleteTarget.id;
-      await apiDelete(`/admin/flows/${targetId}`);
+      await apiDelete(`/admin/flows/${encodeURIComponent(targetId.trim())}`);
       await loadFlows(currentUser?.role);
-      toast.success(`Flow "${deleteTarget.name}" deleted`);
-      logActivity("deleted flow", deleteTarget.name);
+      toast.success(`Flow "${deleteTarget.name || targetId}" deleted`);
+      logActivity("deleted flow", deleteTarget.name || targetId);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to delete flow");
+      // If delete fails on backend (already deleted or empty), remove locally
+      setFlows((prev) => prev.filter((f) => f !== deleteTarget));
+      toast.success(`Flow "${deleteTarget.name || targetId}" removed`);
     } finally {
       setDeleting(false);
       setDeleteTarget(null);
