@@ -224,6 +224,7 @@ export function FormBuilder({
   useEffect(() => {
     if (formName !== undefined && formName !== formData.name) {
       setFormData((prev) => {
+        if (prev.name === formName) return prev;
         const prevExpectedSlug = (prev.name || "")
           .toLowerCase()
           .replace(/[^a-z0-9]+/g, "-")
@@ -248,7 +249,13 @@ export function FormBuilder({
 
   useEffect(() => {
     if (formDescription !== undefined && formDescription !== formData.description) {
-      setFormData((prev) => ({ ...prev, description: formDescription }));
+      setFormData((prev) => {
+        if (prev.description === formDescription) return prev;
+        const next = { ...prev, description: formDescription };
+        const json = JSON.stringify(next, null, 2);
+        onChangeContentJson(json);
+        return next;
+      });
     }
   }, [formDescription]);
 
@@ -268,12 +275,32 @@ export function FormBuilder({
     });
   }
 
-  // When raw JSON changes externally (e.g. from file upload)
+  // When raw JSON changes externally (e.g. from file upload or async fetch)
   useEffect(() => {
     const parsed = parseJsonSafe(contentJson);
     if (parsed) {
-      setFormData(parsed);
+      setFormData((prev) => {
+        if (
+          prev.name === parsed.name &&
+          prev.description === parsed.description &&
+          prev.id === parsed.id &&
+          prev.version === parsed.version &&
+          JSON.stringify(prev.fields) === JSON.stringify(parsed.fields) &&
+          JSON.stringify(prev.prompt) === JSON.stringify(parsed.prompt) &&
+          JSON.stringify(prev.model) === JSON.stringify(parsed.model) &&
+          JSON.stringify(prev.output) === JSON.stringify(parsed.output)
+        ) {
+          return prev;
+        }
+        return parsed;
+      });
       setJsonError(null);
+      if (onFormNameChange && parsed.name && parsed.name !== formName) {
+        onFormNameChange(parsed.name);
+      }
+      if (onFormDescriptionChange && parsed.description && parsed.description !== formDescription) {
+        onFormDescriptionChange(parsed.description);
+      }
     } else {
       setJsonError("Invalid JSON");
     }
@@ -484,8 +511,8 @@ export function FormBuilder({
               type="button"
               onClick={() => setVisualSubTab("fields")}
               className={`flex-1 py-1.5 px-3 rounded-md font-medium transition-colors text-center ${visualSubTab === "fields"
-                  ? "bg-background text-foreground shadow-xs"
-                  : "text-muted-foreground hover:text-foreground"
+                ? "bg-background text-white shadow-xs bg-black"
+                : "text-muted-foreground hover:text-foreground"
                 }`}
             >
               1. Fields & Inputs ({formData.fields.length})
@@ -494,8 +521,8 @@ export function FormBuilder({
               type="button"
               onClick={() => setVisualSubTab("prompt")}
               className={`flex-1 py-1.5 px-3 rounded-md font-medium transition-colors text-center ${visualSubTab === "prompt"
-                  ? "bg-background text-foreground shadow-xs"
-                  : "text-muted-foreground hover:text-foreground"
+                ? "bg-background text-white shadow-xs bg-black"
+                : "text-muted-foreground hover:text-foreground"
                 }`}
             >
               2. Prompts & Templates
@@ -504,8 +531,8 @@ export function FormBuilder({
               type="button"
               onClick={() => setVisualSubTab("model")}
               className={`flex-1 py-1.5 px-3 rounded-md font-medium transition-colors text-center ${visualSubTab === "model"
-                  ? "bg-background text-foreground shadow-xs"
-                  : "text-muted-foreground hover:text-foreground"
+                ? "bg-background text-white shadow-xs bg-black"
+                : "text-muted-foreground hover:text-foreground"
                 }`}
             >
               3. Model Settings
@@ -514,8 +541,8 @@ export function FormBuilder({
               type="button"
               onClick={() => setVisualSubTab("output")}
               className={`flex-1 py-1.5 px-3 rounded-md font-medium transition-colors text-center ${visualSubTab === "output"
-                  ? "bg-background text-foreground shadow-xs"
-                  : "text-muted-foreground hover:text-foreground"
+                ? "bg-background text-white shadow-xs bg-black"
+                : "text-muted-foreground hover:text-foreground"
                 }`}
             >
               4. Structured Output
@@ -646,10 +673,10 @@ export function FormBuilder({
                               variant="ghost"
                               disabled={index === 0}
                               onClick={() => handleMoveField(index, "up")}
-                              className="h-7 w-7 p-0"
+                              className="h-7 w-7 !p-0"
                               title="Move Up"
                             >
-                              <ArrowUp className="h-3.5 w-3.5" />
+                              <ArrowUp className="h-4 w-4" />
                             </Button>
                             <Button
                               type="button"
@@ -657,23 +684,23 @@ export function FormBuilder({
                               variant="ghost"
                               disabled={index === formData.fields.length - 1}
                               onClick={() => handleMoveField(index, "down")}
-                              className="h-7 w-7 p-0"
+                              className="h-7 w-7 !p-0"
                               title="Move Down"
                             >
-                              <ArrowDown className="h-3.5 w-3.5" />
+                              <ArrowDown className="h-4 w-4" />
                             </Button>
                             <Button
                               type="button"
                               size="sm"
                               variant="ghost"
                               onClick={() => toggleFieldExpanded(field.id)}
-                              className="h-7 w-7 p-0"
+                              className="h-7 w-7 !p-0"
                               title={isExpanded ? "Collapse" : "Expand"}
                             >
                               {isExpanded ? (
-                                <ChevronUp className="h-3.5 w-3.5" />
+                                <ChevronUp className="h-4 w-4" />
                               ) : (
-                                <ChevronDown className="h-3.5 w-3.5" />
+                                <ChevronDown className="h-4 w-4" />
                               )}
                             </Button>
                             <Button
@@ -681,10 +708,10 @@ export function FormBuilder({
                               size="sm"
                               variant="ghost"
                               onClick={() => handleRemoveField(index)}
-                              className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                              className="h-7 w-7 !p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
                               title="Delete Field"
                             >
-                              <Trash2 className="h-3.5 w-3.5" />
+                              <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
                         </div>
@@ -836,9 +863,9 @@ export function FormBuilder({
                                             );
                                             handleUpdateField(index, { options: nextOpts });
                                           }}
-                                          className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                                          className="h-7 w-7 !p-0 text-muted-foreground hover:text-destructive"
                                         >
-                                          <Trash2 className="h-3 w-3" />
+                                          <Trash2 className="h-3.5 w-3.5" />
                                         </Button>
                                       </div>
                                     )

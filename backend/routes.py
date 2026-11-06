@@ -712,6 +712,20 @@ def get_form(form_id: str):
     return jsonify(form.model_dump(by_alias=True))
 
 
+def _resolve_form_content(form: Form) -> str | None:
+    if form.content_json:
+        return form.content_json
+    if form.file_path:
+        from services.form_service import _resolve_form_file_path
+        resolved = _resolve_form_file_path(form.file_path)
+        if resolved and resolved.is_file():
+            try:
+                return resolved.read_text(encoding="utf-8")
+            except Exception as exc:
+                logger.warning("Failed to read form file %s: %s", form.file_path, exc)
+    return None
+
+
 @api.get("/api/admin/forms/<form_id>")
 def admin_form_detail(form_id: str):
     _, error = _require_superadmin()
@@ -726,7 +740,7 @@ def admin_form_detail(form_id: str):
             "name": form.name,
             "slug": form.slug,
             "description": form.description,
-            "content_json": form.content_json,
+            "content_json": _resolve_form_content(form),
             "file_path": form.file_path,
             "is_active": form.is_active,
             "created_at": form.created_at.isoformat() if form.created_at else None,
@@ -757,7 +771,7 @@ def admin_forms():
             "slug": form.slug,
             "description": form.description,
             "file_path": form.file_path,
-            "content_json": form.content_json,
+            "content_json": _resolve_form_content(form),
             "is_active": form.is_active,
             "created_at": form.created_at.isoformat() if form.created_at else None,
             "updated_at": form.updated_at.isoformat() if form.updated_at else None,

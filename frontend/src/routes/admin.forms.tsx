@@ -100,13 +100,54 @@ export default function AdminFormsPage() {
 
   function openEditModal(item: FormItem) {
     setEditingId(item.id);
+
+    // Immediately populate inputs from the selected row so there is zero delay/blank state
+    let initialJson = item.content_json || "";
+    if (initialJson) {
+      try {
+        const parsed = JSON.parse(initialJson);
+        if (!parsed.name && item.name) parsed.name = item.name;
+        if (!parsed.description && item.description) parsed.description = item.description;
+        initialJson = JSON.stringify(parsed, null, 2);
+      } catch {}
+    } else {
+      initialJson = JSON.stringify(
+        {
+          id: item.slug || item.id,
+          name: item.name,
+          description: item.description || "",
+          version: "1.0",
+          fields: [],
+          prompt: { system: "You are a helpful AI assistant.", user: "" },
+          model: { provider: "openai", name: "gpt-4o-mini", temperature: 0.7 },
+        },
+        null,
+        2
+      );
+    }
+
+    setForm({
+      name: item.name,
+      description: item.description || "",
+      content_json: initialJson,
+      is_active: item.is_active,
+    });
     setModalOpen(true);
+
+    // Fetch fresh details from backend to ensure latest DB/file contents are populated
     apiGet<FormItem>(`/admin/forms/${item.id}`)
       .then((data) => {
+        let fullJson = data.content_json || initialJson;
+        try {
+          const parsed = JSON.parse(fullJson);
+          if (!parsed.name && data.name) parsed.name = data.name;
+          if (!parsed.description && data.description) parsed.description = data.description;
+          fullJson = JSON.stringify(parsed, null, 2);
+        } catch {}
         setForm({
           name: data.name,
           description: data.description || "",
-          content_json: data.content_json || "",
+          content_json: fullJson,
           is_active: data.is_active,
         });
       })
@@ -618,6 +659,7 @@ export default function AdminFormsPage() {
 
             {/* Visual Form Builder with Raw JSON fallback */}
             <FormBuilder
+              key={editingId || "new"}
               contentJson={form.content_json}
               onChangeContentJson={(json) => setForm((prev) => ({ ...prev, content_json: json }))}
               formName={form.name}
