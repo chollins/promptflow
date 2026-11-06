@@ -34,8 +34,8 @@ def _render_prompt_with_validation(template: str, values: dict[str, str]) -> str
     return rendered
 
 
-def execute_form(
-    form_id: str,
+def execute_prompt_form(
+    form: PromptForm,
     values: dict | None = None,
     *,
     diagnostic_capabilities: frozenset[str] | None = None,
@@ -47,7 +47,7 @@ def execute_form(
         diagnostic_capabilities = frozenset()
         
     started_at = datetime.utcnow()
-    form = get_form(form_id)
+    form_id = form.id
     merged_values = {key: str(value) for key, value in (values or {}).items()}
     for field in form.fields:
         if field.id not in merged_values or merged_values[field.id] is None or merged_values[field.id] == "":
@@ -153,4 +153,43 @@ def execute_form(
         result=result,
         values=merged_values,
         debug=debug if debug else None,
+    )
+
+
+def execute_form(
+    form_id: str,
+    values: dict | None = None,
+    *,
+    diagnostic_capabilities: frozenset[str] | None = None,
+    user_id: str | None = None,
+    role_name: str | None = None,
+    model_override: dict | str | None = None,
+) -> FormExecuteResponse:
+    form = get_form(form_id)
+    return execute_prompt_form(
+        form=form,
+        values=values,
+        diagnostic_capabilities=diagnostic_capabilities,
+        user_id=user_id,
+        role_name=role_name,
+        model_override=model_override,
+    )
+
+
+def execute_adhoc_form(
+    form_def: PromptForm,
+    values: dict | None = None,
+    *,
+    diagnostic_capabilities: frozenset[str] | None = None,
+    user_id: str | None = None,
+    role_name: str | None = None,
+    model_override: dict | str | None = None,
+) -> FormExecuteResponse:
+    return execute_prompt_form(
+        form=form_def,
+        values=values,
+        diagnostic_capabilities=diagnostic_capabilities,
+        user_id=user_id,
+        role_name=role_name,
+        model_override=model_override,
     )

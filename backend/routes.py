@@ -35,6 +35,7 @@ from services.flow_service import (
 )
 from services.email_service import send_invitation_email, send_password_reset_email
 from services.form_executor import execute_form
+from services.schemas.prompt_form import PromptForm
 from services.form_service import (
     FormNotFoundError,
     InvalidFormError,
@@ -841,6 +842,44 @@ def admin_forms_import_markdown():
         return jsonify({"error": f"Failed to import markdown prompts: {exc}"}), 400
 
 
+@api.post("/api/admin/forms/generate")
+def admin_form_generate():
+    _, error = _require_superadmin()
+    if error:
+        return error
+    payload = request.get_json(silent=True) or {}
+    prompt = (payload.get("prompt") or "").strip()
+    if not prompt:
+        return jsonify({"error": "Please provide a description of the form to generate."}), 400
+    model = payload.get("model") or "gpt-4o-mini"
+    try:
+        from services.form_generator_service import generate_form_from_prompt
+        generated = generate_form_from_prompt(prompt, model=model)
+        return jsonify({"item": generated}), 200
+    except Exception as exc:
+        logger.error("AI form generation failed: %s", exc, exc_info=True)
+        return jsonify({"error": str(exc)}), 500
+
+
+@api.post("/api/forms/generate")
+def member_form_generate():
+    _, error = _require_auth()
+    if error:
+        return error
+    payload = request.get_json(silent=True) or {}
+    prompt = (payload.get("prompt") or "").strip()
+    if not prompt:
+        return jsonify({"error": "Please provide a description of the form to generate."}), 400
+    model = payload.get("model") or "gpt-4o-mini"
+    try:
+        from services.form_generator_service import generate_form_from_prompt
+        generated = generate_form_from_prompt(prompt, model=model)
+        return jsonify({"item": generated}), 200
+    except Exception as exc:
+        logger.error("Member AI form generation failed: %s", exc, exc_info=True)
+        return jsonify({"error": str(exc)}), 500
+
+
 def _apply_debug_allowlist(debug: dict, capabilities: frozenset[str]) -> dict:
     """Second-pass filter: keep only debug keys that belong to an enabled capability.
     Prevents a newly-collected field from leaking if an executor is updated before
@@ -920,6 +959,57 @@ def execute_form_route(form_id: str):
             )
         except Exception as exc:
             logger.warning("Failed to auto-save form execution result: %s", exc)
+
+    return _format_execution_response(result.model_dump(exclude_none=True), capabilities)
+
+
+@api.post("/api/forms/adhoc/execute")
+def execute_adhoc_form_route():
+    current_user, error = _require_auth()
+    if error:
+        return error
+    payload = request.get_json(silent=True) or {}
+    form_def_raw = payload.get("form_definition")
+    if not form_def_raw:
+        return jsonify({"error": "Missing 'form_definition' in request payload"}), 400
+
+    try:
+        if isinstance(form_def_raw, str):
+            form = PromptForm.model_validate_json(form_def_raw)
+        else:
+            form = PromptForm.model_validate(form_def_raw)
+    except Exception as exc:
+        return jsonify({"error": f"Invalid form definition: {exc}"}), 422
+
+    capabilities = diagnostic_policy_for(current_user)
+    model_override = payload.get("model_override") or payload.get("model") or payload.get("model_name")
+    try:
+        from services.form_executor import execute_adhoc_form
+        result = execute_adhoc_form(
+            form_def=form,
+            values=payload.get("values") or {},
+            diagnostic_capabilities=capabilities,
+            user_id=str(current_user.id),
+            role_name=current_user.role.name if current_user.role else None,
+            model_override=model_override,
+        )
+    except Exception as exc:
+        logger.error("Ad-hoc form execution failed: %s", exc, exc_info=True)
+        return jsonify({"error": str(exc)}), 500
+
+    if current_app.config.get("SAVED_RESULTS_AUTO_SAVE", True):
+        try:
+            save_execution_result(
+                user_id=str(current_user.id),
+                organization_id=str(current_user.organization_id) if current_user.organization_id else None,
+                source_type="form",
+                source_id=form.id or "personal",
+                source_name=form.name or "Personal Form",
+                input_summary=payload.get("values") or {},
+                output_text=result.result,
+            )
+        except Exception as exc:
+            logger.warning("Failed to auto-save ad-hoc form execution result: %s", exc)
 
     return _format_execution_response(result.model_dump(exclude_none=True), capabilities)
 

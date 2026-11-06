@@ -52,21 +52,33 @@ type NavItem = {
 };
 
 const ALL_ITEMS: NavItem[] = [
-    { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, roles: ["admin", "user", "superadmin", "member"] },
-    { title: "Organization", url: "/organization", icon: Building2, roles: ["admin"] },
-    { title: "Organizations", url: "/admin/organizations", icon: Building2, roles: ["superadmin"] },
-    { title: "Users", url: "/users", icon: Users, roles: ["admin", "superadmin"] },
-    { title: "Flows", url: "/flows", icon: Workflow, roles: ["admin", "member", "user", "superadmin"] },
-    // { title: "Forms", url: "/forms", icon: Form, roles: ["admin", "member", "superadmin"] },
-    { title: "Forms", url: "/admin/forms", icon: Form, roles: ["superadmin"] },
-    { title: "AI Models", url: "/models", icon: Cpu, roles: ["admin", "member", "user"] },
-    { title: "AI Models", url: "/admin/models", icon: Cpu, roles: ["superadmin"] },
-    // { title: "Flow Access", url: "/admin/manage-flows", icon: ShieldCheck, roles: ["superadmin"] },
+  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, roles: ["admin", "user", "superadmin", "member"] },
+  { title: "Organization", url: "/organization", icon: Building2, roles: ["admin"] },
+  { title: "Organizations", url: "/admin/organizations", icon: Building2, roles: ["superadmin"] },
+  { title: "Users", url: "/users", icon: Users, roles: ["admin", "superadmin"] },
+  { title: "Flows", url: "/flows", icon: Workflow, roles: ["admin", "member", "user", "superadmin"] },
+  { title: "Forms", url: "/forms", icon: Form, roles: ["admin", "member", "user"] },
+  { title: "Forms", url: "/admin/forms", icon: Form, roles: ["superadmin"] },
+  { title: "AI Models", url: "/models", icon: Cpu, roles: ["admin", "member", "user"] },
+  { title: "AI Models", url: "/admin/models", icon: Cpu, roles: ["superadmin"] },
+  // { title: "Flow Access", url: "/admin/manage-flows", icon: ShieldCheck, roles: ["superadmin"] },
 
-    // User-specific options
-    { title: "Saved Results", url: "/saved-results", icon: BookmarkCheck, roles: ["admin", "user", "superadmin", "member"], group: "user" },
-    { title: "Settings", url: "/settings", icon: Settings, roles: ["admin", "user", "member", "superadmin"], group: "user" },
-  ];
+  // User-specific options
+  { title: "Saved Results", url: "/saved-results", icon: BookmarkCheck, roles: ["admin", "user", "superadmin", "member"], group: "user" },
+  { title: "Settings", url: "/settings", icon: Settings, roles: ["admin", "user", "member", "superadmin"], group: "user" },
+];
+
+const ROUTE_PERMISSIONS: Array<{ prefix: string; roles: Array<"admin" | "user" | "member" | "superadmin"> }> = [
+  { prefix: "/admin", roles: ["superadmin"] },
+  { prefix: "/organization", roles: ["admin"] },
+  { prefix: "/users", roles: ["admin", "superadmin"] },
+  { prefix: "/flows", roles: ["admin", "member", "user", "superadmin"] },
+  { prefix: "/forms", roles: ["admin", "member", "user", "superadmin"] },
+  { prefix: "/models", roles: ["admin", "member", "user", "superadmin"] },
+  { prefix: "/saved-results", roles: ["admin", "user", "superadmin", "member"] },
+  { prefix: "/settings", roles: ["admin", "user", "member", "superadmin"] },
+  { prefix: "/dashboard", roles: ["admin", "user", "superadmin", "member"] },
+];
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = useLocation().pathname;
@@ -128,9 +140,9 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!role) return;
-    const matched = ALL_ITEMS.find(
-      (item) => pathname === item.url || pathname.startsWith(item.url + "/"),
-    );
+    const matched = ROUTE_PERMISSIONS.find(
+        (item) => pathname === item.prefix || pathname.startsWith(item.prefix + "/"),
+      );
     if (matched && !matched.roles.includes(role)) {
       navigate("/dashboard");
     }
@@ -161,7 +173,11 @@ export function AppShell({ children }: { children: ReactNode }) {
               <SidebarGroupLabel>Workspace</SidebarGroupLabel>
               <SidebarMenu>
                 {mainItems.map((item) => {
-                  const active = pathname === item.url || pathname.startsWith(item.url + "/");
+                  const active =
+                    pathname === item.url ||
+                    pathname.startsWith(item.url + "/") ||
+                    (item.url === "/admin/forms" && pathname.startsWith("/forms")) ||
+                    (item.url === "/admin/models" && pathname.startsWith("/models"));
                   return (
                     <SidebarMenuItem key={item.url}>
                       <SidebarMenuButton asChild isActive={active}>

@@ -12,6 +12,7 @@ import {
   Copy,
   ChevronDown,
   ChevronUp,
+  Loader2,
 } from "lucide-react";
 import { Button, Card, Input } from "@/components/ui-kit";
 import { Textarea } from "@/components/ui/textarea";
@@ -23,6 +24,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { apiPost } from "@/lib/api";
+import { toast } from "sonner";
 
 export type BuilderField = {
   id: string;
@@ -94,20 +97,20 @@ function parseJsonSafe(raw: string): BuilderFormData | null {
         version: parsed.version ?? "1.0",
         fields: Array.isArray(parsed.fields)
           ? parsed.fields.map((f: any) => ({
-              id: f.id ?? "",
-              label: f.label ?? "",
-              description: f.description ?? "",
-              placeholder: f.placeholder ?? f.description ?? "",
-              type: f.type ?? "text",
-              required: !!f.required,
-              default: f.default ?? "",
-              options: Array.isArray(f.options)
-                ? f.options.map((opt: any) =>
-                    typeof opt === "string" ? opt : opt.label ?? opt.value ?? ""
-                  )
-                : [],
-              data_source: f.data_source ?? undefined,
-            }))
+            id: f.id ?? "",
+            label: f.label ?? "",
+            description: f.description ?? "",
+            placeholder: f.placeholder ?? f.description ?? "",
+            type: f.type ?? "text",
+            required: !!f.required,
+            default: f.default ?? "",
+            options: Array.isArray(f.options)
+              ? f.options.map((opt: any) =>
+                typeof opt === "string" ? opt : opt.label ?? opt.value ?? ""
+              )
+              : [],
+            data_source: f.data_source ?? undefined,
+          }))
           : [],
         prompt: {
           system: parsed.prompt?.system ?? "You are a helpful AI assistant.",
@@ -149,6 +152,41 @@ export function FormBuilder({
   const [visualSubTab, setVisualSubTab] = useState<"fields" | "prompt" | "model" | "output">("fields");
   const [collapsedFieldIds, setCollapsedFieldIds] = useState<Record<string, boolean>>({});
   const [jsonError, setJsonError] = useState<string | null>(null);
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [generating, setGenerating] = useState(false);
+
+  async function handleGenerateWithAi(customPrompt?: string) {
+    const promptToUse = (customPrompt || aiPrompt).trim();
+    if (!promptToUse) {
+      toast.error("Please enter a description of the form to generate.");
+      return;
+    }
+    setGenerating(true);
+    try {
+      const res = await apiPost<{ item: BuilderFormData }>("/forms/generate", {
+        prompt: promptToUse,
+      });
+      if (res?.item) {
+        const generated = res.item;
+        setFormData(generated);
+        const json = JSON.stringify(generated, null, 2);
+        onChangeContentJson(json);
+        if (onFormNameChange && generated.name) {
+          onFormNameChange(generated.name);
+        }
+        if (onFormDescriptionChange && generated.description) {
+          onFormDescriptionChange(generated.description);
+        }
+        setCollapsedFieldIds({});
+        setVisualSubTab("fields");
+        toast.success(`Generated "${generated.name}" with ${generated.fields?.length || 0} fields!`);
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to generate form with AI");
+    } finally {
+      setGenerating(false);
+    }
+  }
 
   function isFieldExpanded(fieldId: string) {
     return collapsedFieldIds[fieldId] !== true;
@@ -361,49 +399,124 @@ export function FormBuilder({
         </div>
       ) : (
         <div className="space-y-4">
+          {/* AI Form Generator Banner */}
+          <div className="rounded-xl border border-primary/25 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-3.5 space-y-2.5 shadow-xs">
+            <div className="flex items-center gap-2">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/15 text-primary shrink-0">
+                <Sparkles className="h-4 w-4" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                  Generate Form with AI
+                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-primary/15 text-primary font-medium">
+                    Beta
+                  </span>
+                </div>
+                <p className="text-[11px] text-muted-foreground truncate">
+                  Describe what you want to create, and AI will suggest all input fields, choices, and prompt templates.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Input
+                value={aiPrompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    void handleGenerateWithAi();
+                  }
+                }}
+                placeholder="e.g. Customer feedback survey with rating, product category, comments, and email..."
+                className="h-8 text-xs bg-background/90 flex-1"
+                disabled={generating}
+              />
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => void handleGenerateWithAi()}
+                disabled={generating || !aiPrompt.trim()}
+                className="h-8 text-xs gap-1.5 shrink-0 bg-primary hover:bg-primary/90 text-primary-foreground font-medium shadow-xs px-3"
+              >
+                {generating ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Generate
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {/* Quick Example Suggestions */}
+            <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+              <span className="text-[10px] text-muted-foreground font-medium shrink-0">Quick Ideas:</span>
+              {[
+                "Blog post writer with SEO keywords and tone",
+                "Customer satisfaction survey with 1-5 rating",
+                "Meeting action items & key decisions extractor",
+                "Bug report with severity, repro steps & logs",
+              ].map((example, exIdx) => (
+                <button
+                  key={exIdx}
+                  type="button"
+                  disabled={generating}
+                  onClick={() => {
+                    setAiPrompt(example);
+                    void handleGenerateWithAi(example);
+                  }}
+                  className="text-[10px] px-2 py-0.5 rounded-full border border-border/70 bg-background/70 hover:bg-primary/10 hover:text-primary hover:border-primary/40 transition-colors text-muted-foreground cursor-pointer disabled:opacity-50"
+                >
+                  + {example}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Sub Navigation */}
           <div className="flex items-center gap-1.5 p-1 bg-muted/40 rounded-lg border border-border/50 text-xs">
             <button
               type="button"
               onClick={() => setVisualSubTab("fields")}
-              className={`flex-1 py-1.5 px-3 rounded-md font-medium transition-colors text-center ${
-                visualSubTab === "fields"
+              className={`flex-1 py-1.5 px-3 rounded-md font-medium transition-colors text-center ${visualSubTab === "fields"
                   ? "bg-background text-foreground shadow-xs"
                   : "text-muted-foreground hover:text-foreground"
-              }`}
+                }`}
             >
               1. Fields & Inputs ({formData.fields.length})
             </button>
             <button
               type="button"
               onClick={() => setVisualSubTab("prompt")}
-              className={`flex-1 py-1.5 px-3 rounded-md font-medium transition-colors text-center ${
-                visualSubTab === "prompt"
+              className={`flex-1 py-1.5 px-3 rounded-md font-medium transition-colors text-center ${visualSubTab === "prompt"
                   ? "bg-background text-foreground shadow-xs"
                   : "text-muted-foreground hover:text-foreground"
-              }`}
+                }`}
             >
               2. Prompts & Templates
             </button>
             <button
               type="button"
               onClick={() => setVisualSubTab("model")}
-              className={`flex-1 py-1.5 px-3 rounded-md font-medium transition-colors text-center ${
-                visualSubTab === "model"
+              className={`flex-1 py-1.5 px-3 rounded-md font-medium transition-colors text-center ${visualSubTab === "model"
                   ? "bg-background text-foreground shadow-xs"
                   : "text-muted-foreground hover:text-foreground"
-              }`}
+                }`}
             >
               3. Model Settings
             </button>
             <button
               type="button"
               onClick={() => setVisualSubTab("output")}
-              className={`flex-1 py-1.5 px-3 rounded-md font-medium transition-colors text-center ${
-                visualSubTab === "output"
+              className={`flex-1 py-1.5 px-3 rounded-md font-medium transition-colors text-center ${visualSubTab === "output"
                   ? "bg-background text-foreground shadow-xs"
                   : "text-muted-foreground hover:text-foreground"
-              }`}
+                }`}
             >
               4. Structured Output
             </button>
