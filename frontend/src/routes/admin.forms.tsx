@@ -44,6 +44,8 @@ type FormItem = {
   updated_at?: string | null;
   flows?: string[];
   flow_details?: FlowDetail[];
+  scope?: "organization" | "global";
+  organization_id?: string | null;
 };
 
 type FormState = {
@@ -398,7 +400,18 @@ export default function AdminFormsPage() {
                             <FormInput className="w-4 h-4" />
                           </div>
                           <div className="min-w-0 max-w-sm sm:max-w-md">
-                            <div className="font-semibold text-foreground truncate">{item.name}</div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-semibold text-foreground truncate">{item.name}</span>
+                              {item.scope === "organization" || item.organization_id ? (
+                                <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-primary/10 text-primary border border-primary/20 shrink-0">
+                                  Organization
+                                </span>
+                              ) : (
+                                <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-muted text-muted-foreground border border-border shrink-0">
+                                  Global
+                                </span>
+                              )}
+                            </div>
                             <div className="text-xs text-muted-foreground font-mono truncate">{item.slug}</div>
                             {item.description && (
                               <div className="text-xs text-muted-foreground line-clamp-1 mt-1">
@@ -592,7 +605,7 @@ export default function AdminFormsPage() {
 
       {/* Create / Edit Modal */}
       <Dialog open={modalOpen} onOpenChange={(open) => { if (!open) closeModal(); }}>
-        <DialogContent className="w-[95vw] max-w-6xl max-h-[92vh] flex flex-col">
+        <DialogContent className="w-[96vw] max-w-6xl max-h-[92vh] flex flex-col p-4 sm:p-6 overflow-hidden">
           <DialogHeader>
             <DialogTitle>{editingItem ? "Edit form" : "New form"}</DialogTitle>
             <DialogDescription>

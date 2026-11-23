@@ -42,6 +42,8 @@ type FlowDetail = {
   model_configuration?: FlowModelConfig | null;
   is_active: boolean;
   steps: FlowStepItem[];
+  scope?: "organization" | "global";
+  organization_id?: string | null;
 };
 
 export default function EditFlowPage() {
@@ -220,12 +222,25 @@ export default function EditFlowPage() {
         </div>
 
         <PageHeader
-          title={name || "Edit Flow"}
+          title={
+            <div className="flex items-center gap-2 flex-wrap">
+              <span>{name || "Edit Flow"}</span>
+              {detail?.scope === "organization" || detail?.organization_id ? (
+                <span className="text-xs px-2.5 py-0.5 rounded-full font-medium bg-primary/10 text-primary border border-primary/20">
+                  Organization Flow
+                </span>
+              ) : (
+                <span className="text-xs px-2.5 py-0.5 rounded-full font-medium bg-muted text-muted-foreground border border-border">
+                  Global Flow
+                </span>
+              )}
+            </div>
+          }
           description="Manage flow metadata and arrange reusable forms into ordered steps."
         />
 
         <div className="grid gap-8 lg:grid-cols-[1fr_1.5fr] items-start">
-          <Card className="p-6 flex flex-col sticky top-4 h-[calc(100vh-14rem)]">
+          <Card className="p-4 sm:p-6 flex flex-col lg:sticky lg:top-4 min-h-[calc(100vh-14rem)] h-auto lg:h-[calc(100vh-14rem)]">
             <div className="flex items-center gap-2 text-sm font-medium shrink-0 mb-4">
               <Database className="h-4 w-4" />
               Flow metadata

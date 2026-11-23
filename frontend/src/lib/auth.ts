@@ -9,6 +9,14 @@ export interface AuthUser {
   organization_id: string;
   session_token: string | null;
   diagnostic_capabilities?: string[];
+  can_create_flows?: boolean;
+  can_share_flows?: boolean;
+  organization_settings?: {
+    auto_next_step?: boolean;
+    allow_user_create_flows?: boolean;
+    allow_user_share_flows?: boolean;
+    [key: string]: any;
+  };
 }
 
 export const authService = {

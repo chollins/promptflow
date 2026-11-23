@@ -51,6 +51,8 @@ export type UnifiedFlowItem = {
   runtime?: { mode: "guided" | "automatic"; default_review_required: boolean };
   steps?: Array<{ id: string; name: string; sequence: number }>;
   is_active?: boolean;
+  scope?: "organization" | "global";
+  organization_id?: string | null;
 };
 
 type OrganizationItem = {
@@ -111,14 +113,17 @@ export default function FlowsPage() {
   const [flowLinkCopied, setFlowLinkCopied] = useState(false);
 
   const isSuperadmin = currentUser?.role === "superadmin";
+  const isOrgAdmin = currentUser?.role === "admin";
+  const canCreateFlow = isSuperadmin || isOrgAdmin || Boolean(currentUser?.can_create_flows);
+  const canShareFlow = isSuperadmin || isOrgAdmin || Boolean(currentUser?.can_share_flows);
 
   async function loadFlows(userRole?: string | null) {
     const role = userRole !== undefined ? userRole : currentUser?.role;
-    if (role === "superadmin") {
+    if (role === "superadmin" || role === "admin") {
       try {
         const [adminRes, runtimeRes] = await Promise.all([
-          apiGet<{ items: Array<{ id: string; name: string; slug: string; description: string | null; is_active: boolean }> }>("/admin/flows"),
-          apiGet<{ items: Array<{ id: string; name: string; version: string; description: string; steps: any[]; runtime?: any }> }>("/flows").catch(() => ({ items: [] })),
+          apiGet<{ items: Array<{ id: string; name: string; slug: string; description: string | null; is_active: boolean; scope?: "organization" | "global"; organization_id?: string | null }> }>("/admin/flows"),
+          apiGet<{ items: Array<{ id: string; name: string; version: string; description: string; steps: any[]; runtime?: any; scope?: "organization" | "global"; organization_id?: string | null }> }>("/flows").catch(() => ({ items: [] })),
         ]);
 
         const normalizeKey = (str?: string | null) =>
@@ -156,6 +161,8 @@ export default function FlowsPage() {
             version: rf?.version,
             runtime: rf?.runtime,
             steps: rf?.steps,
+            scope: af.scope || rf?.scope,
+            organization_id: af.organization_id || rf?.organization_id,
           };
         });
 
@@ -183,6 +190,8 @@ export default function FlowsPage() {
               runtime: rf.runtime,
               steps: rf.steps,
               is_active: true,
+              scope: rf.scope,
+              organization_id: rf.organization_id,
             });
           }
         }
@@ -395,22 +404,24 @@ export default function FlowsPage() {
               : "Prompt flows assigned to your organization, executed step by step."
           }
           actions={
-            isSuperadmin ? (
+            canCreateFlow ? (
               <div className="flex items-center gap-2">
-                <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted">
-                  <FileText className="h-4 w-4" />
-                  Import Markdown
-                  <input
-                    type="file"
-                    accept=".md,.markdown,text/markdown"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0] ?? null;
-                      void handleMarkdownImport(file);
-                      e.target.value = "";
-                    }}
-                  />
-                </label>
+                {isSuperadmin && (
+                  <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted">
+                    <FileText className="h-4 w-4" />
+                    Import Markdown
+                    <input
+                      type="file"
+                      accept=".md,.markdown,text/markdown"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] ?? null;
+                        void handleMarkdownImport(file);
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+                )}
                 <Button
                   onClick={() => {
                     setForm(EMPTY_FORM);
@@ -464,7 +475,7 @@ export default function FlowsPage() {
                   ? "Get started by creating a new flow or importing forms from markdown."
                   : "No flows are currently assigned to your organization."}
             </p>
-            {isSuperadmin && !searchQuery && (
+            {canCreateFlow && !searchQuery && (
               <Button
                 onClick={() => {
                   setForm(EMPTY_FORM);
@@ -488,12 +499,21 @@ export default function FlowsPage() {
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="min-w-0 flex-1 space-y-1.5">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-semibold text-foreground text-base tracking-tight">
                           {flow.name}
                         </span>
+                        {flow.scope === "organization" || flow.organization_id ? (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-primary/10 text-primary border border-primary/20 shrink-0">
+                            Organization
+                          </span>
+                        ) : (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-muted text-muted-foreground border border-border shrink-0">
+                            Global
+                          </span>
+                        )}
                         {isSuperadmin && flow.is_active === false && (
-                          <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                          <Badge tone="outline" className="text-[10px] text-muted-foreground">
                             Inactive
                           </Badge>
                         )}
@@ -524,7 +544,7 @@ export default function FlowsPage() {
                     </div>
 
                     {/* Actions: Open | Edit | Access | Delete */}
-                    <div className="flex items-center gap-2 shrink-0 pt-2 sm:pt-0">
+                    <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 shrink-0 pt-2 sm:pt-0 w-full sm:w-auto">
                       {/* Open - Available to ALL roles */}
                       <Button
                         asChild
@@ -538,23 +558,25 @@ export default function FlowsPage() {
                         </Link>
                       </Button>
 
-                      {/* Share - Available to ALL roles */}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setSharingFlow(flow);
-                          setFlowLinkCopied(false);
-                        }}
-                        className="gap-1.5 text-xs text-muted-foreground hover:text-foreground"
-                        title="Share flow link"
-                      >
-                        <Share2 className="h-3.5 w-3.5" />
-                        <span className="hidden sm:inline">Share</span>
-                      </Button>
+                      {/* Share button */}
+                      {canShareFlow && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSharingFlow(flow);
+                            setFlowLinkCopied(false);
+                          }}
+                          className="gap-1.5 border-border hover:bg-muted text-foreground font-medium"
+                          title="Share flow link"
+                        >
+                          <Share2 className="h-3.5 w-3.5" />
+                          <span className="hidden sm:inline">Share</span>
+                        </Button>
+                      )}
 
-                      {/* Superadmin actions: Edit | Access | Delete */}
-                      {isSuperadmin && (
+                      {/* Admin actions: Edit | Access | Delete */}
+                      {(isSuperadmin || isOrgAdmin) && (
                         <>
                           <Button
                             asChild
@@ -568,15 +590,17 @@ export default function FlowsPage() {
                             </Link>
                           </Button>
 
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => void handleOpenAccess(flow)}
-                            className="gap-1.5 font-medium"
-                          >
-                            <ShieldCheck className="h-3.5 w-3.5" />
-                            <span>Access</span>
-                          </Button>
+                          {isSuperadmin && (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => void handleOpenAccess(flow)}
+                              className="gap-1.5 font-medium"
+                            >
+                              <ShieldCheck className="h-3.5 w-3.5" />
+                              <span>Access</span>
+                            </Button>
+                          )}
 
                           <Button
                             variant="ghost"
@@ -597,9 +621,9 @@ export default function FlowsPage() {
           </div>
         )}
 
-        {/* Create Flow Modal (Superadmin) */}
+        {/* Create Flow Modal (Superadmin / Admin) */}
         <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-          <DialogContent className="max-w-md">
+          <DialogContent className="w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Create new flow</DialogTitle>
               <DialogDescription>
@@ -655,7 +679,7 @@ export default function FlowsPage() {
 
         {/* Access Management Modal (Superadmin) */}
         <Dialog open={!!accessTarget} onOpenChange={(open) => !open && setAccessTarget(null)}>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <ShieldCheck className="h-5 w-5 text-foreground" />
@@ -753,7 +777,7 @@ export default function FlowsPage() {
 
         {/* Delete Confirmation Alert Dialog (Superadmin) */}
         <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
-          <AlertDialogContent>
+          <AlertDialogContent className="w-[95vw] sm:max-w-lg">
             <AlertDialogHeader>
               <AlertDialogTitle>Delete flow "{deleteTarget?.name}"?</AlertDialogTitle>
               <AlertDialogDescription>
@@ -776,7 +800,7 @@ export default function FlowsPage() {
 
         {/* Share Flow Dialog */}
         <Dialog open={!!sharingFlow} onOpenChange={(open) => !open && setSharingFlow(null)}>
-          <DialogContent className="max-w-md">
+          <DialogContent className="w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <div className="flex items-center gap-2">
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">

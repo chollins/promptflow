@@ -69,6 +69,8 @@ const ALL_ITEMS: NavItem[] = [
 ];
 
 const ROUTE_PERMISSIONS: Array<{ prefix: string; roles: Array<"admin" | "user" | "member" | "superadmin"> }> = [
+  { prefix: "/admin/flows", roles: ["admin", "superadmin"] },
+  { prefix: "/admin/forms", roles: ["admin", "superadmin"] },
   { prefix: "/admin", roles: ["superadmin"] },
   { prefix: "/organization", roles: ["admin"] },
   { prefix: "/users", roles: ["admin", "superadmin"] },
@@ -273,7 +275,7 @@ export function PageHeader({
   description,
   actions,
 }: {
-  title: string;
+  title: ReactNode;
   description?: string;
   actions?: ReactNode;
 }) {

@@ -32,6 +32,8 @@ type UserItem = {
   organization_id: string | null;
   is_active?: boolean;
   status?: "active" | "pending" | "inactive";
+  can_create_flows?: boolean | null;
+  can_share_flows?: boolean | null;
   date_joined?: string | null;
   created_at?: string | null;
   expires_at?: string | null;
@@ -41,6 +43,8 @@ type UserForm = {
   name: string;
   role: "member" | "admin";
   status: "active" | "inactive";
+  can_create_flows?: boolean | null;
+  can_share_flows?: boolean | null;
 };
 
 type InviteForm = {
@@ -130,6 +134,8 @@ export default function UsersPage() {
       name: item.name || "",
       role: (item.role as "member" | "admin") || "member",
       status: item.is_active === false || item.status === "inactive" ? "inactive" : "active",
+      can_create_flows: item.can_create_flows,
+      can_share_flows: item.can_share_flows,
     });
   }
 
@@ -170,6 +176,8 @@ export default function UsersPage() {
         role: editForm.role,
         status: editForm.status,
         is_active: editForm.status === "active",
+        can_create_flows: editForm.can_create_flows,
+        can_share_flows: editForm.can_share_flows,
       });
       setEditItem(null);
       showToast("User updated.");
@@ -534,6 +542,38 @@ export default function UsersPage() {
                 <option value="inactive">Inactive (Deactivated)</option>
               </select>
             </Field>
+
+            <div className="border-t border-border pt-3 space-y-2.5">
+              <div className="text-xs font-semibold text-foreground">Flow Permissions Override</div>
+              <label className="flex items-center gap-2 text-xs text-foreground cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={Boolean(editForm.can_create_flows)}
+                  onChange={(e) =>
+                    setEditForm((prev) => ({
+                      ...prev,
+                      can_create_flows: e.target.checked,
+                    }))
+                  }
+                  className="h-3.5 w-3.5 rounded border-border text-primary focus:ring-primary"
+                />
+                <span>Can create flows</span>
+              </label>
+              <label className="flex items-center gap-2 text-xs text-foreground cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={Boolean(editForm.can_share_flows)}
+                  onChange={(e) =>
+                    setEditForm((prev) => ({
+                      ...prev,
+                      can_share_flows: e.target.checked,
+                    }))
+                  }
+                  className="h-3.5 w-3.5 rounded border-border text-primary focus:ring-primary"
+                />
+                <span>Can share flows</span>
+              </label>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="secondary" onClick={() => setEditItem(null)}>

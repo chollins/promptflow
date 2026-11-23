@@ -16,6 +16,8 @@ type FormDetail = {
   description: string | null;
   content_json: string | null;
   is_active: boolean;
+  scope?: "organization" | "global";
+  organization_id?: string | null;
 };
 
 export default function FormDetailView() {
@@ -110,10 +112,23 @@ export default function FormDetailView() {
           </Button>
         </div>
         <PageHeader
-          title={form.name || "Edit Form"}
+          title={
+            <div className="flex items-center gap-2 flex-wrap">
+              <span>{form.name || "Edit Form"}</span>
+              {form.scope === "organization" || form.organization_id ? (
+                <span className="text-xs px-2.5 py-0.5 rounded-full font-medium bg-primary/10 text-primary border border-primary/20">
+                  Organization Form
+                </span>
+              ) : (
+                <span className="text-xs px-2.5 py-0.5 rounded-full font-medium bg-muted text-muted-foreground border border-border">
+                  Global Form
+                </span>
+              )}
+            </div>
+          }
           description={form.slug || "Manage form properties and JSON schema."}
           actions={
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <Button
                 variant="outline"
                 className="gap-2 text-foreground hover:bg-muted"
@@ -128,7 +143,7 @@ export default function FormDetailView() {
           }
         />
 
-        <Card className="p-6 flex flex-col h-[calc(100vh-14rem)]">
+        <Card className="p-4 sm:p-6 flex flex-col min-h-[calc(100vh-14rem)] h-auto lg:h-[calc(100vh-14rem)]">
           <div className="flex items-center gap-2 text-sm font-medium shrink-0 mb-4">
             <Database className="h-4 w-4" />
             Form Details

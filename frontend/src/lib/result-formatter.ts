@@ -3,6 +3,16 @@
  * Converts raw JSON and markdown code blocks into clean, human-readable markdown.
  */
 
+export function stripOuterCodeBlock(str: string): string {
+  if (!str || typeof str !== "string") return "";
+  const trimmed = str.trim();
+  const match = trimmed.match(/^```(?:markdown|md|text|json)?\s*\n?([\s\S]*?)\n?```\s*$/i);
+  if (match) {
+    return match[1].trim();
+  }
+  return trimmed;
+}
+
 export function formatKey(key: string): string {
   return key
     .replace(/([a-z])([A-Z])/g, "$1 $2")
@@ -93,6 +103,19 @@ export function jsonToReadableMarkdown(data: any, depth = 0): string {
     } else if (typeof value === "object") {
       lines.push(`### ${formattedTitle}`);
       lines.push(jsonToReadableMarkdown(value, depth + 1));
+    } else if (typeof value === "string") {
+      const cleanedValue = stripOuterCodeBlock(value);
+      if (
+        cleanedValue.includes("\n") ||
+        cleanedValue.startsWith("#") ||
+        cleanedValue.startsWith("- ") ||
+        cleanedValue.startsWith("* ") ||
+        cleanedValue.startsWith("> ")
+      ) {
+        lines.push(`### ${formattedTitle}\n\n${cleanedValue}`);
+      } else {
+        lines.push(`**${formattedTitle}:** ${cleanedValue}`);
+      }
     } else {
       lines.push(`**${formattedTitle}:** ${value}`);
     }
@@ -217,14 +240,7 @@ export function processLlmResult(text: string): ProcessedLlmResult {
   let foundMetadata: ImageOutputMetadata | null = null;
 
   // 1. Direct raw JSON check (with or without markdown code fences ```json ... ```)
-  let strippedFences = trimmed;
-  if (/^```(?:json)?\s*/i.test(strippedFences)) {
-    strippedFences = strippedFences.replace(/^```(?:json)?\s*/i, "");
-    if (/```\s*$/i.test(strippedFences)) {
-      strippedFences = strippedFences.replace(/```\s*$/i, "");
-    }
-    strippedFences = strippedFences.trim();
-  }
+  let strippedFences = stripOuterCodeBlock(trimmed);
 
   if (
     (strippedFences.startsWith("{") && strippedFences.endsWith("}")) ||
@@ -234,6 +250,20 @@ export function processLlmResult(text: string): ProcessedLlmResult {
       const parsed = JSON.parse(strippedFences);
       if (typeof parsed === "object" && parsed !== null) {
         foundMetadata = extractImageMetadata(parsed);
+
+        // If parsed JSON is an object with a single string property (e.g. { tidbits: "# ..." }), unpack it directly for rich markdown
+        const keys = Object.keys(parsed);
+        if (keys.length === 1 && typeof parsed[keys[0]] === "string") {
+          const singleValue = stripOuterCodeBlock(parsed[keys[0]].trim());
+          return {
+            hasJson: true,
+            readableMarkdown: singleValue,
+            rawJsonText: JSON.stringify(parsed, null, 2),
+            imageUrl: foundMetadata?.url || null,
+            imageMetadata: foundMetadata,
+            originalText: text,
+          };
+        }
       }
       return {
         hasJson: true,
@@ -347,10 +377,10 @@ export function processLlmResult(text: string): ProcessedLlmResult {
     };
   }
 
-  // Standard plain text / markdown
+  // Standard plain text / markdown (strip outer markdown/text code fences)
   return {
     hasJson: false,
-    readableMarkdown: text,
+    readableMarkdown: stripOuterCodeBlock(text),
     imageUrl: null,
     imageMetadata: null,
     originalText: text,

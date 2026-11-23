@@ -29,6 +29,24 @@ class Organization(db.Model, UUIDMixin, TimestampMixin):
         default=True,
     )
 
+    auto_next_step = db.Column(
+        db.Boolean,
+        nullable=False,
+        default=False,
+    )
+
+    allow_user_create_flows = db.Column(
+        db.Boolean,
+        nullable=False,
+        default=False,
+    )
+
+    allow_user_share_flows = db.Column(
+        db.Boolean,
+        nullable=False,
+        default=False,
+    )
+
     users = db.relationship(
         "User",
         back_populates="organization",

@@ -77,9 +77,11 @@ export function Card({ className = "", children, ...props }: { className?: strin
 export function Badge({
   children,
   tone = "neutral",
+  className = "",
 }: {
   children: ReactNode;
   tone?: "neutral" | "muted" | "outline";
+  className?: string;
 }) {
   const tones = {
     neutral: "bg-foreground text-background",
@@ -87,7 +89,7 @@ export function Badge({
     outline: "border border-border text-muted-foreground",
   } as const;
   return (
-    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${tones[tone]}`}>
+    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${tones[tone]} ${className}`}>
       {children}
     </span>
   );

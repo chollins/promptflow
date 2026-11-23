@@ -39,6 +39,18 @@ class Flow(db.Model, UUIDMixin, TimestampMixin):
         default=True,
     )
 
+    organization_id = db.Column(
+        db.String(36),
+        db.ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=True,
+    )
+
+    auto_next_step = db.Column(
+        db.Boolean,
+        nullable=True,
+        default=None,
+    )
+
     model_configuration = db.Column(
         db.JSON,
         nullable=True,

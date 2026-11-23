@@ -38,6 +38,12 @@ class Form(db.Model, UUIDMixin, TimestampMixin):
         default=True,
     )
 
+    organization_id = db.Column(
+        db.String(36),
+        db.ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=True,
+    )
+
 
     flow_steps = db.relationship(
         "FlowFormStep",

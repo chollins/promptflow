@@ -10,6 +10,7 @@ import {
   SlidersHorizontal,
   Tag,
   Pencil,
+  Trash2,
   X,
   Check,
   Loader2,
@@ -32,14 +33,23 @@ export type AIModelItem = {
   custom_label?: string | null;
 };
 
+type AuthUser = {
+  id: string;
+  name: string;
+  email: string;
+  role: string | null;
+  organization_id: string;
+};
+
 export default function MemberModelsPage() {
   const [models, setModels] = useState<AIModelItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [userRole, setUserRole] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
 
   // Filters
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "labeled" | "unlabeled">("all");
   const [favoritesOnly, setFavoritesOnly] = useState<boolean>(false);
 
   // Label editing modal state (for org admins)
@@ -48,6 +58,8 @@ export default function MemberModelsPage() {
   const [savingLabel, setSavingLabel] = useState(false);
 
   const { favoriteIds, isFavorite, toggleFavorite } = useFavoriteModels();
+
+  const isOrgAdmin = currentUser?.role === "admin" && Boolean(currentUser?.organization_id);
 
   const fetchActiveModels = () => {
     setLoading(true);
@@ -68,7 +80,7 @@ export default function MemberModelsPage() {
   useEffect(() => {
     fetchActiveModels();
     authService.getMe().then((me) => {
-      setUserRole(me?.role || null);
+      setCurrentUser(me);
     }).catch(() => {});
   }, []);
 
@@ -77,9 +89,9 @@ export default function MemberModelsPage() {
     setLabelInput(model.custom_label || "");
   };
 
-  const handleSaveModalLabel = async () => {
+  const handleSaveModalLabel = async (overrideLabel?: string) => {
     if (!editingModel) return;
-    const cleanLabel = labelInput.trim();
+    const cleanLabel = (overrideLabel !== undefined ? overrideLabel : labelInput).trim();
     setSavingLabel(true);
     try {
       if (!cleanLabel) {
@@ -111,6 +123,21 @@ export default function MemberModelsPage() {
     }
   };
 
+  const handleQuickRemoveLabel = async (model: AIModelItem) => {
+    try {
+      await apiDelete(`/organization/model-labels/${model.id}`);
+      setModels((prev) =>
+        prev.map((m) =>
+          m.id === model.id ? { ...m, custom_label: null } : m
+        )
+      );
+      toast.success(`Removed nickname for ${model.name}`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.error(`Failed to remove nickname: ${msg}`);
+    }
+  };
+
   const handleToggleFavorite = (model: AIModelItem) => {
     const isNowFav = toggleFavorite(model.id);
     if (isNowFav) {
@@ -126,6 +153,14 @@ export default function MemberModelsPage() {
       .filter((m) => {
         // Category filter
         if (categoryFilter !== "all" && m.category !== categoryFilter) {
+          return false;
+        }
+
+        // Status filter (labeled / unlabeled)
+        if (statusFilter === "labeled" && !m.custom_label) {
+          return false;
+        }
+        if (statusFilter === "unlabeled" && m.custom_label) {
           return false;
         }
 
@@ -163,15 +198,15 @@ export default function MemberModelsPage() {
         const bDisplayName = b.custom_label || b.name;
         return aDisplayName.localeCompare(bDisplayName);
       });
-  }, [models, categoryFilter, favoritesOnly, searchQuery, favoriteIds]);
-
+  }, [models, categoryFilter, statusFilter, favoritesOnly, searchQuery, favoriteIds]);
 
   const stats = useMemo(() => {
     const total = models.length;
     const favCount = models.filter((m) => isFavorite(m.id)).length;
     const textCount = models.filter((m) => m.category === "text").length;
     const imageCount = models.filter((m) => m.category === "image").length;
-    return { total, favCount, textCount, imageCount };
+    const labeledCount = models.filter((m) => Boolean(m.custom_label)).length;
+    return { total, favCount, textCount, imageCount, labeledCount };
   }, [models, favoriteIds]);
 
   const getCategoryBadge = (category: string) => {
@@ -219,11 +254,22 @@ export default function MemberModelsPage() {
       <div className="space-y-6">
         <PageHeader
           title="AI Models"
-          description="Browse available active AI models. Mark your favorites to prioritize them in flow and form runners."
+          description="Browse available active AI models and manage organization nicknames. Mark favorites to prioritize models across workflows."
         />
 
+        {/* Org admin privilege banner */}
+        {isOrgAdmin && (
+          <div className="flex items-center gap-3 p-3.5 rounded-xl border border-emerald-500/20 bg-emerald-500/5 text-xs text-foreground">
+            <Tag className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <div className="flex-1">
+              <span className="font-semibold text-emerald-700 dark:text-emerald-400">Org Admin Privileges:</span>{" "}
+              You can assign and edit custom nicknames for AI models. All members in your organization will see these labels when selecting models.
+            </div>
+          </div>
+        )}
+
         {/* Stats cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
           <Card className="p-4 flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-muted border border-border text-foreground flex items-center justify-center shrink-0">
               <Cpu className="h-5 w-5" />
@@ -231,6 +277,16 @@ export default function MemberModelsPage() {
             <div>
               <div className="text-2xl font-bold">{stats.total}</div>
               <div className="text-xs text-muted-foreground">Active Models</div>
+            </div>
+          </Card>
+
+          <Card className="p-4 flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+              <Tag className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="text-2xl font-bold">{stats.labeledCount}</div>
+              <div className="text-xs text-muted-foreground">Org Nicknames</div>
             </div>
           </Card>
 
@@ -272,7 +328,7 @@ export default function MemberModelsPage() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search models by name, provider, or description..."
+                placeholder="Search models by name, nickname, provider, or ID..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9 h-9"
@@ -289,11 +345,28 @@ export default function MemberModelsPage() {
                     type="button"
                     onClick={() => setCategoryFilter(cat)}
                     className={`px-3 py-1 rounded-md font-medium capitalize transition-colors ${categoryFilter === cat
-                      ? "bg-background text-foreground shadow-xs"
+                      ? "bg-background text-foreground shadow-xs font-semibold"
                       : "text-muted-foreground hover:text-foreground"
                       }`}
                   >
                     {cat}
+                  </button>
+                ))}
+              </div>
+
+              {/* Status Pills (All / Nicknamed / Unlabeled) */}
+              <div className="inline-flex rounded-lg border border-border bg-muted/30 p-0.5 text-xs">
+                {(["all", "labeled", "unlabeled"] as const).map((st) => (
+                  <button
+                    key={st}
+                    type="button"
+                    onClick={() => setStatusFilter(st)}
+                    className={`px-3 py-1 rounded-md font-medium capitalize transition-colors ${statusFilter === st
+                      ? "bg-background text-foreground shadow-xs font-semibold"
+                      : "text-muted-foreground hover:text-foreground"
+                      }`}
+                  >
+                    {st === "all" ? "All" : st === "labeled" ? "Nicknamed" : "Unlabeled"}
                   </button>
                 ))}
               </div>
@@ -329,14 +402,15 @@ export default function MemberModelsPage() {
               <SlidersHorizontal className="h-8 w-8 text-muted-foreground/40 mx-auto" />
               <div className="text-base font-semibold">No models match your filters</div>
               <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-                Try adjusting your search query or removing the category/favorites filter.
+                Try adjusting your search query or removing the category, status, or favorites filter.
               </p>
-              {(searchQuery || categoryFilter !== "all" || favoritesOnly) && (
+              {(searchQuery || categoryFilter !== "all" || statusFilter !== "all" || favoritesOnly) && (
                 <button
                   type="button"
                   onClick={() => {
                     setSearchQuery("");
                     setCategoryFilter("all");
+                    setStatusFilter("all");
                     setFavoritesOnly(false);
                   }}
                   className="text-xs text-primary underline hover:opacity-80"
@@ -353,7 +427,7 @@ export default function MemberModelsPage() {
                     <th className="py-3 px-4 min-w-[200px]">Model</th>
                     <th className="py-3 px-4 w-28">Category</th>
                     <th className="py-3 px-4">Description</th>
-                    <th className="py-3 px-4 w-44 text-right">Action</th>
+                    <th className="py-3 px-4 w-52 text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -418,18 +492,30 @@ export default function MemberModelsPage() {
 
                         {/* Action column with Add to Favorites button and optional Edit Label button */}
                         <td className="py-3 px-4 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            {userRole === "admin" && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleOpenEditModal(model)}
-                                title="Set/edit organization nickname"
-                                className="gap-1 text-xs h-8 px-2.5 border border-dashed border-border text-muted-foreground hover:text-foreground"
-                              >
-                                <Pencil className="h-3 w-3" />
-                                <span>{model.custom_label ? "Edit Label" : "Set Label"}</span>
-                              </Button>
+                          <div className="flex items-center justify-end gap-1.5">
+                            {isOrgAdmin && (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleOpenEditModal(model)}
+                                  title="Set/edit organization nickname"
+                                  className="gap-1 text-xs h-8 px-2 border border-dashed border-border text-muted-foreground hover:text-foreground"
+                                >
+                                  <Pencil className="h-3 w-3" />
+                                  <span>{model.custom_label ? "Edit" : "Nickname"}</span>
+                                </Button>
+                                {model.custom_label && (
+                                  <button
+                                    type="button"
+                                    onClick={() => void handleQuickRemoveLabel(model)}
+                                    title="Remove nickname"
+                                    className="p-1.5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 cursor-pointer transition-colors"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                )}
+                              </>
                             )}
                             <Button
                               variant={favorited ? "secondary" : "outline"}
@@ -444,7 +530,7 @@ export default function MemberModelsPage() {
                                 className={`h-3.5 w-3.5 ${favorited ? "fill-background text-background" : "text-muted-foreground"
                                   }`}
                               />
-                              <span>{favorited ? "Favorited" : "Add to favorites"}</span>
+                              <span>{favorited ? "Favorited" : "Favorite"}</span>
                             </Button>
                           </div>
                         </td>
@@ -516,14 +602,11 @@ export default function MemberModelsPage() {
                     variant="ghost"
                     size="sm"
                     disabled={savingLabel}
-                    onClick={() => {
-                      setLabelInput("");
-                      void handleSaveModalLabel();
-                    }}
+                    onClick={() => void handleSaveModalLabel("")}
                     className="text-destructive hover:bg-destructive/10 text-xs gap-1"
                   >
-                    <X className="h-3.5 w-3.5" />
-                    Remove Label
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Remove Nickname
                   </Button>
                 ) : <div />}
 
@@ -545,7 +628,7 @@ export default function MemberModelsPage() {
                     className="text-xs gap-1.5"
                   >
                     {savingLabel ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-                    Save Label
+                    Save Nickname
                   </Button>
                 </div>
               </div>

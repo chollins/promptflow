@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { ChevronLeft, ChevronRight, RotateCcw, Zap, BookmarkCheck, Pencil, ShieldAlert } from "lucide-react";
+import { ChevronLeft, ChevronRight, RotateCcw, Zap, BookmarkCheck, Pencil, ShieldAlert, Check, ChevronDown, ChevronUp } from "lucide-react";
 import { FormattedResultView } from "@/components/formatted-result-view";
 import { toast } from "sonner";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -57,6 +57,8 @@ export type RuntimeFlow = {
   description: string;
   runtime: { mode: "guided" | "automatic"; default_review_required: boolean };
   steps: RuntimeStep[];
+  auto_next_step?: boolean;
+  organization_id?: string | null;
 };
 
 type FlowExecuteStep = {
@@ -221,8 +223,22 @@ export function FlowRunner({ flowId, onDebugSnapshot }: FlowRunnerProps) {
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeAccordion, setActiveAccordion] = useState<string>("step-0");
+  const [activeAccordion, setActiveAccordion] = useState<string>("");
   const [isEditingStepResult, setIsEditingStepResult] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [isFlowCompleted, setIsFlowCompleted] = useState(false);
+  const [orgSettings, setOrgSettings] = useState<{ auto_next_step?: boolean } | null>(null);
+
+  // Fetch organization settings to know if auto_next_step is enabled org-wide
+  useEffect(() => {
+    apiGet<{ organization_settings?: { auto_next_step?: boolean } }>("/auth/me")
+      .then((res) => {
+        if (res?.organization_settings) {
+          setOrgSettings(res.organization_settings);
+        }
+      })
+      .catch(() => { });
+  }, []);
 
   const prioritizedModels = useMemo(() => {
     return sortModelsWithFavorites(modelsList, favoriteIds);
@@ -275,7 +291,9 @@ export function FlowRunner({ flowId, onDebugSnapshot }: FlowRunnerProps) {
         setStepResult("");
         setStepDebug(null);
         setDiagnosticCapabilities([]);
-        setActiveAccordion("step-0");
+        setActiveAccordion("");
+        setDetailsOpen(false);
+        setIsFlowCompleted(false);
       })
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false));
@@ -456,19 +474,34 @@ export function FlowRunner({ flowId, onDebugSnapshot }: FlowRunnerProps) {
       });
       const executed = response.steps[0];
 
-      // DEBUG: log the raw response context
-      // console.log("[FlowRunner] runCurrentStep — response.context:", JSON.stringify(response.context));
-      // console.log("[FlowRunner] runCurrentStep — response.context.steps:", response.context.steps);
+      let updatedContext = response.context;
+      if (currentStep.output?.save_as) {
+        updatedContext = { ...updatedContext, [currentStep.output.save_as]: executed.result };
+      }
 
-      setContext(response.context);
+      setContext(updatedContext);
       setStepPrompt(executed.prompt);
       setStepResult(executed.result);
       setStepDebug(response.debug ?? null);
       setDiagnosticCapabilities(response.diagnostic_capabilities ?? []);
       setStepResults((prev) => [...prev.slice(0, currentStepIndex), executed]);
-      setActiveAccordion(`step-${currentStepIndex}`);
       setIsEditingStepResult(false);
+      setDetailsOpen(false);
       logActivity("executed flow step", `${flow.name} - ${currentStep.name}`);
+
+      const sorted = flow.steps.slice().sort((a, b) => a.sequence - b.sequence);
+      const isLast = currentStepIndex === sorted.length - 1;
+      const effectiveAutoNext = flow.auto_next_step ?? orgSettings?.auto_next_step ?? false;
+
+      if (isLast) {
+        setIsFlowCompleted(true);
+      } else if (effectiveAutoNext) {
+        const nextIndex = currentStepIndex + 1;
+        setCurrentStepIndex(nextIndex);
+        setStepPrompt("");
+        setStepResult("");
+        setDetailsOpen(false);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to execute flow step");
     } finally {
@@ -479,37 +512,49 @@ export function FlowRunner({ flowId, onDebugSnapshot }: FlowRunnerProps) {
   function continueToNext() {
     if (!currentStep) return;
 
-    // DEBUG: log context before transition
-    // console.log("[FlowRunner] continueToNext — context BEFORE:", JSON.stringify(context));
-    // console.log("[FlowRunner] continueToNext — context.steps BEFORE:", context.steps);
-
     setContext((latestContext) => {
-      // console.log("[FlowRunner] continueToNext — latestContext inside updater:", JSON.stringify(latestContext));
-      // console.log("[FlowRunner] continueToNext — latestContext.steps:", latestContext.steps);
       if (currentStep.output?.save_as) {
         return { ...latestContext, [currentStep.output.save_as]: stepResult };
       }
       return latestContext;
     });
     const nextIndex = currentStepIndex + 1;
-    if (flow && nextIndex < flow.steps.length) {
-      setCurrentStepIndex(nextIndex);
-      setStepPrompt("");
-      setStepResult("");
-      setActiveAccordion(`step-${nextIndex}`);
+    if (flow) {
+      const sorted = flow.steps.slice().sort((a, b) => a.sequence - b.sequence);
+      if (nextIndex < sorted.length) {
+        setCurrentStepIndex(nextIndex);
+        setStepPrompt("");
+        setStepResult("");
+        setDetailsOpen(false);
+      } else {
+        setIsFlowCompleted(true);
+      }
     }
   }
 
   function goToPrevious() {
+    if (!flow) return;
+    const sorted = flow.steps.slice().sort((a, b) => a.sequence - b.sequence);
+    if (isFlowCompleted) {
+      setIsFlowCompleted(false);
+      const lastIdx = sorted.length - 1;
+      setCurrentStepIndex(lastIdx);
+      const lastRes = stepResults[lastIdx];
+      setStepPrompt(lastRes?.prompt ?? "");
+      setStepResult(lastRes?.result ?? "");
+      setStepDebug(null);
+      setDetailsOpen(true);
+      setError(null);
+      return;
+    }
     if (currentStepIndex <= 0) return;
     const prevIndex = currentStepIndex - 1;
     setCurrentStepIndex(prevIndex);
-    // Restore the prompt/result for that step if we have it
     const prevResult = stepResults[prevIndex];
     setStepPrompt(prevResult?.prompt ?? "");
     setStepResult(prevResult?.result ?? "");
     setStepDebug(null);
-    setActiveAccordion(`step-${prevIndex}`);
+    setDetailsOpen(true);
     setError(null);
   }
 
@@ -553,7 +598,11 @@ export function FlowRunner({ flowId, onDebugSnapshot }: FlowRunnerProps) {
   const isLastStep = currentStepIndex === sortedSteps.length - 1;
   const isFirstStep = currentStepIndex === 0;
   const isExecuted = !!stepResult;
-  const progress = flow.steps.length === 0 ? 0 : ((currentStepIndex + 1) / flow.steps.length) * 100;
+  const autoNextStep = flow.auto_next_step ?? orgSettings?.auto_next_step ?? false;
+  const totalStepCount = sortedSteps.length + 1;
+  const progress = isFlowCompleted
+    ? 100
+    : ((currentStepIndex + (isExecuted ? 0.75 : 0)) / totalStepCount) * 100;
 
   // Check if all required rendered fields have a value
   const hasRequiredValues = renderedFields
@@ -565,6 +614,7 @@ export function FlowRunner({ flowId, onDebugSnapshot }: FlowRunnerProps) {
       return val !== undefined && val !== "" && val !== "Loading options...";
     });
 
+  const finalOutputText = stepResult || (stepResults.length > 0 ? stepResults[stepResults.length - 1]?.result : "");
 
   return (
     <div className="space-y-5">
@@ -576,313 +626,435 @@ export function FlowRunner({ flowId, onDebugSnapshot }: FlowRunnerProps) {
             {flow.description && <p className="mt-1 text-sm text-muted-foreground">{flow.description}</p>}
           </div>
           <Badge tone="neutral">
-            {currentStepIndex + 1} / {flow.steps.length}
+            {isFlowCompleted ? totalStepCount : currentStepIndex + 1} / {totalStepCount}
           </Badge>
         </div>
         <div className="mt-4 space-y-1.5">
           <Progress value={progress} />
           <div className="flex justify-between text-xs text-muted-foreground">
-            <span>{currentStep.name}</span>
-            {/* <span>{Math.round(progress)}% complete</span> */}
+            <span>{isFlowCompleted ? "Flow Complete" : currentStep.name}</span>
+            <span>{Math.round(progress)}% complete</span>
           </div>
         </div>
         {/* Step pills */}
         <div className="mt-4 flex gap-2 flex-wrap">
-          {sortedSteps.map((step, index) => (
-            <div
-              key={step.id}
-              className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium border transition-colors ${index === currentStepIndex
-                ? "bg-foreground text-background border-foreground"
-                : index < currentStepIndex
-                  ? "bg-muted text-muted-foreground border-border"
-                  : "text-muted-foreground border-border"
-                }`}
-            >
-              <span
-                className={`h-1.5 w-1.5 rounded-full ${index < currentStepIndex
-                  ? "bg-green-500"
-                  : index === currentStepIndex
-                    ? "bg-background"
-                    : "bg-muted-foreground/30"
+          {sortedSteps.map((step, index) => {
+            const isDone = isFlowCompleted || index < currentStepIndex || (index === currentStepIndex && isExecuted);
+            const isCurrent = !isFlowCompleted && index === currentStepIndex;
+            return (
+              <div
+                key={step.id}
+                className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium border transition-colors ${isCurrent
+                  ? "bg-foreground text-background border-foreground"
+                  : isDone
+                    ? "bg-muted text-muted-foreground border-border"
+                    : "text-muted-foreground border-border"
                   }`}
-              />
-              {step.name}
-            </div>
-          ))}
-        </div>
-      </Card>
-
-      {/* Main step card */}
-      <Card className="p-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Step {currentStepIndex + 1}</div>
-            <div className="text-xl font-semibold">{currentStep.name}</div>
-          </div>
-          {isExecuted && (
-            <Badge tone="neutral">
-              {isLastStep ? "Completed" : "Executed"}
-            </Badge>
-          )}
-        </div>
-
-        {/* Fields */}
-        <div className="grid grid-cols-1 gap-5">
-          {renderedFields.map((field) => (
-            <FieldEditor
-              key={field.id}
-              field={field}
-              value={values[field.id] ?? initialValue(field)}
-              onChange={(value) => setValues((prev) => ({ ...prev, [field.id]: value }))}
-              radioGroupPrefix={`${flowId}-${currentStep.id}`}
-            />
-          ))}
-        </div>
-
-        {/* Error */}
-        {error && (
-          <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-            {error}
-          </div>
-        )}
-
-        {stepPrompt && (
-          <details className="group">
-            <summary className="cursor-pointer text-xs uppercase tracking-wide text-muted-foreground hover:text-foreground select-none">
-              Rendered prompt
-            </summary>
-            <div className="mt-2 rounded-lg border border-border bg-muted/30 p-4">
-              <pre className="whitespace-pre-wrap text-sm">{stepPrompt}</pre>
-            </div>
-          </details>
-        )}
-
-        {/* Result section */}
-        {isExecuted && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="text-xs uppercase tracking-wide text-muted-foreground">
-                  {isLastStep ? "Final Output" : "Result"}
-                </div>
-                {isLastStep && <span className="text-xs text-green-600 font-medium">✓ Flow complete</span>}
-              </div>
-              {!isLastStep && (
-                <button
-                  type="button"
-                  onClick={() => setIsEditingStepResult((prev) => !prev)}
-                  className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1.5 transition-colors"
-                >
-                  <Pencil className="h-3 w-3" />
-                  <span>{isEditingStepResult ? "View Formatted" : "Edit Raw Text"}</span>
-                </button>
-              )}
-            </div>
-
-            {isEditingStepResult ? (
-              <Textarea
-                value={stepResult}
-                onChange={(e) => setStepResult(e.target.value)}
-                rows={8}
-                className="font-mono text-sm"
-              />
-            ) : (
-              <div className="rounded-xl border border-border bg-muted/20 p-5 overflow-hidden">
-                <FormattedResultView content={stepResult} />
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Action buttons */}
-        {/* Action buttons */}
-        <div className="flex items-center justify-between gap-3 border-t border-border pt-4">
-          {/* Previous */}
-          <Button
-            variant="ghost"
-            onClick={goToPrevious}
-            disabled={isFirstStep || running}
-            className="gap-2"
-          >
-            <ChevronLeft className="h-4 w-4" />
-            Previous
-          </Button>
-
-          {/* Execute + Next */}
-          <div className="flex items-center gap-2">
-            <Select
-              value={selectedModel}
-              onValueChange={(val) => {
-                setSelectedModel(val);
-                setHasUserSelectedModel(true);
-              }}
-            >
-              <SelectTrigger className="min-w-[190px] max-w-[320px] h-10 text-xs [&>span]:flex [&>span]:items-center [&>span]:gap-1.5 [&>span]:truncate">
-                <SelectValue placeholder="Model">
-                  {(() => {
-                    const selectedObj = modelsList.find((m) => m.id === selectedModel);
-                    if (!selectedObj) return undefined;
-                    const isFav = favoriteIds.includes(selectedModel);
-                    return (
-                      <span className="flex items-center gap-1.5 truncate">
-                        {isFav && <span className="text-amber-500 font-bold shrink-0">★</span>}
-                        {selectedObj.custom_label ? (
-                          <span className="flex items-center gap-1.5 truncate">
-                            <span className="font-semibold text-foreground truncate">
-                              {selectedObj.custom_label}
-                            </span>
-                            <span className="text-muted-foreground text-[10px] shrink-0 font-normal">
-                              ({selectedObj.name})
-                            </span>
-                          </span>
-                        ) : (
-                          <span className="font-medium text-foreground truncate">{selectedObj.name}</span>
-                        )}
-                      </span>
-                    );
-                  })()}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent className="max-h-60 overflow-y-auto">
-                {prioritizedModels.map((m) => {
-                  const isFav = favoriteIds.includes(m.id);
-                  const displayTitle = m.custom_label ? `${m.custom_label} (${m.name})` : m.name;
-                  return (
-                    <SelectItem
-                      key={m.id}
-                      value={m.id}
-                      textValue={displayTitle}
-                    >
-                      <div className="flex items-center justify-between gap-2 py-0.5 w-full">
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          {isFav && <span className="text-amber-500 font-bold shrink-0">★</span>}
-                          {m.custom_label ? (
-                            <span className="flex items-center gap-1.5 min-w-0">
-                              <span className="font-semibold text-foreground truncate">{m.custom_label}</span>
-                              <span className="text-muted-foreground text-[10px] shrink-0">({m.name})</span>
-                              <span className="px-1.5 py-0.2 rounded text-[9px] bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 font-medium shrink-0">
-                                Org Label
-                              </span>
-                            </span>
-                          ) : (
-                            <span className="truncate">{m.name}</span>
-                          )}
-                        </div>
-                        <span className="text-muted-foreground text-[10px] font-mono uppercase shrink-0 pl-1">
-                          [{m.provider}]
-                        </span>
-                      </div>
-                    </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
-
-            <Button
-              variant="primary"
-              onClick={() => void runCurrentStep()}
-              disabled={running || !hasRequiredValues}
-              className="gap-2 bg-black text-white hover:bg-black/90"
-            >
-              {running ? (
-                <>
-                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                  Running...
-                </>
-              ) : isExecuted ? (
-                <>
-                  <RotateCcw className="h-4 w-4" />
-                  Execute again
-                </>
-              ) : (
-                <>
-                  <Zap className="h-4 w-4" />
-                  Execute
-                </>
-              )}
-            </Button>
-
-            {!isLastStep && (
-              <Button
-                variant="outline"
-                onClick={continueToNext}
-                disabled={!isExecuted || running}
-                className="gap-2"
               >
-                Next
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            )}
+                <span
+                  className={`h-1.5 w-1.5 rounded-full ${isDone
+                    ? "bg-green-500"
+                    : isCurrent
+                      ? "bg-background"
+                      : "bg-muted-foreground/30"
+                    }`}
+                />
+                {step.name}
+              </div>
+            );
+          })}
+          {/* Synthetic Flow Complete pill */}
+          <div
+            className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium border transition-colors ${isFlowCompleted
+              ? "bg-green-600 text-white border-green-600 shadow-xs"
+              : "text-muted-foreground border-border"
+              }`}
+          >
+            <Check className="h-3 w-3" />
+            Flow Complete
           </div>
         </div>
       </Card>
 
-      {/* Previous step outputs accordion */}
-      {stepResults.length > 0 && (
-        <Card className="p-5">
-          <div className="text-sm font-medium mb-3">Step history</div>
-          <Accordion type="single" collapsible value={activeAccordion} onValueChange={setActiveAccordion}>
-            {stepResults.map((step, index) => (
-              <AccordionItem key={step.id} value={`step-${index}`}>
-                <AccordionTrigger>
-                  <div className="flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-green-500" />
-                    <span>{step.name}</span>
+      {/* View Switch: Flow Complete View vs Step Execution View */}
+      {isFlowCompleted ? (
+        <Card className="p-6 space-y-6 border-emerald-500/20 bg-emerald-500/5">
+          <div className="flex items-center justify-between border-b border-border/60 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-600 text-white shadow-xs">
+                <Check className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold text-foreground">Flow Complete</h2>
+                <p className="text-xs text-muted-foreground">
+                  All steps in &ldquo;{flow.name}&rdquo; have been executed successfully.
+                </p>
+              </div>
+            </div>
+            <Badge
+              tone="outline"
+              className="bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border-emerald-500/20"
+            >
+              Completed
+            </Badge>
+          </div>
+
+          {/* Final Generated Result */}
+          <div className="space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <span className="text-xs uppercase tracking-wide font-semibold text-foreground">
+                Final Generated Result
+              </span>
+              <div className="flex items-center gap-2 flex-wrap">
+                <ExportDropdown title={flow.name} text={finalOutputText} />
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="gap-1.5 text-xs"
+                  onClick={async () => {
+                    try {
+                      await apiPost("/saved-results", {
+                        source_type: "flow",
+                        source_id: flow.id,
+                        source_name: flow.name,
+                        input_summary: { flow_id: flow.id, completed_at: new Date().toISOString() },
+                        output_text: finalOutputText,
+                      });
+                      toast.success("Flow result saved to Saved Results!");
+                    } catch (e: any) {
+                      toast.error(e.message || "Failed to save result");
+                    }
+                  }}
+                >
+                  <BookmarkCheck className="h-3.5 w-3.5" />
+                  Save Result
+                </Button>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-border bg-background p-6 shadow-xs overflow-hidden">
+              <FormattedResultView content={finalOutputText} />
+            </div>
+          </div>
+
+              {/* Actions: Previous, Restart Flow */}
+              <div className="flex items-center justify-between border-t border-border pt-4">
+                <Button
+                  variant="ghost"
+                  onClick={goToPrevious}
+                  className="gap-2"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Previous Step
+                </Button>
+
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setIsFlowCompleted(false);
+                    setCurrentStepIndex(0);
+                    setValues({});
+                    setContext({});
+                    setStepResults([]);
+                    setStepPrompt("");
+                    setStepResult("");
+                    setDetailsOpen(false);
+                    setActiveAccordion("");
+                  }}
+                  className="gap-2"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  Run Again
+                </Button>
+              </div>
+            </Card>
+            ) : (
+            /* Main step card */
+            <Card className="p-6 space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Step {currentStepIndex + 1}</div>
+                  <div className="text-xl font-semibold">{currentStep.name}</div>
+                </div>
+                {isExecuted && (
+                  <Badge tone="neutral">
+                    {isLastStep ? "Completed" : "Executed"}
+                  </Badge>
+                )}
+              </div>
+
+              {/* Fields */}
+              <div className="grid grid-cols-1 gap-5">
+                {renderedFields.map((field) => (
+                  <FieldEditor
+                    key={field.id}
+                    field={field}
+                    value={values[field.id] ?? initialValue(field)}
+                    onChange={(value) => setValues((prev) => ({ ...prev, [field.id]: value }))}
+                    radioGroupPrefix={`${flowId}-${currentStep.id}`}
+                  />
+                ))}
+              </div>
+
+              {/* Error */}
+              {error && (
+                <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                  {error}
+                </div>
+              )}
+
+              {stepPrompt && (
+                <details className="group">
+                  <summary className="cursor-pointer text-xs uppercase tracking-wide text-muted-foreground hover:text-foreground select-none">
+                    Rendered prompt
+                  </summary>
+                  <div className="mt-2 rounded-lg border border-border bg-muted/30 p-4">
+                    <pre className="whitespace-pre-wrap text-sm">{stepPrompt}</pre>
                   </div>
-                </AccordionTrigger>
-                <AccordionContent>
-                  <div className="space-y-3">
-                    {/* <details className="group">
-                      <summary className="cursor-pointer text-xs uppercase tracking-wide text-muted-foreground hover:text-foreground select-none">
-                        Prompt
-                      </summary>
-                      <pre className="mt-2 whitespace-pre-wrap text-sm bg-muted/30 rounded p-3">{step.prompt}</pre>
-                    </details> */}
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="text-xs uppercase tracking-wide text-muted-foreground">Result</div>
-                        <div className="flex items-center gap-2">
-                          <ExportDropdown title={`${flow?.name || "Flow"} - ${step.name}`} text={step.result} />
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            className="gap-1.5 text-xs"
-                            onClick={async () => {
-                              try {
-                                await apiPost("/saved-results", {
-                                  source_type: "flow",
-                                  source_id: flow?.id || flowId,
-                                  source_name: `${flow?.name || "Flow"} - ${step.name}`,
-                                  input_summary: { step_id: step.id, values },
-                                  output_text: step.result,
-                                });
-                                toast.success("Flow step result saved to Saved Results!");
-                              } catch (e: any) {
-                                toast.error(e.message || "Failed to save result");
-                              }
-                            }}
-                          >
-                            <BookmarkCheck className="h-3.5 w-3.5" />
-                            Save Result
-                          </Button>
-                        </div>
-                      </div>
-                      <div className="rounded-xl border border-border bg-muted/20 p-4 overflow-hidden">
-                        <FormattedResultView content={step.result} />
-                      </div>
+                </details>
+              )}
+
+              {/* Post-execution Details Panel (formerly Result, collapsed by default) */}
+              {isExecuted && (
+                <div className="space-y-3">
+                  <button
+                    type="button"
+                    onClick={() => setDetailsOpen((prev) => !prev)}
+                    className="flex items-center justify-between w-full py-2.5 px-3.5 rounded-lg border border-border bg-muted/40 hover:bg-muted/70 transition-colors text-left"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs uppercase tracking-wide font-semibold text-foreground">
+                        Details
+                      </span>
+                      <Badge tone="neutral" className="text-[10px] py-0 px-1.5">Executed</Badge>
                     </div>
-                    {step.output && (
-                      <div className="text-xs text-muted-foreground">
-                        Saved as <code className="font-mono">{step.output.save_as}</code> in {step.output.formats.join(", ")}
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <span>{detailsOpen ? "Hide" : "Show"} Details</span>
+                      {detailsOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                    </div>
+                  </button>
+
+                  {detailsOpen && (
+                    <div className="space-y-3 pt-1">
+                      <div className="flex items-center justify-between">
+                        <div className="text-xs text-muted-foreground">
+                          Step execution details
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setIsEditingStepResult((prev) => !prev)}
+                          className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1.5 transition-colors"
+                        >
+                          <Pencil className="h-3 w-3" />
+                          <span>{isEditingStepResult ? "View Formatted" : "Edit Raw Text"}</span>
+                        </button>
                       </div>
+
+                      {isEditingStepResult ? (
+                        <Textarea
+                          value={stepResult}
+                          onChange={(e) => setStepResult(e.target.value)}
+                          rows={8}
+                          className="font-mono text-sm"
+                        />
+                      ) : (
+                        <div className="rounded-xl border border-border bg-muted/20 p-5 overflow-hidden">
+                          <FormattedResultView content={stepResult} />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Action buttons */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-t border-border pt-4">
+                {/* Previous */}
+                <Button
+                  variant="ghost"
+                  onClick={goToPrevious}
+                  disabled={isFirstStep || running}
+                  className="gap-2 justify-center sm:justify-start"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Previous
+                </Button>
+
+                {/* Model Select + Submit Button + Next Button */}
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                  <Select
+                    value={selectedModel}
+                    onValueChange={(val) => {
+                      setSelectedModel(val);
+                      setHasUserSelectedModel(true);
+                    }}
+                  >
+                    <SelectTrigger className="w-full sm:w-auto min-w-0 sm:min-w-[190px] max-w-full sm:max-w-[320px] h-10 text-xs [&>span]:flex [&>span]:items-center [&>span]:gap-1.5 [&>span]:truncate">
+                      <SelectValue placeholder="Model">
+                        {(() => {
+                          const selectedObj = modelsList.find((m) => m.id === selectedModel);
+                          if (!selectedObj) return undefined;
+                          const isFav = favoriteIds.includes(selectedModel);
+                          return (
+                            <span className="flex items-center gap-1.5 truncate">
+                              {isFav && <span className="text-amber-500 font-bold shrink-0">★</span>}
+                              {selectedObj.custom_label ? (
+                                <span className="flex items-center gap-1.5 truncate">
+                                  <span className="font-semibold text-foreground truncate">
+                                    {selectedObj.custom_label}
+                                  </span>
+                                  <span className="text-muted-foreground text-[10px] shrink-0 font-normal">
+                                    ({selectedObj.name})
+                                  </span>
+                                </span>
+                              ) : (
+                                <span className="font-medium text-foreground truncate">{selectedObj.name}</span>
+                              )}
+                            </span>
+                          );
+                        })()}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent className="max-h-60 overflow-y-auto">
+                      {prioritizedModels.map((m) => {
+                        const isFav = favoriteIds.includes(m.id);
+                        const displayTitle = m.custom_label ? `${m.custom_label} (${m.name})` : m.name;
+                        return (
+                          <SelectItem
+                            key={m.id}
+                            value={m.id}
+                            textValue={displayTitle}
+                          >
+                            <div className="flex items-center justify-between gap-2 py-0.5 w-full">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                {isFav && <span className="text-amber-500 font-bold shrink-0">★</span>}
+                                {m.custom_label ? (
+                                  <span className="flex items-center gap-1.5 min-w-0">
+                                    <span className="font-semibold text-foreground truncate">{m.custom_label}</span>
+                                    <span className="text-muted-foreground text-[10px] shrink-0">({m.name})</span>
+                                    <span className="px-1.5 py-0.2 rounded text-[9px] bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 font-medium shrink-0">
+                                      Org Label
+                                    </span>
+                                  </span>
+                                ) : (
+                                  <span className="truncate">{m.name}</span>
+                                )}
+                              </div>
+                              <span className="text-muted-foreground text-[10px] font-mono uppercase shrink-0 pl-1">
+                                [{m.provider}]
+                              </span>
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+
+                  {/* Renamed Execute to Submit */}
+                  <Button
+                    variant="primary"
+                    onClick={() => void runCurrentStep()}
+                    disabled={running || !hasRequiredValues}
+                    className="gap-2 bg-black text-white hover:bg-black/90 w-full sm:w-auto justify-center"
+                  >
+                    {running ? (
+                      <>
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                        Submitting...
+                      </>
+                    ) : isExecuted ? (
+                      <>
+                        <RotateCcw className="h-4 w-4" />
+                        Submit again
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="h-4 w-4" />
+                        Submit
+                      </>
                     )}
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
-        </Card>
+                  </Button>
+
+                  {/* Next button: ONLY rendered when not last step and auto_next_step is FALSE */}
+                  {!isLastStep && !autoNextStep && (
+                    <Button
+                      variant="outline"
+                      onClick={continueToNext}
+                      disabled={!isExecuted || running}
+                      className="gap-2 w-full sm:w-auto justify-center"
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </Card>
       )}
-    </div>
-  );
+
+                {/* Previous step outputs accordion (collapsed by default) */}
+                {stepResults.length > 0 && (
+                  <Card className="p-5">
+                    <div className="text-sm font-medium mb-3 flex items-center justify-between">
+                      <span>Step history</span>
+                      <span className="text-xs text-muted-foreground">({stepResults.length} completed)</span>
+                    </div>
+                    <Accordion type="single" collapsible value={activeAccordion} onValueChange={setActiveAccordion}>
+                      {stepResults.map((step, index) => (
+                        <AccordionItem key={step.id} value={`step-${index}`}>
+                          <AccordionTrigger>
+                            <div className="flex items-center gap-2">
+                              <span className="h-2 w-2 rounded-full bg-green-500" />
+                              <span>{step.name}</span>
+                            </div>
+                          </AccordionTrigger>
+                          <AccordionContent>
+                            <div className="space-y-3">
+                              <div>
+                                <div className="flex items-center justify-between mb-2">
+                                  <div className="text-xs uppercase tracking-wide text-muted-foreground">Details</div>
+                                  <div className="flex items-center gap-2">
+                                    <ExportDropdown title={`${flow?.name || "Flow"} - ${step.name}`} text={step.result} />
+                                    <Button
+                                      size="sm"
+                                      variant="secondary"
+                                      className="gap-1.5 text-xs"
+                                      onClick={async () => {
+                                        try {
+                                          await apiPost("/saved-results", {
+                                            source_type: "flow",
+                                            source_id: flow?.id || flowId,
+                                            source_name: `${flow?.name || "Flow"} - ${step.name}`,
+                                            input_summary: { step_id: step.id, values },
+                                            output_text: step.result,
+                                          });
+                                          toast.success("Flow step result saved to Saved Results!");
+                                        } catch (e: any) {
+                                          toast.error(e.message || "Failed to save result");
+                                        }
+                                      }}
+                                    >
+                                      <BookmarkCheck className="h-3.5 w-3.5" />
+                                      Save Result
+                                    </Button>
+                                  </div>
+                                </div>
+                                <div className="rounded-xl border border-border bg-muted/20 p-4 overflow-hidden">
+                                  <FormattedResultView content={step.result} />
+                                </div>
+                              </div>
+                              {step.output && (
+                                <div className="text-xs text-muted-foreground">
+                                  Saved as <code className="font-mono">{step.output.save_as}</code> in {step.output.formats.join(", ")}
+                                </div>
+                              )}
+                            </div>
+                          </AccordionContent>
+                        </AccordionItem>
+                      ))}
+                    </Accordion>
+                  </Card>
+                )}
+              </div>
+              );
 }

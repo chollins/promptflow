@@ -13,6 +13,9 @@ import {
   ChevronDown,
   ChevronUp,
   Loader2,
+  Pencil,
+  ShieldCheck,
+  AlertTriangle,
 } from "lucide-react";
 import { Button, Card, Input } from "@/components/ui-kit";
 import { Textarea } from "@/components/ui/textarea";
@@ -154,6 +157,18 @@ export function FormBuilder({
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [aiPrompt, setAiPrompt] = useState("");
   const [generating, setGenerating] = useState(false);
+  const [isEditingExisting, setIsEditingExisting] = useState(false);
+
+  // Local state parsed from JSON
+  const [formData, setFormData] = useState<BuilderFormData>(() => {
+    return parseJsonSafe(contentJson) ?? {
+      ...DEFAULT_FORM_DATA,
+      name: formName || "",
+      description: formDescription || "",
+    };
+  });
+
+  const isExistingForm = formData.fields.length > 0;
 
   async function handleGenerateWithAi(customPrompt?: string) {
     const promptToUse = (customPrompt || aiPrompt).trim();
@@ -161,6 +176,14 @@ export function FormBuilder({
       toast.error("Please enter a description of the form to generate.");
       return;
     }
+
+    if (formData.fields.length > 0) {
+      const confirmed = window.confirm(
+        "Warning: Generating a form with AI will completely replace your existing form fields and prompt templates.\n\nAre you sure you want to proceed and overwrite this form?"
+      );
+      if (!confirmed) return;
+    }
+
     setGenerating(true);
     try {
       const res = await apiPost<{ item: BuilderFormData }>("/forms/generate", {
@@ -179,6 +202,7 @@ export function FormBuilder({
         }
         setCollapsedFieldIds({});
         setVisualSubTab("fields");
+        setIsEditingExisting(true);
         toast.success(`Generated "${generated.name}" with ${generated.fields?.length || 0} fields!`);
       }
     } catch (err) {
@@ -210,15 +234,6 @@ export function FormBuilder({
     });
     setCollapsedFieldIds(next);
   }
-
-  // Local state parsed from JSON
-  const [formData, setFormData] = useState<BuilderFormData>(() => {
-    return parseJsonSafe(contentJson) ?? {
-      ...DEFAULT_FORM_DATA,
-      name: formName || "",
-      description: formDescription || "",
-    };
-  });
 
   // Keep outer name/description aligned with formData
   useEffect(() => {
@@ -386,7 +401,7 @@ export function FormBuilder({
           <Button
             type="button"
             size="sm"
-            variant={activeTab === "visual" ? "default" : "outline"}
+            variant={activeTab === "visual" ? "primary" : "outline"}
             onClick={() => setActiveTab("visual")}
             className="gap-1.5 h-8 text-xs font-medium"
           >
@@ -395,7 +410,7 @@ export function FormBuilder({
           <Button
             type="button"
             size="sm"
-            variant={activeTab === "json" ? "default" : "outline"}
+            variant={activeTab === "json" ? "primary" : "outline"}
             onClick={() => setActiveTab("json")}
             className="gap-1.5 h-8 text-xs font-medium"
           >
@@ -426,84 +441,198 @@ export function FormBuilder({
         </div>
       ) : (
         <div className="space-y-4">
-          {/* AI Form Generator Banner */}
-          <div className="rounded-xl border border-primary/25 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-3.5 space-y-2.5 shadow-xs">
-            <div className="flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/15 text-primary shrink-0">
-                <Sparkles className="h-4 w-4" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                  Generate Form with AI
-                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-primary/15 text-primary font-medium">
-                    Beta
-                  </span>
+          {/* If existing form and user hasn't explicitly clicked Edit Form, show confirmation banner */}
+          {isExistingForm && !isEditingExisting && (
+            <div className="rounded-xl border border-border bg-muted/40 p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary shrink-0">
+                  <ShieldCheck className="h-4 w-4" />
                 </div>
-                <p className="text-[11px] text-muted-foreground truncate">
-                  Describe what you want to create, and AI will suggest all input fields, choices, and prompt templates.
-                </p>
+                <div>
+                  <div className="text-xs font-semibold text-foreground">
+                    Existing Form ({formData.fields.length} field{formData.fields.length === 1 ? "" : "s"})
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Select &ldquo;Edit Form&rdquo; to modify fields or prompt settings. AI generation is separated below to prevent accidental overwrites.
+                  </p>
+                </div>
               </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Input
-                value={aiPrompt}
-                onChange={(e) => setAiPrompt(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    void handleGenerateWithAi();
-                  }
-                }}
-                placeholder="e.g. Customer feedback survey with rating, product category, comments, and email..."
-                className="h-8 text-xs bg-background/90 flex-1"
-                disabled={generating}
-              />
               <Button
                 type="button"
                 size="sm"
-                onClick={() => void handleGenerateWithAi()}
-                disabled={generating || !aiPrompt.trim()}
-                className="h-8 text-xs gap-1.5 shrink-0 bg-primary hover:bg-primary/90 text-primary-foreground font-medium shadow-xs px-3"
+                variant="primary"
+                onClick={() => setIsEditingExisting(true)}
+                className="gap-1.5 h-8 text-xs font-medium shrink-0 w-full sm:w-auto justify-center"
               >
-                {generating ? (
-                  <>
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="h-3.5 w-3.5" />
-                    Generate
-                  </>
-                )}
+                <Pencil className="h-3.5 w-3.5" />
+                Edit Form
               </Button>
             </div>
+          )}
 
-            {/* Quick Example Suggestions */}
-            <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-              <span className="text-[10px] text-muted-foreground font-medium shrink-0">Quick Ideas:</span>
-              {[
-                "Blog post writer with SEO keywords and tone",
-                "Customer satisfaction survey with 1-5 rating",
-                "Meeting action items & key decisions extractor",
-                "Bug report with severity, repro steps & logs",
-              ].map((example, exIdx) => (
-                <button
-                  key={exIdx}
-                  type="button"
-                  disabled={generating}
-                  onClick={() => {
-                    setAiPrompt(example);
-                    void handleGenerateWithAi(example);
+          {/* AI Form Generator: Collapsed for existing forms with explicit warning, expanded for new forms */}
+          {isExistingForm ? (
+            <details className="group rounded-xl border border-amber-500/30 bg-amber-500/5 p-3.5 space-y-2.5 transition-colors">
+              <summary className="cursor-pointer list-none flex items-center justify-between select-none">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400 shrink-0">
+                    <Sparkles className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                      Generate Form with AI
+                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-700 dark:text-amber-400 font-medium">
+                        Will Overwrite Form
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      Click to expand AI generator. Caution: Generating with AI will replace existing fields.
+                    </p>
+                  </div>
+                </div>
+                <span className="text-xs text-muted-foreground font-medium group-open:hidden">Expand</span>
+              </summary>
+
+              <div className="pt-2 border-t border-amber-500/20 space-y-2.5">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                  <Input
+                    value={aiPrompt}
+                    onChange={(e) => setAiPrompt(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        void handleGenerateWithAi();
+                      }
+                    }}
+                    placeholder="e.g. Customer feedback survey with rating, product category, comments, and email..."
+                    className="h-8 text-xs bg-background/90 flex-1"
+                    disabled={generating}
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => void handleGenerateWithAi()}
+                    disabled={generating || !aiPrompt.trim()}
+                    className="h-8 text-xs gap-1.5 shrink-0 bg-primary hover:bg-primary/90 text-primary-foreground font-medium shadow-xs px-3 w-full sm:w-auto justify-center"
+                  >
+                    {generating ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-3.5 w-3.5" />
+                        Generate &amp; Overwrite
+                      </>
+                    )}
+                  </Button>
+                </div>
+
+                {/* Quick Example Suggestions */}
+                <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                  <span className="text-[10px] text-muted-foreground font-medium shrink-0">Quick Ideas:</span>
+                  {[
+                    "Blog post writer with SEO keywords and tone",
+                    "Customer satisfaction survey with 1-5 rating",
+                    "Meeting action items & key decisions extractor",
+                    "Bug report with severity, repro steps & logs",
+                  ].map((example, exIdx) => (
+                    <button
+                      key={exIdx}
+                      type="button"
+                      disabled={generating}
+                      onClick={() => {
+                        setAiPrompt(example);
+                        void handleGenerateWithAi(example);
+                      }}
+                      className="text-[10px] px-2 py-0.5 rounded-full border border-border/70 bg-background/70 hover:bg-primary/10 hover:text-primary hover:border-primary/40 transition-colors text-muted-foreground cursor-pointer disabled:opacity-50"
+                    >
+                      + {example}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </details>
+          ) : (
+            <div className="rounded-xl border border-primary/25 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-3.5 space-y-2.5 shadow-xs">
+              <div className="flex items-center gap-2">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/15 text-primary shrink-0">
+                  <Sparkles className="h-4 w-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                    Generate Form with AI
+                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-primary/15 text-primary font-medium">
+                      Beta
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground truncate">
+                    Describe what you want to create, and AI will suggest all input fields, choices, and prompt templates.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                <Input
+                  value={aiPrompt}
+                  onChange={(e) => setAiPrompt(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      void handleGenerateWithAi();
+                    }
                   }}
-                  className="text-[10px] px-2 py-0.5 rounded-full border border-border/70 bg-background/70 hover:bg-primary/10 hover:text-primary hover:border-primary/40 transition-colors text-muted-foreground cursor-pointer disabled:opacity-50"
+                  placeholder="e.g. Customer feedback survey with rating, product category, comments, and email..."
+                  className="h-8 text-xs bg-background/90 flex-1"
+                  disabled={generating}
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => void handleGenerateWithAi()}
+                  disabled={generating || !aiPrompt.trim()}
+                  className="h-8 text-xs gap-1.5 shrink-0 bg-primary hover:bg-primary/90 text-primary-foreground font-medium shadow-xs px-3 w-full sm:w-auto justify-center"
                 >
-                  + {example}
-                </button>
-              ))}
+                  {generating ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-3.5 w-3.5" />
+                      Generate
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              {/* Quick Example Suggestions */}
+              <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                <span className="text-[10px] text-muted-foreground font-medium shrink-0">Quick Ideas:</span>
+                {[
+                  "Blog post writer with SEO keywords and tone",
+                  "Customer satisfaction survey with 1-5 rating",
+                  "Meeting action items & key decisions extractor",
+                  "Bug report with severity, repro steps & logs",
+                ].map((example, exIdx) => (
+                  <button
+                    key={exIdx}
+                    type="button"
+                    disabled={generating}
+                    onClick={() => {
+                      setAiPrompt(example);
+                      void handleGenerateWithAi(example);
+                    }}
+                    className="text-[10px] px-2 py-0.5 rounded-full border border-border/70 bg-background/70 hover:bg-primary/10 hover:text-primary hover:border-primary/40 transition-colors text-muted-foreground cursor-pointer disabled:opacity-50"
+                  >
+                    + {example}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Sub Navigation */}
           <div className="flex items-center gap-1.5 p-1 bg-muted/40 rounded-lg border border-border/50 text-xs">

@@ -378,6 +378,9 @@ def _require_flow_access(flow_id: str):
     flow = Flow.query.filter((Flow.id == flow_id) | (Flow.slug == flow_id)).first()
     if not flow:
         return None, (jsonify({"error": "Flow not found"}), 404)
+
+    if flow.organization_id and flow.organization_id == current_user.organization_id:
+        return current_user, None
         
     access = OrganizationFlowAccess.query.filter_by(
         organization_id=current_user.organization_id,
@@ -398,6 +401,9 @@ def _require_form_access(form_id: str):
     form = find_form_by_id_or_slug(form_id)
     if not form:
         return None, (jsonify({"error": "Form not found"}), 404)
+
+    if form.organization_id and form.organization_id == current_user.organization_id:
+        return current_user, None
         
     allowed_flow_ids = {
         access.flow_id for access in OrganizationFlowAccess.query.filter_by(
@@ -457,6 +463,32 @@ def auth_logout():
     return jsonify({"ok": True})
 
 
+def user_can_create_flows(user: User | None) -> bool:
+    if not user:
+        return False
+    role = user.role.name if user.role else ""
+    if role in ["admin", "superadmin"]:
+        return True
+    if user.can_create_flows is not None:
+        return user.can_create_flows
+    if user.organization and getattr(user.organization, "allow_user_create_flows", False):
+        return True
+    return False
+
+
+def user_can_share_flows(user: User | None) -> bool:
+    if not user:
+        return False
+    role = user.role.name if user.role else ""
+    if role in ["admin", "superadmin"]:
+        return True
+    if user.can_share_flows is not None:
+        return user.can_share_flows
+    if user.organization and getattr(user.organization, "allow_user_share_flows", False):
+        return True
+    return False
+
+
 @api.get("/api/auth/me")
 def auth_me():
     user = _get_current_user()
@@ -469,6 +501,14 @@ def auth_me():
 
     capabilities = sorted(list(diagnostic_policy_for(user)))
 
+    org_settings = None
+    if user.organization:
+        org_settings = {
+            "auto_next_step": bool(getattr(user.organization, "auto_next_step", False)),
+            "allow_user_create_flows": bool(getattr(user.organization, "allow_user_create_flows", False)),
+            "allow_user_share_flows": bool(getattr(user.organization, "allow_user_share_flows", False)),
+        }
+
     return jsonify({
         "id": user.id,
         "name": user.name,
@@ -477,6 +517,9 @@ def auth_me():
         "organization_id": user.organization_id,
         "session_token": user.session_token,
         "diagnostic_capabilities": capabilities,
+        "can_create_flows": user_can_create_flows(user),
+        "can_share_flows": user_can_share_flows(user),
+        "organization_settings": org_settings,
     })
 
 
@@ -651,18 +694,28 @@ def list_forms():
         return error
         
     all_forms = [form.model_dump() for form in list_all_forms()]
+    db_forms = {f.slug: f for f in Form.query.all()}
+    for f in all_forms:
+        f_id = f.get("id")
+        db_f = db_forms.get(f_id)
+        f["organization_id"] = db_f.organization_id if db_f else None
+        f["scope"] = "organization" if (db_f and db_f.organization_id) else "global"
     
     if current_user.role.name == "superadmin":
         items = all_forms
     else:
+        org_form_slugs = {
+            f.slug for f in Form.query.filter_by(organization_id=current_user.organization_id).all()
+        } if current_user.organization_id else set()
+
         allowed_flow_ids = {
             access.flow_id for access in OrganizationFlowAccess.query.filter_by(
                 organization_id=current_user.organization_id
             ).all()
-        }
-        allowed_flows = Flow.query.filter(Flow.id.in_(allowed_flow_ids)).all()
+        } if current_user.organization_id else set()
+        allowed_flows = Flow.query.filter(Flow.id.in_(allowed_flow_ids)).all() if allowed_flow_ids else []
         
-        allowed_form_slugs = set()
+        allowed_form_slugs = set(org_form_slugs)
         for flow in allowed_flows:
             for step in flow.form_steps:
                 if step.form:
@@ -680,6 +733,11 @@ def get_form(form_id: str):
         return error
     try:
         form = load_form(form_id)
+        db_f = find_form_by_id_or_slug(form_id)
+        data = form.model_dump()
+        data["scope"] = "organization" if (db_f and db_f.organization_id) else "global"
+        data["organization_id"] = db_f.organization_id if db_f else None
+        return jsonify(data)
     except FormNotFoundError:
         return (
             jsonify(
@@ -728,12 +786,15 @@ def _resolve_form_content(form: Form) -> str | None:
 
 @api.get("/api/admin/forms/<form_id>")
 def admin_form_detail(form_id: str):
-    _, error = _require_superadmin()
+    current_user, error = _require_admin()
     if error:
         return error
     form = find_form_by_id_or_slug(form_id)
     if not form:
         return jsonify({"error": "Form not found"}), 404
+    role_name = current_user.role.name if current_user.role else ""
+    if role_name != "superadmin" and form.organization_id and form.organization_id != current_user.organization_id:
+        return jsonify({"error": "Forbidden: Access to this form is restricted to its organization."}), 403
     return jsonify(
         {
             "id": form.id,
@@ -743,6 +804,8 @@ def admin_form_detail(form_id: str):
             "content_json": _resolve_form_content(form),
             "file_path": form.file_path,
             "is_active": form.is_active,
+            "scope": "organization" if form.organization_id else "global",
+            "organization_id": form.organization_id,
             "created_at": form.created_at.isoformat() if form.created_at else None,
             "updated_at": form.updated_at.isoformat() if form.updated_at else None,
         }
@@ -751,10 +814,16 @@ def admin_form_detail(form_id: str):
 
 @api.get("/api/admin/forms")
 def admin_forms():
-    _, error = _require_superadmin()
+    current_user, error = _require_admin()
     if error:
         return error
-    forms = Form.query.all()
+    role_name = current_user.role.name if current_user.role else ""
+    if role_name == "superadmin":
+        forms = Form.query.all()
+    else:
+        forms = Form.query.filter(
+            (Form.organization_id == current_user.organization_id) | (Form.organization_id.is_(None))
+        ).all()
 
     def sort_key(form):
         if form.flow_steps:
@@ -773,6 +842,8 @@ def admin_forms():
             "file_path": form.file_path,
             "content_json": _resolve_form_content(form),
             "is_active": form.is_active,
+            "scope": "organization" if form.organization_id else "global",
+            "organization_id": form.organization_id,
             "created_at": form.created_at.isoformat() if form.created_at else None,
             "updated_at": form.updated_at.isoformat() if form.updated_at else None,
             "flows": [s.flow.name for s in sorted(form.flow_steps, key=lambda s: s.flow.name)],
@@ -788,9 +859,12 @@ def admin_forms():
 
 @api.post("/api/admin/forms")
 def admin_form_create():
-    _, error = _require_superadmin()
+    current_user, error = _require_auth()
     if error:
         return error
+    role_name = current_user.role.name if current_user.role else ""
+    if role_name not in ["admin", "superadmin"]:
+        return jsonify({"error": "Forbidden: Administrator access required."}), 403
     payload = request.get_json(silent=True) or {}
     try:
         form = create_form(
@@ -799,26 +873,42 @@ def admin_form_create():
             content_json=payload.get("content_json") or "{}",
             is_active=bool(payload.get("is_active", True)),
         )
-        return jsonify({"item": {"id": form.id, "slug": form.slug}}), 201
+        if role_name != "superadmin" and current_user.organization_id:
+            form.organization_id = current_user.organization_id
+            db.session.commit()
+        return jsonify({
+            "item": {
+                "id": form.id,
+                "slug": form.slug,
+                "scope": "organization" if form.organization_id else "global",
+                "organization_id": form.organization_id,
+            }
+        }), 201
     except InvalidFormError as exc:
         return jsonify({"error": str(exc)}), 400
 
 
 @api.put("/api/admin/forms/<form_id>")
 def admin_form_update(form_id: str):
-    _, error = _require_superadmin()
+    current_user, error = _require_admin()
     if error:
         return error
+    form = find_form_by_id_or_slug(form_id)
+    if not form:
+        return jsonify({"error": "Form not found"}), 404
+    role_name = current_user.role.name if current_user.role else ""
+    if role_name != "superadmin" and form.organization_id != current_user.organization_id:
+        return jsonify({"error": "Forbidden: You cannot modify forms outside your organization."}), 403
     payload = request.get_json(silent=True) or {}
     try:
-        form = update_form(
-            form_id,
+        updated = update_form(
+            form.id,
             name=(payload.get("name") or "").strip(),
             description=(payload.get("description") or "").strip() or None,
             content_json=payload.get("content_json") or "{}",
             is_active=bool(payload.get("is_active", True)),
         )
-        return jsonify({"item": {"id": form.id, "slug": form.slug}})
+        return jsonify({"item": {"id": updated.id, "slug": updated.slug}})
     except FormNotFoundError as exc:
         return jsonify({"error": str(exc)}), 404
     except InvalidFormError as exc:
@@ -827,11 +917,17 @@ def admin_form_update(form_id: str):
 
 @api.delete("/api/admin/forms/<form_id>")
 def admin_form_delete(form_id: str):
-    _, error = _require_superadmin()
+    current_user, error = _require_admin()
     if error:
         return error
+    form = find_form_by_id_or_slug(form_id)
+    if not form:
+        return jsonify({"error": "Form not found"}), 404
+    role_name = current_user.role.name if current_user.role else ""
+    if role_name != "superadmin" and form.organization_id != current_user.organization_id:
+        return jsonify({"error": "Forbidden: You cannot delete forms outside your organization."}), 403
     try:
-        delete_form(form_id)
+        delete_form(form.id)
         return jsonify({"ok": True})
     except FormNotFoundError as exc:
         return jsonify({"error": str(exc)}), 404
@@ -839,7 +935,7 @@ def admin_form_delete(form_id: str):
 
 @api.post("/api/admin/forms/import-markdown")
 def admin_forms_import_markdown():
-    _, error = _require_superadmin()
+    current_user, error = _require_admin()
     if error:
         return error
     payload = request.get_json(silent=True) or {}
@@ -848,6 +944,11 @@ def admin_forms_import_markdown():
         return jsonify({"error": "Missing 'content' or 'file_path' in request payload"}), 400
     try:
         imported_forms = import_forms_from_markdown(content)
+        role_name = current_user.role.name if current_user.role else ""
+        if role_name != "superadmin" and current_user.organization_id:
+            for f in imported_forms:
+                f.organization_id = current_user.organization_id
+            db.session.commit()
         items = [{"id": f.id, "slug": f.slug, "name": f.name} for f in imported_forms]
         return jsonify({"items": items, "count": len(items)}), 201
     except MarkdownPromptParseError as exc:
@@ -858,7 +959,7 @@ def admin_forms_import_markdown():
 
 @api.post("/api/admin/forms/generate")
 def admin_form_generate():
-    _, error = _require_superadmin()
+    current_user, error = _require_admin()
     if error:
         return error
     payload = request.get_json(silent=True) or {}
@@ -1035,19 +1136,41 @@ def list_flows():
         return error
         
     all_flows = [flow.model_dump() for flow in list_all_flows()]
+    db_flows = Flow.query.all()
+    slug_to_flow = {f.slug: f for f in db_flows if f.slug}
+    id_to_flow = {f.id: f for f in db_flows if f.id}
     
     if current_user.role.name == "superadmin":
-        items = all_flows
+        raw_items = all_flows
     else:
         allowed_flow_ids = {
             access.flow_id for access in OrganizationFlowAccess.query.filter_by(
                 organization_id=current_user.organization_id
             ).all()
         }
+        if current_user.organization_id:
+            org_flows = Flow.query.filter_by(organization_id=current_user.organization_id).all()
+            for of in org_flows:
+                allowed_flow_ids.add(of.id)
+
         allowed_flow_slugs = {
-            f.slug for f in Flow.query.filter(Flow.id.in_(allowed_flow_ids)).all()
+            f.slug for f in Flow.query.filter(Flow.id.in_(allowed_flow_ids)).all() if f.slug
         }
-        items = [f for f in all_flows if f.get("id") in allowed_flow_slugs]
+        raw_items = [f for f in all_flows if f.get("id") in allowed_flow_slugs or f.get("id") in allowed_flow_ids]
+
+    items = []
+    for f in raw_items:
+        f_copy = dict(f)
+        db_f = slug_to_flow.get(f_copy.get("id")) or id_to_flow.get(f_copy.get("id"))
+        if db_f:
+            f_copy["dbId"] = db_f.id
+            f_copy["organization_id"] = db_f.organization_id
+            f_copy["scope"] = "organization" if db_f.organization_id else "global"
+            f_copy["auto_next_step"] = db_f.auto_next_step
+        else:
+            f_copy["organization_id"] = None
+            f_copy["scope"] = "global"
+        items.append(f_copy)
         
     return jsonify({"items": items, "count": len(items)})
 
@@ -1058,7 +1181,21 @@ def get_flow(flow_id: str):
     if error:
         return error
     flow = load_flow(flow_id)
-    return jsonify(flow.model_dump())
+    data = flow.model_dump()
+    db_flow = Flow.query.filter((Flow.id == flow_id) | (Flow.slug == flow_id)).first()
+    if db_flow:
+        auto_next = db_flow.auto_next_step
+        if auto_next is None and db_flow.slug in ["stretch_guide", "stretch-guide"]:
+            auto_next = True
+        data["auto_next_step"] = auto_next
+        data["organization_id"] = db_flow.organization_id
+        data["scope"] = "organization" if db_flow.organization_id else "global"
+    elif flow_id in ["stretch_guide", "stretch-guide"]:
+        data["auto_next_step"] = True
+        data["scope"] = "global"
+    else:
+        data["scope"] = "global"
+    return jsonify(data)
 
 
 @api.post("/api/flows/<flow_id>/execute")
@@ -1121,9 +1258,16 @@ def serve_output_file(flow_id: str, filename: str):
 
 @api.get("/api/admin/flows")
 def admin_flows():
-    _, error = _require_superadmin()
+    current_user, error = _require_admin()
     if error:
         return error
+    role_name = current_user.role.name if current_user.role else ""
+    if role_name == "superadmin":
+        flows = Flow.query.order_by(Flow.name.asc()).all()
+    else:
+        flows = Flow.query.filter(
+            (Flow.organization_id == current_user.organization_id) | (Flow.organization_id.is_(None))
+        ).order_by(Flow.name.asc()).all()
     items = [
         {
             "id": flow.id,
@@ -1132,23 +1276,29 @@ def admin_flows():
             "description": flow.description,
             "file_path": flow.file_path,
             "is_active": flow.is_active,
+            "scope": "organization" if flow.organization_id else "global",
+            "organization_id": flow.organization_id,
+            "auto_next_step": flow.auto_next_step,
             "model_configuration": flow.model_configuration,
             "created_at": flow.created_at.isoformat() if flow.created_at else None,
             "updated_at": flow.updated_at.isoformat() if flow.updated_at else None,
         }
-        for flow in Flow.query.order_by(Flow.name.asc()).all()
+        for flow in flows
     ]
     return jsonify({"items": items, "count": len(items)})
 
 
 @api.get("/api/admin/flows/<flow_id>")
 def admin_flow_detail(flow_id: str):
-    _, error = _require_superadmin()
+    current_user, error = _require_admin()
     if error:
         return error
     flow = Flow.query.filter((Flow.id == flow_id) | (Flow.slug == flow_id)).first()
     if not flow:
-      return jsonify({"error": "Flow not found"}), 404
+        return jsonify({"error": "Flow not found"}), 404
+    role_name = current_user.role.name if current_user.role else ""
+    if role_name != "superadmin" and flow.organization_id and flow.organization_id != current_user.organization_id:
+        return jsonify({"error": "Forbidden: Access to this flow is restricted to its organization."}), 403
     steps = [
         {
             "flow_id": step.flow_id,
@@ -1169,6 +1319,9 @@ def admin_flow_detail(flow_id: str):
             "content_json": flow.content_json,
             "file_path": flow.file_path,
             "is_active": flow.is_active,
+            "scope": "organization" if flow.organization_id else "global",
+            "organization_id": flow.organization_id,
+            "auto_next_step": flow.auto_next_step,
             "model_configuration": flow.model_configuration,
             "steps": steps,
             "created_at": flow.created_at.isoformat() if flow.created_at else None,
@@ -1179,10 +1332,14 @@ def admin_flow_detail(flow_id: str):
 
 @api.post("/api/admin/flows")
 def admin_flow_create():
-    _, error = _require_superadmin()
+    current_user, error = _require_auth()
     if error:
         return error
+    if not user_can_create_flows(current_user):
+        return jsonify({"error": "Forbidden: You do not have permission to create flows."}), 403
     payload = request.get_json(silent=True) or {}
+    role_name = current_user.role.name if current_user.role else ""
+    org_id = current_user.organization_id if role_name != "superadmin" else None
     try:
         flow = create_flow(
             name=(payload.get("name") or "").strip(),
@@ -1191,27 +1348,50 @@ def admin_flow_create():
             model_configuration=payload.get("model_configuration"),
             is_active=bool(payload.get("is_active", True)),
         )
-        return jsonify({"item": {"id": flow.id, "slug": flow.slug}}), 201
+        if org_id:
+            flow.organization_id = org_id
+            access = OrganizationFlowAccess(organization_id=org_id, flow_id=flow.id)
+            db.session.add(access)
+        if "auto_next_step" in payload:
+            flow.auto_next_step = bool(payload["auto_next_step"]) if payload["auto_next_step"] is not None else None
+        db.session.commit()
+        return jsonify({
+            "item": {
+                "id": flow.id,
+                "slug": flow.slug,
+                "scope": "organization" if flow.organization_id else "global",
+                "organization_id": flow.organization_id,
+            }
+        }), 201
     except InvalidFlowError as exc:
         return jsonify({"error": str(exc)}), 400
 
 
 @api.put("/api/admin/flows/<flow_id>")
 def admin_flow_update(flow_id: str):
-    _, error = _require_superadmin()
+    current_user, error = _require_admin()
     if error:
         return error
+    flow = Flow.query.filter((Flow.id == flow_id) | (Flow.slug == flow_id)).first()
+    if not flow:
+        return jsonify({"error": "Flow not found"}), 404
+    role_name = current_user.role.name if current_user.role else ""
+    if role_name != "superadmin" and flow.organization_id != current_user.organization_id:
+        return jsonify({"error": "Forbidden: You cannot modify flows outside your organization."}), 403
     payload = request.get_json(silent=True) or {}
     try:
-        flow = update_flow(
-            flow_id,
+        updated = update_flow(
+            flow.id,
             name=(payload.get("name") or "").strip(),
             description=(payload.get("description") or "").strip() or None,
             content_json=payload.get("content_json") or "{}",
             model_configuration=payload.get("model_configuration"),
             is_active=bool(payload.get("is_active", True)),
         )
-        return jsonify({"item": {"id": flow.id, "slug": flow.slug}})
+        if "auto_next_step" in payload:
+            flow.auto_next_step = bool(payload["auto_next_step"]) if payload["auto_next_step"] is not None else None
+            db.session.commit()
+        return jsonify({"item": {"id": updated.id, "slug": updated.slug}})
     except FlowNotFoundError as exc:
         return jsonify({"error": str(exc)}), 404
     except InvalidFlowError as exc:
@@ -1221,7 +1401,7 @@ def admin_flow_update(flow_id: str):
 @api.delete("/api/admin/flows")
 @api.delete("/api/admin/flows/")
 def admin_flow_delete_empty():
-    _, error = _require_superadmin()
+    current_user, error = _require_admin()
     if error:
         return error
     return jsonify({"ok": True, "message": "No flow ID specified"}), 200
@@ -1229,13 +1409,19 @@ def admin_flow_delete_empty():
 
 @api.delete("/api/admin/flows/<flow_id>")
 def admin_flow_delete(flow_id: str):
-    _, error = _require_superadmin()
+    current_user, error = _require_admin()
     if error:
         return error
     if not flow_id or not flow_id.strip():
         return jsonify({"ok": True, "message": "No flow ID specified"}), 200
+    flow = Flow.query.filter((Flow.id == flow_id) | (Flow.slug == flow_id)).first()
+    if not flow:
+        return jsonify({"ok": True, "message": "Flow not found or already deleted"}), 200
+    role_name = current_user.role.name if current_user.role else ""
+    if role_name != "superadmin" and flow.organization_id != current_user.organization_id:
+        return jsonify({"error": "Forbidden: You cannot delete flows outside your organization."}), 403
     try:
-        delete_flow(flow_id.strip())
+        delete_flow(flow.id)
         return jsonify({"ok": True})
     except FlowNotFoundError:
         return jsonify({"ok": True, "message": "Flow not found or already deleted"}), 200
@@ -1243,17 +1429,20 @@ def admin_flow_delete(flow_id: str):
 
 @api.post("/api/admin/flows/<flow_id>/steps")
 def admin_flow_add_step(flow_id: str):
-    _, error = _require_superadmin()
+    current_user, error = _require_admin()
     if error:
         return error
+    flow = Flow.query.filter((Flow.id == flow_id) | (Flow.slug == flow_id)).first()
+    if not flow:
+        return jsonify({"error": "Flow not found"}), 404
+    role_name = current_user.role.name if current_user.role else ""
+    if role_name != "superadmin" and flow.organization_id != current_user.organization_id:
+        return jsonify({"error": "Forbidden: You cannot modify flows outside your organization."}), 403
     payload = request.get_json(silent=True) or {}
     form_id = (payload.get("form_id") or "").strip()
     is_required = bool(payload.get("is_required", True))
     if not form_id:
         return jsonify({"error": "form_id is required."}), 400
-    flow = Flow.query.filter((Flow.id == flow_id) | (Flow.slug == flow_id)).first()
-    if not flow:
-        return jsonify({"error": "Flow not found"}), 404
     form = find_form_by_id_or_slug(form_id)
     if not form:
         return jsonify({"error": "Form not found"}), 404
@@ -1272,10 +1461,16 @@ def admin_flow_add_step(flow_id: str):
 
 @api.delete("/api/admin/flows/<flow_id>/steps/<form_id>")
 def admin_flow_remove_step(flow_id: str, form_id: str):
-    _, error = _require_superadmin()
+    current_user, error = _require_admin()
     if error:
         return error
-    step = FlowFormStep.query.filter_by(flow_id=flow_id, form_id=form_id).first()
+    flow = Flow.query.filter((Flow.id == flow_id) | (Flow.slug == flow_id)).first()
+    if not flow:
+        return jsonify({"error": "Flow not found"}), 404
+    role_name = current_user.role.name if current_user.role else ""
+    if role_name != "superadmin" and flow.organization_id != current_user.organization_id:
+        return jsonify({"error": "Forbidden: You cannot modify flows outside your organization."}), 403
+    step = FlowFormStep.query.filter_by(flow_id=flow.id, form_id=form_id).first()
     if not step:
         return jsonify({"error": "Step not found"}), 404
     db.session.delete(step)
@@ -1285,17 +1480,46 @@ def admin_flow_remove_step(flow_id: str, form_id: str):
 
 @api.put("/api/admin/flows/<flow_id>/steps/reorder")
 def admin_flow_reorder_steps(flow_id: str):
-    _, error = _require_superadmin()
+    current_user, error = _require_admin()
     if error:
         return error
+    flow = Flow.query.filter((Flow.id == flow_id) | (Flow.slug == flow_id)).first()
+    if not flow:
+        return jsonify({"error": "Flow not found"}), 404
+    role_name = current_user.role.name if current_user.role else ""
+    if role_name != "superadmin" and flow.organization_id != current_user.organization_id:
+        return jsonify({"error": "Forbidden: You cannot modify flows outside your organization."}), 403
     payload = request.get_json(silent=True) or {}
     steps_data = payload.get("steps", [])
     if not isinstance(steps_data, list):
         return jsonify({"error": "steps must be a list."}), 400
         
-    flow = Flow.query.filter((Flow.id == flow_id) | (Flow.slug == flow_id)).first()
-    if not flow:
-        return jsonify({"error": "Flow not found"}), 404
+    for existing_step in flow.form_steps:
+        db.session.delete(existing_step)
+    
+    db.session.flush()
+
+    for i, step_info in enumerate(steps_data):
+        form_id = step_info.get("form_id")
+        is_required = bool(step_info.get("is_required", True))
+        if not form_id:
+            continue
+        
+        form = find_form_by_id_or_slug(form_id)
+        if not form:
+            db.session.rollback()
+            return jsonify({"error": f"Form not found: {form_id}"}), 404
+            
+        new_step = FlowFormStep(
+            flow_id=flow.id,
+            form_id=form.id,
+            step_number=i + 1,
+            is_required=is_required,
+        )
+        db.session.add(new_step)
+        
+    db.session.commit()
+    return jsonify({"ok": True})
 
     for existing_step in flow.form_steps:
         db.session.delete(existing_step)
@@ -1353,10 +1577,40 @@ def get_organization(organization_id: str):
         return jsonify({"error": "Unauthorized"}), 401
 
     role_name = current_user.role.name if current_user.role else ""
+    if role_name not in ["admin", "superadmin"]:
+        return jsonify({"error": "Forbidden"}), 403
+
     if role_name != "superadmin" and current_user.organization_id != organization_id:
         return jsonify({"error": "Forbidden"}), 403
 
     organization = Organization.query.get_or_404(organization_id)
+    return _serialize_organization_detail(organization)
+
+
+@api.put("/api/organizations/<organization_id>")
+def update_organization(organization_id: str):
+    current_user = _get_current_user()
+    if not current_user:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    role_name = current_user.role.name if current_user.role else ""
+    if role_name not in ["admin", "superadmin"]:
+        return jsonify({"error": "Forbidden"}), 403
+
+    if role_name != "superadmin" and current_user.organization_id != organization_id:
+        return jsonify({"error": "Forbidden"}), 403
+
+    organization = Organization.query.get_or_404(organization_id)
+    data = request.get_json(silent=True) or {}
+
+    if "auto_next_step" in data:
+        organization.auto_next_step = bool(data["auto_next_step"])
+    if "allow_user_create_flows" in data:
+        organization.allow_user_create_flows = bool(data["allow_user_create_flows"])
+    if "allow_user_share_flows" in data:
+        organization.allow_user_share_flows = bool(data["allow_user_share_flows"])
+
+    db.session.commit()
     return _serialize_organization_detail(organization)
 
 
@@ -1568,6 +1822,9 @@ def _serialize_organization_detail(organization: Organization):
             "slug": organization.slug,
             "code": organization.code,
             "is_active": organization.is_active,
+            "auto_next_step": bool(getattr(organization, "auto_next_step", False)),
+            "allow_user_create_flows": bool(getattr(organization, "allow_user_create_flows", False)),
+            "allow_user_share_flows": bool(getattr(organization, "allow_user_share_flows", False)),
             "created_at": organization.created_at.isoformat() if organization.created_at else None,
             "updated_at": organization.updated_at.isoformat() if organization.updated_at else None,
             "users": [
@@ -1577,6 +1834,8 @@ def _serialize_organization_detail(organization: Organization):
                     "email": user.email,
                     "role": user.role.name if user.role else None,
                     "is_active": user.is_active,
+                    "can_create_flows": user.can_create_flows,
+                    "can_share_flows": user.can_share_flows,
                 }
                 for user in organization.users
             ],
@@ -1700,6 +1959,8 @@ def list_users():
             "organization_name": user.organization.name if user.organization else None,
             "is_active": user.is_active,
             "status": "active" if user.is_active else "inactive",
+            "can_create_flows": user.can_create_flows,
+            "can_share_flows": user.can_share_flows,
             "date_joined": user.created_at.isoformat() if user.created_at else None,
         }
         for user in query.order_by(User.name.asc()).all()
@@ -1906,6 +2167,10 @@ def update_user(user_id: str):
     target.name = name
     target.role_id = new_role.id
     target.is_active = new_is_active
+    if "can_create_flows" in data:
+        target.can_create_flows = bool(data["can_create_flows"]) if data["can_create_flows"] is not None else None
+    if "can_share_flows" in data:
+        target.can_share_flows = bool(data["can_share_flows"]) if data["can_share_flows"] is not None else None
     db.session.commit()
     return jsonify({
         "id": target.id,
@@ -1914,6 +2179,8 @@ def update_user(user_id: str):
         "role": target.role.name if target.role else None,
         "is_active": target.is_active,
         "status": "active" if target.is_active else "inactive",
+        "can_create_flows": target.can_create_flows,
+        "can_share_flows": target.can_share_flows,
     })
 
 

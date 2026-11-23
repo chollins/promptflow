@@ -45,6 +45,18 @@ class User(db.Model, UUIDMixin, TimestampMixin):
         default=True,
     )
 
+    can_create_flows = db.Column(
+        db.Boolean,
+        nullable=True,
+        default=None,
+    )
+
+    can_share_flows = db.Column(
+        db.Boolean,
+        nullable=True,
+        default=None,
+    )
+
     session_token = db.Column(
         db.String(64),
         unique=True,

@@ -48,6 +48,7 @@ import {
   type PersonalForm,
 } from "@/lib/personal-forms";
 import { apiGet } from "@/lib/api";
+import { authService } from "@/lib/auth";
 import { logActivity } from "@/lib/activity";
 import { toast } from "sonner";
 
@@ -57,6 +58,8 @@ type OrgFormItem = {
   description?: string | null;
   version: string;
   fields: Array<{ id: string; type: string }>;
+  scope?: "organization" | "global";
+  organization_id?: string | null;
 };
 
 const DEFAULT_PERSONAL_FORM_JSON = {
@@ -87,6 +90,7 @@ const DEFAULT_PERSONAL_FORM_JSON = {
 
 export default function FormsPage() {
   const userId = useCurrentUserId();
+  const [currentUser, setCurrentUser] = useState<{ role?: string | null } | null>(null);
 
   // Tab State
   const [activeTab, setActiveTab] = useState<"org" | "personal">("personal");
@@ -95,6 +99,13 @@ export default function FormsPage() {
   const [orgForms, setOrgForms] = useState<OrgFormItem[]>([]);
   const [loadingOrg, setLoadingOrg] = useState(true);
   const [orgSearch, setOrgSearch] = useState("");
+
+  const isOrgAdmin = currentUser?.role === "admin";
+  const isSuperadmin = currentUser?.role === "superadmin";
+
+  useEffect(() => {
+    authService.getMe().then(setCurrentUser).catch(() => {});
+  }, []);
 
   // Personal Forms State
   const [personalForms, setPersonalForms] = useState<PersonalForm[]>([]);
@@ -520,9 +531,9 @@ export default function FormsPage() {
 
           {/* TAB 2: ORGANIZATION FORMS */}
           <TabsContent value="org" className="space-y-4">
-            {/* Search Filter */}
-            {orgForms.length > 0 && (
-              <div className="relative max-w-md">
+            <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+              {/* Search Filter */}
+              <div className="relative flex-1 max-w-md">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   value={orgSearch}
@@ -539,7 +550,19 @@ export default function FormsPage() {
                   </button>
                 )}
               </div>
-            )}
+
+              {(isOrgAdmin || isSuperadmin) && (
+                <Button
+                  asChild
+                  className="gap-1.5 text-xs h-8 bg-foreground text-background hover:bg-foreground/90 font-medium shadow-xs"
+                >
+                  <Link to="/admin/forms">
+                    <Plus className="h-3.5 w-3.5" />
+                    Manage Organization Forms
+                  </Link>
+                </Button>
+              )}
+            </div>
 
             {loadingOrg ? (
               <div className="p-12 text-center text-muted-foreground flex flex-col items-center gap-3">
@@ -565,9 +588,15 @@ export default function FormsPage() {
                         <div className="font-semibold text-foreground text-sm line-clamp-1 group-hover:text-primary transition-colors">
                           {form.name}
                         </div>
-                        <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-muted text-muted-foreground border border-border shrink-0">
-                          Org
-                        </span>
+                        {form.scope === "organization" || form.organization_id ? (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-primary/10 text-primary border border-primary/20 shrink-0">
+                            Organization
+                          </span>
+                        ) : (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-muted text-muted-foreground border border-border shrink-0">
+                            Global
+                          </span>
+                        )}
                       </div>
 
                       <p className="text-xs text-muted-foreground line-clamp-2 min-h-[32px]">
@@ -583,14 +612,24 @@ export default function FormsPage() {
                       </div>
                     </div>
 
-                    <div className="pt-4 mt-2 border-t border-border">
+                    <div className="pt-4 mt-2 border-t border-border flex items-center gap-2">
                       <Link
                         to={`/forms/${form.id}`}
-                        className="inline-flex w-full h-8 items-center justify-center rounded-md bg-primary hover:bg-primary/90 px-3 text-xs font-medium text-primary-foreground transition-colors gap-1.5 shadow-xs"
+                        className="inline-flex flex-1 h-8 items-center justify-center rounded-md bg-primary hover:bg-primary/90 px-3 text-xs font-medium text-primary-foreground transition-colors gap-1.5 shadow-xs"
                       >
                         <Play className="h-3.5 w-3.5 fill-current" />
                         Run Form
                       </Link>
+                      {(isOrgAdmin || isSuperadmin) && (
+                        <Link
+                          to={`/admin/forms/${form.id}`}
+                          className="inline-flex h-8 px-2.5 items-center justify-center rounded-md border border-border bg-background hover:bg-muted text-xs font-medium text-foreground transition-colors gap-1"
+                          title="Edit form definition"
+                        >
+                          <PencilLine className="h-3.5 w-3.5" />
+                          <span>Edit</span>
+                        </Link>
+                      )}
                     </div>
                   </Card>
                 ))}
@@ -602,7 +641,7 @@ export default function FormsPage() {
 
       {/* CREATE / EDIT PERSONAL FORM MODAL */}
       <Dialog open={editorOpen} onOpenChange={setEditorOpen}>
-        <DialogContent className="w-[95vw] max-w-6xl max-h-[92vh] flex flex-col">
+        <DialogContent className="w-[96vw] max-w-6xl max-h-[92vh] flex flex-col p-4 sm:p-6 overflow-hidden">
           <DialogHeader>
             <div className="flex items-center gap-2">
               <span className="text-[11px] px-2 py-0.5 rounded-full font-medium bg-primary/10 text-primary border border-primary/20">

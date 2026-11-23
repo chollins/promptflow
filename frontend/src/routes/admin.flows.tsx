@@ -17,6 +17,8 @@ type FlowItem = {
   content_json?: string | null;
   file_path: string;
   is_active: boolean;
+  scope?: "organization" | "global";
+  organization_id?: string | null;
 };
 
 type FlowFormState = {
@@ -158,7 +160,18 @@ export default function FlowsCatalog() {
                   className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-xl border border-border bg-background p-4 transition-colors hover:bg-muted/40"
                 >
                   <div className="min-w-0 flex-1">
-                    <div className="font-medium text-foreground">{item.name}</div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-medium text-foreground">{item.name}</span>
+                      {item.scope === "organization" || item.organization_id ? (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-primary/10 text-primary border border-primary/20 shrink-0">
+                          Organization
+                        </span>
+                      ) : (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-muted text-muted-foreground border border-border shrink-0">
+                          Global
+                        </span>
+                      )}
+                    </div>
                     <div className="mt-1 text-xs text-muted-foreground">{item.slug}</div>
                     {item.description && (
                       <div className="mt-2 text-sm text-muted-foreground line-clamp-1">{item.description}</div>
@@ -182,7 +195,7 @@ export default function FlowsCatalog() {
       </div>
 
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create new flow</DialogTitle>
             <DialogDescription>Create a new flow to compose multiple forms.</DialogDescription>
