@@ -173,29 +173,22 @@ export async function exportToDocx(title: string, text: string) {
         continue;
       }
 
-      // Headings
-      if (trimmed.startsWith("# ")) {
+      // Convert Markdown headings to Word headings so their # markers never print literally.
+      const headingMatch = trimmed.match(/^(#{1,6})\s+(.+?)\s*#*$/);
+      if (headingMatch) {
+        const headingLevels = [
+          HeadingLevel.HEADING_1,
+          HeadingLevel.HEADING_2,
+          HeadingLevel.HEADING_3,
+          HeadingLevel.HEADING_4,
+          HeadingLevel.HEADING_5,
+          HeadingLevel.HEADING_6,
+        ];
         docChildren.push(
           new Paragraph({
-            text: trimmed.replace(/^#\s+/, ""),
-            heading: HeadingLevel.HEADING_1,
-            spacing: { before: 240, after: 120 },
-          })
-        );
-      } else if (trimmed.startsWith("## ")) {
-        docChildren.push(
-          new Paragraph({
-            text: trimmed.replace(/^##\s+/, ""),
-            heading: HeadingLevel.HEADING_2,
+            children: parseInlineText(headingMatch[2]),
+            heading: headingLevels[headingMatch[1].length - 1],
             spacing: { before: 200, after: 100 },
-          })
-        );
-      } else if (trimmed.startsWith("### ")) {
-        docChildren.push(
-          new Paragraph({
-            text: trimmed.replace(/^###\s+/, ""),
-            heading: HeadingLevel.HEADING_3,
-            spacing: { before: 160, after: 80 },
           })
         );
       } else if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {

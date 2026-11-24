@@ -25,6 +25,7 @@ from models import (
 )
 from services.flow_executor import execute_flow
 from services.flow_service import (
+    DuplicateFlowError,
     FlowNotFoundError,
     InvalidFlowError,
     create_flow,
@@ -37,6 +38,7 @@ from services.email_service import send_invitation_email, send_password_reset_em
 from services.form_executor import execute_form
 from services.schemas.prompt_form import PromptForm
 from services.form_service import (
+    DuplicateFormError,
     FormNotFoundError,
     InvalidFormError,
     create_form,
@@ -294,17 +296,11 @@ def delete_org_model_label_route(model_id: str):
 
 
 def _get_current_user() -> User | None:
-    token = request.headers.get("X-Session-Token")
-    if token:
-        user = User.query.filter_by(session_token=token, is_active=True).first()
-        if user:
-            return user
-
     user_id = session.get("user_id")
-    if not user_id:
+    token = session.get("session_token")
+    if not user_id or not token:
         return None
-
-    return User.query.get(user_id)
+    return User.query.filter_by(id=user_id, session_token=token, is_active=True).first()
 
 
 def _get_frontend_base_url() -> str:
@@ -434,9 +430,11 @@ def auth_login():
     if not user or not check_password_hash(user.password_hash, password):
         return jsonify({"error": "Invalid email or password"}), 401
 
-    token = session.get("session_token") or str(uuid4())
+    session.clear()
+    token = str(uuid4())
     session["user_id"] = user.id
     session["session_token"] = token
+    session.permanent = bool(data.get("remember_me", False))
     user.session_token = token
     db.session.commit()
     
@@ -448,7 +446,6 @@ def auth_login():
         "email": user.email,
         "role": user.role.name if user.role else None,
         "organization_id": user.organization_id,
-        "session_token": session["session_token"],
         "diagnostic_capabilities": capabilities,
     })
 
@@ -515,7 +512,6 @@ def auth_me():
         "email": user.email,
         "role": user.role.name if user.role else None,
         "organization_id": user.organization_id,
-        "session_token": user.session_token,
         "diagnostic_capabilities": capabilities,
         "can_create_flows": user_can_create_flows(user),
         "can_share_flows": user_can_share_flows(user),
@@ -886,6 +882,8 @@ def admin_form_create():
         }), 201
     except InvalidFormError as exc:
         return jsonify({"error": str(exc)}), 400
+    except DuplicateFormError as exc:
+        return jsonify({"error": str(exc)}), 409
 
 
 @api.put("/api/admin/forms/<form_id>")
@@ -1365,6 +1363,8 @@ def admin_flow_create():
         }), 201
     except InvalidFlowError as exc:
         return jsonify({"error": str(exc)}), 400
+    except DuplicateFlowError as exc:
+        return jsonify({"error": str(exc)}), 409
 
 
 @api.put("/api/admin/flows/<flow_id>")

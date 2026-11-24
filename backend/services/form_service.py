@@ -5,6 +5,7 @@ import logging
 from pathlib import Path
 
 from pydantic import ValidationError
+from sqlalchemy.exc import IntegrityError
 
 from extensions import db
 from models import Form
@@ -20,6 +21,10 @@ class FormNotFoundError(Exception):
 
 
 class InvalidFormError(Exception):
+    pass
+
+
+class DuplicateFormError(Exception):
     pass
 
 
@@ -140,10 +145,9 @@ def get_all_forms() -> list[PromptForm]:
 
 def create_form(*, name: str, description: str | None, content_json: str, is_active: bool = True, slug: str | None = None) -> Form:
     form_def = PromptForm.model_validate_json(content_json)
-    if not slug:
-        slug = _unique_slug(_slugify(name))
-    else:
-        slug = _unique_slug(_slugify(slug))
+    slug = _slugify(slug or name)
+    if Form.query.filter_by(slug=slug).first() is not None:
+        raise DuplicateFormError(f"A form with slug '{slug}' already exists.")
     form_def.id = slug
     file_path = f"forms/{slug}.form.json"
     form = Form(
@@ -155,7 +159,13 @@ def create_form(*, name: str, description: str | None, content_json: str, is_act
         is_active=is_active,
     )
     db.session.add(form)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError as exc:
+        db.session.rollback()
+        if Form.query.filter_by(slug=slug).first() is not None:
+            raise DuplicateFormError(f"A form with slug '{slug}' already exists.") from exc
+        raise
     return form
 
 

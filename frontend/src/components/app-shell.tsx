@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { authService } from "@/lib/auth";
-import { apiGet, hasSessionToken } from "@/lib/api";
+import { apiGet } from "@/lib/api";
 import { clearRecentActivity } from "@/lib/activity";
 import { Button } from "@/components/ui-kit";
 import {

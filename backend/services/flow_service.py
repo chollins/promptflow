@@ -5,6 +5,7 @@ import logging
 from pathlib import Path
 
 from pydantic import ValidationError
+from sqlalchemy.exc import IntegrityError
 
 from extensions import db
 from models import Flow
@@ -20,6 +21,10 @@ class FlowNotFoundError(Exception):
 
 
 class InvalidFlowError(Exception):
+    pass
+
+
+class DuplicateFlowError(Exception):
     pass
 
 
@@ -169,7 +174,9 @@ def create_flow(
     model_configuration: dict | None = None,
     is_active: bool = True,
 ) -> Flow:
-    slug = _unique_slug(_slugify(name))
+    slug = _slugify(name)
+    if Flow.query.filter_by(slug=slug).first() is not None:
+        raise DuplicateFlowError(f"A flow with slug '{slug}' already exists.")
     flow_def = _load_flow_from_text(slug, content_json)
     flow_def.id = slug
     flow_def.name = name
@@ -191,7 +198,13 @@ def create_flow(
         model_configuration=model_configuration,
     )
     db.session.add(flow)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError as exc:
+        db.session.rollback()
+        if Flow.query.filter_by(slug=slug).first() is not None:
+            raise DuplicateFlowError(f"A flow with slug '{slug}' already exists.") from exc
+        raise
     return flow
 
 

@@ -1,15 +1,10 @@
 import { useEffect, useState } from "react";
-import { apiGet, hasSessionToken } from "@/lib/api";
+import { apiGet } from "@/lib/api";
 
 export function useCurrentUserId(): string | null {
   const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!hasSessionToken()) {
-      setUserId(null);
-      return;
-    }
-
     let active = true;
     apiGet<{ user: { id: string } }>("/auth/me")
       .then((data) => {

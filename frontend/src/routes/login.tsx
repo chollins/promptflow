@@ -86,8 +86,9 @@ export default function LoginPage() {
     const form = new FormData(e.currentTarget as HTMLFormElement);
     const email = String(form.get("email") || "");
     const password = String(form.get("password") || "");
+    const rememberMe = form.get("remember_me") === "on";
     authService
-      .login(email, password)
+      .login(email, password, rememberMe)
       .then((user) => {
         if (redirectUrl && redirectUrl.startsWith("/")) {
           navigate(redirectUrl);
@@ -113,6 +114,10 @@ export default function LoginPage() {
         <Field label="Password">
           <Input name="password" type="password" placeholder="Password" required />
         </Field>
+        <label className="flex items-center gap-2 text-sm text-muted-foreground">
+          <input name="remember_me" type="checkbox" className="h-4 w-4 rounded border-border" />
+          Keep me signed in
+        </label>
         {error && <div className="text-sm text-red-600">{error}</div>}
         <Button type="submit" className="w-full" disabled={loading}>
           {loading ? "Loging in..." : "Login"}
